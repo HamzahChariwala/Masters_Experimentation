@@ -106,7 +106,7 @@ if __name__ == "__main__":
     )
 
     model.learn(total_timesteps=1_000_000, tb_log_name="DQN_MiniGrid")
-    model.save("dqn_minigrid_agent")
+    model.save("dqn_minigrid_agent2")
 
     obs, _ = env.reset()
     done = False
