@@ -358,5 +358,13 @@ class PartialGrayObsWrapper(ObservationWrapper):
         obs['grey_partial'] = gray_obs
 
         return obs
+    
+
+class ForceFloat32(ObservationWrapper):
+    def observation(self, obs):
+        for k, v in obs.items():
+            if isinstance(v, np.ndarray) and v.dtype != np.float32:
+                obs[k] = v.astype(np.float32)
+        return obs
 
 

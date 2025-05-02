@@ -24,7 +24,12 @@ from GymCompatibility import OldGymCompatibility
 
 # ---------------------------------------------------------------
 
-from EnvironmentEdits.CustomWrappers import GoalAngleDistanceWrapper, PartialObsWrapper, ExtractAbstractGrid, PartialRGBObsWrapper, PartialGrayObsWrapper
+from EnvironmentEdits.CustomWrappers import (GoalAngleDistanceWrapper, 
+                                             PartialObsWrapper, 
+                                             ExtractAbstractGrid, 
+                                             PartialRGBObsWrapper, 
+                                             PartialGrayObsWrapper, 
+                                             ForceFloat32)
 from EnvironmentEdits.FeatureExtractor import CustomCombinedExtractor, SelectiveObservationWrapper
 from EnvironmentEdits.ActionSpace import CustomActionWrapper
 
@@ -56,6 +61,7 @@ def make_env(env_id: str, rank: int, env_seed: int, render_mode: str = None,
         cnn_keys=cnn_keys or [],
         mlp_keys=mlp_keys or []
     )
+    env = ForceFloat32(env)
     env = Monitor(env)
 
     observation, info = env.reset(seed=env_seed + rank)
@@ -89,7 +95,7 @@ if __name__ == "__main__":
     os.makedirs(log_dir, exist_ok=True)
 
     ENV_ID = 'MiniGrid-Empty-5x5-v0'
-    NUM_ENVS = 15  # Number of parallel environments
+    NUM_ENVS = 10  # Number of parallel environments
 
     env = make_parallel_env(
         env_id=ENV_ID,
@@ -138,11 +144,11 @@ if __name__ == "__main__":
         env,
         policy_kwargs=policy_kwargs,
         buffer_size=50000,
-        learning_starts=1000,
-        batch_size=128,
+        learning_starts=5000,
+        batch_size=256,
         exploration_fraction=0.1,
         exploration_final_eps=0.02,
-        train_freq=4,
+        train_freq=128,
         target_update_interval=1000,
         verbose=1,
         tensorboard_log=log_dir,
