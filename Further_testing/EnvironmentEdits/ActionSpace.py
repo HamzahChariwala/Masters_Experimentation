@@ -42,7 +42,7 @@ class CustomActionWrapper(gym.ActionWrapper):
         terminated = hasattr(self.env, "max_steps") and (self.env.step_count >= self.env.max_steps)
         truncated = False
         obs = self.env.gen_obs() if hasattr(self.env, "gen_obs") else self.env.observation_space.sample()
-        reward = 0.1 if walkable else 0
+        reward = 0 if walkable else 0
         return obs, reward, terminated, truncated, info
 
     def step(self, action):
@@ -65,24 +65,24 @@ class CustomActionWrapper(gym.ActionWrapper):
     
 
 
-class FlattenMultiDiscrete(gym.ActionWrapper):
-    def __init__(self, env: gym.Env):
-        super().__init__(env)
-        # capture the original branch sizes (e.g. [5,5,...,5])
-        self.nvec = self.env.action_space.nvec
-        # flatten into one big Discrete space
-        self.action_space = gym.spaces.Discrete(int(np.prod(self.nvec)))
+# class FlattenMultiDiscrete(gym.ActionWrapper):
+#     def __init__(self, env: gym.Env):
+#         super().__init__(env)
+#         # capture the original branch sizes (e.g. [5,5,...,5])
+#         self.nvec = self.env.action_space.nvec
+#         # flatten into one big Discrete space
+#         self.action_space = gym.spaces.Discrete(int(np.prod(self.nvec)))
 
-    def action(self, action: int):
-        """
-        Convert flat index → multi-discrete tuple,
-        e.g. 1234 → (a0, a1, ..., a9) each in 0–4
-        """
-        return np.unravel_index(action, self.nvec)
+#     def action(self, action: int):
+#         """
+#         Convert flat index → multi-discrete tuple,
+#         e.g. 1234 → (a0, a1, ..., a9) each in 0–4
+#         """
+#         return np.unravel_index(action, self.nvec)
 
-    def reverse_action(self, action):
-        """
-        (Optional) Convert a multi-discrete vector back to a flat index,
-        if you ever need to inspect the env’s raw action.
-        """
-        return int(np.ravel_multi_index(action, self.nvec))
+#     def reverse_action(self, action):
+#         """
+#         (Optional) Convert a multi-discrete vector back to a flat index,
+#         if you ever need to inspect the env’s raw action.
+#         """
+#         return int(np.ravel_multi_index(action, self.nvec))

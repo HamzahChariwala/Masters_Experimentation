@@ -15,6 +15,7 @@ from minigrid.wrappers import RGBImgPartialObsWrapper, ImgObsWrapper, FullyObsWr
 from stable_baselines3 import PPO, DQN, DDPG
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.evaluation import evaluate_policy
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -23,7 +24,7 @@ import matplotlib.animation as animation
 
 from EnvironmentEdits.CustomWrappers import GoalAngleDistanceWrapper, PartialObsWrapper, ExtractAbstractGrid, PartialRGBObsWrapper, PartialGrayObsWrapper
 from EnvironmentEdits.FeatureExtractor import CustomCombinedExtractor, SelectiveObservationWrapper
-from EnvironmentEdits.ActionSpace import CustomActionWrapper, FlattenMultiDiscrete
+from EnvironmentEdits.ActionSpace import CustomActionWrapper
 
 # ---------------------------------------------------------------
 
@@ -86,7 +87,7 @@ if __name__ == "__main__":
     os.makedirs(log_dir, exist_ok=True)
 
     ENV_ID = 'MiniGrid-Empty-5x5-v0'
-    NUM_ENVS = 10  # Number of parallel environments
+    NUM_ENVS = 15  # Number of parallel environments
 
     env = make_parallel_env(
         env_id=ENV_ID,
@@ -97,6 +98,16 @@ if __name__ == "__main__":
         cnn_keys=[],
         mlp_keys=["goal_angle", "goal_rotation", "goal_distance", "goal_direction_vector", "barrier_mask", "goal_mask", "lava_mask"]
     )
+
+    # env = make_env(
+    #     env_id=ENV_ID,
+    #     rank=0,
+    #     # num_envs=NUM_ENVS,
+    #     env_seed=42,
+    #     window_size=5,
+    #     cnn_keys=[],
+    #     mlp_keys=["goal_angle", "goal_rotation", "goal_distance", "goal_direction_vector", "barrier_mask", "goal_mask", "lava_mask"]
+    # )
 
     policy_kwargs = dict(
         features_extractor_class=CustomCombinedExtractor,
@@ -139,20 +150,32 @@ if __name__ == "__main__":
     model.learn(total_timesteps=10_000, tb_log_name="DQN_MiniGrid")
     model.save("dqn_minigrid_agent_cnn_grey")
 
-    obs, _ = env.reset()
+    # obs = env.reset()
 
-    print("Observation:", obs)
-    print("Observation type:", type(obs))
-    if isinstance(obs, dict):
-        for key, value in obs.items():
-            print(f"Key: {key}, Shape: {value.shape}, Dtype: {value.dtype}")
+    # print("Observation:", obs)
+    # print("Observation type:", type(obs))
+    # if isinstance(obs, dict):
+    #     for key, value in obs.items():
+    #         print(f"Key: {key}, Shape: {value.shape}, Dtype: {value.dtype}")
 
-    done = False
-    while not done:
-        action, _ = model.predict(obs, deterministic=True)
-        obs, reward, terminated, truncated, info = env.step(action)
-        done = terminated or truncated
-        print(f"Reward: {reward}, Info: {info}")
+    # done = False
+    # while not done:
+    #     action, _ = model.predict(obs, deterministic=True)
+    #     obs, reward, done, info = env.step(action)
+    #     print(f"Reward: {reward}, Info: {info}")
+
+    eval_env = make_env(
+        env_id=ENV_ID,
+        rank=0,
+        # num_envs=NUM_ENVS,
+        env_seed=42,
+        window_size=5,
+        cnn_keys=[],
+        mlp_keys=["goal_angle", "goal_rotation", "goal_distance", "goal_direction_vector", "barrier_mask", "goal_mask", "lava_mask"]
+    )
+
+    mean_r, std_r = evaluate_policy(model, eval_env, n_eval_episodes=100)
+    print(f"Eval mean reward: {mean_r:.3f} ± {std_r:.3f}")
 
     # obs, _ = env.reset()
 
