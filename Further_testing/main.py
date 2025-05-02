@@ -5,21 +5,24 @@ import torch
 from typing import Tuple
 
 import gymnasium as gym
+from gymnasium.wrappers import RecordEpisodeStatistics
 import minigrid
 from minigrid.wrappers import RGBImgPartialObsWrapper, ImgObsWrapper, FullyObsWrapper, RGBImgObsWrapper, OneHotPartialObsWrapper, NoDeath, DirectionObsWrapper
+
 from stable_baselines3 import PPO, DQN, DDPG
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.monitor import Monitor
 
-from gymnasium.wrappers import RecordEpisodeStatistics
-
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-from CustomWrappers import GoalAngleDistanceWrapper, PartialObsWrapper, ExtractAbstractGrid, PartialRGBObsWrapper, PartialGrayObsWrapper
-from FeatureExtractor import CustomCombinedExtractor, SelectiveObservationWrapper
-import MiscallaneousFunctions as misc
-from ActionSpace import CustomActionWrapper
+# ---------------------------------------------------------------
+
+from EnvironmentEdits.CustomWrappers import GoalAngleDistanceWrapper, PartialObsWrapper, ExtractAbstractGrid, PartialRGBObsWrapper, PartialGrayObsWrapper
+from EnvironmentEdits.FeatureExtractor import CustomCombinedExtractor, SelectiveObservationWrapper
+from EnvironmentEdits.ActionSpace import CustomActionWrapper
+
+# ---------------------------------------------------------------
 
 
 def make_env(env_id: str, rank: int, env_seed: int, render_mode: str = None,
@@ -135,13 +138,3 @@ if __name__ == "__main__":
     #     )
     # )
     # model = PPO("MultiInputPolicy", env, policy_kwargs=policy_kwargs, verbose=1)
-
-
-
-    # env = FullyObsWrapper(env)
-    # env = NoDeath(env, no_death_types=("lava",), death_cost=-0.1)
-    # env = OneHotPartialObsWrapper(env)
-    # env = DirectionObsWrapper(env, type="slope")
-
-    # env = RGBImgObsWrapper(env)
-    # env = ImgObsWrapper(env)
