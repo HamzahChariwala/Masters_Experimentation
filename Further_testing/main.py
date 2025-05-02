@@ -30,7 +30,46 @@ from EnvironmentEdits.ActionSpace import CustomActionWrapper
 
 # ---------------------------------------------------------------
 
-# torch.set_default_dtype(torch.float32)
+torch.set_default_dtype(torch.float32)
+
+# Preserve the original torch.Tensor type
+original_tensor_type = torch.Tensor
+
+# Define a utility function to create tensors with debugging
+original_tensor = torch.Tensor
+
+def create_tensor(*args, **kwargs):
+    tensor = original_tensor(*args, **kwargs)
+    if isinstance(tensor, original_tensor_type) and tensor.dtype == torch.float64:
+        print(f"Warning: Found tensor with dtype {tensor.dtype}. Converting to float32.")
+        return tensor.float()
+    return tensor
+
+# Extend the DebugWrapper to handle numpy arrays
+class DebugWrapper(gym.Wrapper):
+    def step(self, action):
+        obs, reward, terminated, truncated, info = super().step(action)
+        done = terminated or truncated  # Combine terminated and truncated flags
+        return obs, reward, done, info
+
+    def reset(self, **kwargs):
+        obs = super().reset(**kwargs)
+
+        # Debug and convert observations
+        if isinstance(obs, dict):
+            for key, value in obs.items():
+                if isinstance(value, np.ndarray):
+                    print(f"Reset Observation Key: {key}, Shape: {value.shape}, Dtype: {value.dtype}")
+                    if value.dtype == np.float64:
+                        print(f"Converting observation key {key} to float32")
+                        obs[key] = value.astype(np.float32)
+        elif isinstance(obs, np.ndarray):
+            print(f"Reset Observation Shape: {obs.shape}, Dtype: {obs.dtype}")
+            if obs.dtype == np.float64:
+                print("Converting observation to float32")
+                obs = obs.astype(np.float32)
+
+        return obs
 
 
 def make_env(env_id: str, rank: int, env_seed: int, render_mode: str = None,
@@ -65,6 +104,9 @@ def make_env(env_id: str, rank: int, env_seed: int, render_mode: str = None,
     print(f"Available observation keys: {list(observation.keys())}")
     print(f"Observation space type: {type(env.observation_space)}")
     print(env.observation_space)
+
+    # Wrap the environment with DebugWrapper
+    env = DebugWrapper(env)
 
     # Return only the environment for compatibility with DQN
     return env
@@ -125,7 +167,7 @@ if __name__ == "__main__":
         )
     )
 
-    use_mps = False  # Set to False to disable MPS
+    use_mps = True  # Set to False to disable MPS
 
     # Ensure all tensors are in float32 for MPS compatibility
     # torch.set_default_dtype(torch.float32)
@@ -149,7 +191,7 @@ if __name__ == "__main__":
         device=device  # Specify the device here
     )
 
-    model.learn(total_timesteps=10_000, tb_log_name="DQN_MiniGrid")
+    model.learn(total_timesteps=50_000, tb_log_name="DQN_MiniGrid")
     model.save("dqn_minigrid_agent_cnn_grey")
 
     # obs = env.reset()
@@ -166,20 +208,43 @@ if __name__ == "__main__":
     #     obs, reward, done, info = env.step(action)
     #     print(f"Reward: {reward}, Info: {info}")
 
+
+    # 1) wrap your single env in a DummyVecEnv
     raw_eval_env = make_env(
-        env_id=ENV_ID,
-        rank=0,
-        # num_envs=NUM_ENVS,
-        env_seed=42,
+        ENV_ID, rank=0, env_seed=42,
         window_size=5,
-        cnn_keys=[],
-        mlp_keys=["goal_angle", "goal_rotation", "goal_distance", "goal_direction_vector", "barrier_mask", "goal_mask", "lava_mask"]
+        cnn_keys=[], 
+        mlp_keys=[
+        "goal_angle","goal_rotation","goal_distance",
+        "goal_direction_vector","barrier_mask",
+        "goal_mask","lava_mask",
+        ]
     )
 
     eval_env = OldGymCompatibility(raw_eval_env)
 
-    mean_r, std_r = evaluate_policy(model, eval_env, n_eval_episodes=100, deterministic=True)
-    print(f"Eval mean reward: {mean_r:.3f} ± {std_r:.3f}")
+    # returns two lists: all episode‐rewards and all episode‐lengths
+    episode_rewards, episode_lengths = evaluate_policy(
+        model,
+        eval_env,
+        n_eval_episodes=100,
+        deterministic=True,
+        return_episode_rewards=True,
+    )
+
+    # now you can compute whatever summary you like:
+    import numpy as np
+    print("Rewards   : mean %.3f  std %.3f  min %.3f  max %.3f"
+        % (np.mean(episode_rewards),
+            np.std(episode_rewards),
+            np.min(episode_rewards),
+            np.max(episode_rewards)))
+    print("Lengths   : mean %.1f  std %.1f  min %d    max %d"
+        % (np.mean(episode_lengths),
+            np.std(episode_lengths),
+            np.min(episode_lengths),
+            np.max(episode_lengths)))
+
 
     # obs, _ = env.reset()
 
