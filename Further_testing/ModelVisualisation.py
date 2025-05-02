@@ -84,11 +84,11 @@ def visualize_neural_network(agent_path):
     plt.show()
 
 if __name__ == "__main__":
-    agent_paths = ["dqn_minigrid_agent.zip", "dqn_minigrid_agent2.zip"]
+    agent_paths = ["dqn_minigrid_agent.zip", "dqn_minigrid_agent2.zip", "dqn_minigrid_agent_cnn.zip"]
     for path in agent_paths:
         print(f"Analyzing agent: {path}")
         load_agent_and_report_dimensions(path)
         print("-" * 50)
 
     agent_path = "dqn_minigrid_agent2.zip"
-    visualize_neural_network(agent_path)
+    # visualize_neural_network(agent_path)

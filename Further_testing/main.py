@@ -70,8 +70,8 @@ if __name__ == "__main__":
         rank=0,
         env_seed=42,
         window_size=5,
-        cnn_keys=[],
-        mlp_keys=["barrier_mask", "goal_mask", "goal_angle", "goal_rotation", "goal_distance", "goal_direction_vector"]
+        cnn_keys=['grey_partial'],
+        mlp_keys=["goal_angle", "goal_rotation", "goal_distance", "goal_direction_vector"]
     )
 
     #  "lava_mask", "barrier_mask", "goal_mask"
@@ -105,8 +105,9 @@ if __name__ == "__main__":
         tensorboard_log=log_dir
     )
 
-    model.learn(total_timesteps=1_000_000, tb_log_name="DQN_MiniGrid")
-    model.save("dqn_minigrid_agent2")
+    # model.learn(total_timesteps=1_000_000, tb_log_name="DQN_MiniGrid")
+    model.learn(total_timesteps=250_000, tb_log_name="DQN_MiniGrid")
+    model.save("dqn_minigrid_agent_cnn_grey")
 
     obs, _ = env.reset()
     done = False
