@@ -26,6 +26,7 @@ DRL challenges
 https://arxiv.org/pdf/2308.12438
 
 Neuron Interpretability and latent structure
+https://distill.pub/2020/understanding-rl-vision/#:~:text=%2A%20Model%20editing.%20We%20hand,quantitative%20validation%20of%20this%20analysis
 https://arxiv.org/pdf/2108.13138
 https://arxiv.org/abs/2302.12902?utm_source=chatgpt.com
 https://arxiv.org/pdf/2502.00684
@@ -41,7 +42,11 @@ https://arxiv.org/pdf/2406.00877
 https://openreview.net/pdf?id=fSbPwHjdDG
 https://transformer-circuits.pub/2024/scaling-monosemanticity/
 
+Finding Key Neurons
+https://arxiv.org/pdf/2002.09815
+
 Hypernetworks and weight space
+https://arxiv.org/pdf/2107.05479
 https://arxiv.org/pdf/2306.06955
 https://arxiv.org/pdf/2406.09413
 https://arxiv.org/abs/2211.15457
