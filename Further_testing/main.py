@@ -67,63 +67,17 @@ def make_env(env_id: str, rank: int, env_seed: int, render_mode: str = None,
     return env
 
 
-# def make_parallel_env(env_id: str, num_envs: int, env_seed: int, window_size: int = 5, cnn_keys: list = None, mlp_keys: list = None):
-#     """
-#     Create a parallelized environment using SubprocVecEnv.
-#     """
-#     def _make_env(rank):
-#         def _init():
-#             env = make_env(env_id, rank, env_seed, window_size=window_size, cnn_keys=cnn_keys, mlp_keys=mlp_keys)
-#             return env
-#         return _init
-
-#     return SubprocVecEnv([_make_env(i) for i in range(num_envs)])
-
-def make_parallel_env(
-    env_id: str,
-    num_envs: int,
-    env_seed: int,
-    window_size: int = 5,
-    cnn_keys: list | None = None,
-    mlp_keys: list | None = None,
-) -> AsyncVectorEnv:
+def make_parallel_env(env_id: str, num_envs: int, env_seed: int, window_size: int = 5, cnn_keys: list = None, mlp_keys: list = None):
     """
-    Create a parallelized Gymnasium AsyncVectorEnv.
+    Create a parallelized environment using SubprocVecEnv.
     """
-
-    def make_env_fn(rank: int):
+    def _make_env(rank):
         def _init():
-            # 1) create raw env
-            env = gym.make(env_id)
-
-            # 2) apply your wrappers in the same order
-            env = CustomActionWrapper(env)
-            # print("▶ after CustomActionWrapper, action_space =", env.action_space)
-            # assert isinstance(env.action_space, MultiDiscrete), (
-            #     f"FlattenMultiDiscrete needs a MultiDiscrete, but got {env.action_space!r}"
-            # )
-            # env = FlattenMultiDiscrete(env)
-            env = RecordEpisodeStatistics(env)
-            env = GoalAngleDistanceWrapper(env)
-            env = PartialObsWrapper(env, window_size)
-            env = ExtractAbstractGrid(env)
-            env = PartialRGBObsWrapper(env, window_size)
-            env = PartialGrayObsWrapper(env, window_size)
-            env = SelectiveObservationWrapper(
-                env,
-                cnn_keys=cnn_keys or [],
-                mlp_keys=mlp_keys or [],
-            )
-            env = Monitor(env)
-
-            # 3) seed it (so each sub‐env is different)
-            env.reset(seed=env_seed + rank)
+            env = make_env(env_id, rank, env_seed, window_size=window_size, cnn_keys=cnn_keys, mlp_keys=mlp_keys)
             return env
-
         return _init
 
-    # build the AsyncVectorEnv
-    return AsyncVectorEnv([make_env_fn(i) for i in range(num_envs)])
+    return SubprocVecEnv([_make_env(i) for i in range(num_envs)])
 
 
 if __name__ == "__main__":
