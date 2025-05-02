@@ -20,6 +20,8 @@ from stable_baselines3.common.evaluation import evaluate_policy
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
+from GymCompatibility import OldGymCompatibility
+
 # ---------------------------------------------------------------
 
 from EnvironmentEdits.CustomWrappers import GoalAngleDistanceWrapper, PartialObsWrapper, ExtractAbstractGrid, PartialRGBObsWrapper, PartialGrayObsWrapper
@@ -164,7 +166,7 @@ if __name__ == "__main__":
     #     obs, reward, done, info = env.step(action)
     #     print(f"Reward: {reward}, Info: {info}")
 
-    eval_env = make_env(
+    raw_eval_env = make_env(
         env_id=ENV_ID,
         rank=0,
         # num_envs=NUM_ENVS,
@@ -174,7 +176,9 @@ if __name__ == "__main__":
         mlp_keys=["goal_angle", "goal_rotation", "goal_distance", "goal_direction_vector", "barrier_mask", "goal_mask", "lava_mask"]
     )
 
-    mean_r, std_r = evaluate_policy(model, eval_env, n_eval_episodes=100)
+    eval_env = OldGymCompatibility(raw_eval_env)
+
+    mean_r, std_r = evaluate_policy(model, eval_env, n_eval_episodes=100, deterministic=True)
     print(f"Eval mean reward: {mean_r:.3f} ± {std_r:.3f}")
 
     # obs, _ = env.reset()
