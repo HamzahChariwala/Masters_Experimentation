@@ -32,45 +32,6 @@ from EnvironmentEdits.ActionSpace import CustomActionWrapper
 
 torch.set_default_dtype(torch.float32)
 
-# Preserve the original torch.Tensor type
-original_tensor_type = torch.Tensor
-
-# Define a utility function to create tensors with debugging
-original_tensor = torch.Tensor
-
-def create_tensor(*args, **kwargs):
-    tensor = original_tensor(*args, **kwargs)
-    if isinstance(tensor, original_tensor_type) and tensor.dtype == torch.float64:
-        print(f"Warning: Found tensor with dtype {tensor.dtype}. Converting to float32.")
-        return tensor.float()
-    return tensor
-
-# Extend the DebugWrapper to handle numpy arrays
-class DebugWrapper(gym.Wrapper):
-    def step(self, action):
-        obs, reward, terminated, truncated, info = super().step(action)
-        done = terminated or truncated  # Combine terminated and truncated flags
-        return obs, reward, done, info
-
-    def reset(self, **kwargs):
-        obs = super().reset(**kwargs)
-
-        # Debug and convert observations
-        if isinstance(obs, dict):
-            for key, value in obs.items():
-                if isinstance(value, np.ndarray):
-                    print(f"Reset Observation Key: {key}, Shape: {value.shape}, Dtype: {value.dtype}")
-                    if value.dtype == np.float64:
-                        print(f"Converting observation key {key} to float32")
-                        obs[key] = value.astype(np.float32)
-        elif isinstance(obs, np.ndarray):
-            print(f"Reset Observation Shape: {obs.shape}, Dtype: {obs.dtype}")
-            if obs.dtype == np.float64:
-                print("Converting observation to float32")
-                obs = obs.astype(np.float32)
-
-        return obs
-
 
 def make_env(env_id: str, rank: int, env_seed: int, render_mode: str = None,
     window_size: int = 5, cnn_keys: list = None, mlp_keys: list = None) -> callable:
@@ -104,9 +65,6 @@ def make_env(env_id: str, rank: int, env_seed: int, render_mode: str = None,
     print(f"Available observation keys: {list(observation.keys())}")
     print(f"Observation space type: {type(env.observation_space)}")
     print(env.observation_space)
-
-    # Wrap the environment with DebugWrapper
-    env = DebugWrapper(env)
 
     # Return only the environment for compatibility with DQN
     return env
@@ -167,7 +125,7 @@ if __name__ == "__main__":
         )
     )
 
-    use_mps = True  # Set to False to disable MPS
+    use_mps = False  # Set to False to disable MPS
 
     # Ensure all tensors are in float32 for MPS compatibility
     # torch.set_default_dtype(torch.float32)
