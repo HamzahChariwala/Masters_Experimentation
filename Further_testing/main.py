@@ -3,6 +3,7 @@ import random
 import numpy as np
 import torch
 from typing import Tuple
+import time
 
 import gymnasium as gym
 from gymnasium.wrappers import RecordEpisodeStatistics
@@ -16,11 +17,12 @@ from stable_baselines3 import PPO, DQN, DDPG
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-from GymCompatibility import OldGymCompatibility
+from EnvironmentEdits.GymCompatibility import OldGymCompatibility
 
 # ---------------------------------------------------------------
 
@@ -32,6 +34,7 @@ from EnvironmentEdits.CustomWrappers import (GoalAngleDistanceWrapper,
                                              ForceFloat32)
 from EnvironmentEdits.FeatureExtractor import CustomCombinedExtractor, SelectiveObservationWrapper
 from EnvironmentEdits.ActionSpace import CustomActionWrapper
+from AgentTraining.TerminalCondition import CustomTerminationCallback
 
 # ---------------------------------------------------------------
 
@@ -131,7 +134,7 @@ if __name__ == "__main__":
         )
     )
 
-    use_mps = False  # Set to False to disable MPS
+    use_mps = True  # Set to False to disable MPS
 
     # Ensure all tensors are in float32 for MPS compatibility
     # torch.set_default_dtype(torch.float32)
@@ -144,19 +147,45 @@ if __name__ == "__main__":
         env,
         policy_kwargs=policy_kwargs,
         buffer_size=50000,
-        learning_starts=1000,
+        learning_starts=5000,
         batch_size=256,
         exploration_fraction=0.1,
         exploration_final_eps=0.02,
-        train_freq=128,
+        train_freq=256,
         target_update_interval=1000,
         verbose=1,
         tensorboard_log=log_dir,
         device=device  # Specify the device here
     )
 
-    model.learn(total_timesteps=100_000, tb_log_name="DQN_MiniGrid")
-    model.save("dqn_minigrid_agent_test")
+    # Create evaluation environment for the callback
+    raw_eval_env = make_env(
+        ENV_ID, rank=0, env_seed=42,
+        window_size=5,
+        cnn_keys=['grey_partial'],
+        mlp_keys=["goal_distance", "goal_direction_vector"]
+    )
+    eval_env = OldGymCompatibility(raw_eval_env)
+    
+    # Create the custom termination callback - only using parameters we need
+    termination_callback = CustomTerminationCallback(
+        eval_env=eval_env,             # Required parameter
+        check_freq=10000,              # How often to check conditions
+        min_reward_threshold=0.9,      # Performance threshold
+        max_runtime=3600,              # 1 hour time limit
+        # Optional parameters we aren't using
+        # max_episodes=2000,
+        # max_no_improvement_steps=50000,
+        n_eval_episodes=20,            # Number of episodes to evaluate for performance
+        verbose=1
+    )
+
+    model.learn(
+        total_timesteps=500_000, 
+        tb_log_name="DQN_MiniGrid",
+        callback=termination_callback
+    )
+    model.save("dqn_minigrid_agent_test_diagonal")
 
     # obs = env.reset()
 

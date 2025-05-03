@@ -55,6 +55,14 @@ def run_agent_and_log(agent_path, env_id, output_json_path):
     # Data structure to store logs
     log_data = {}
 
+    # Log the initial observation under 'action 0'
+    log_data["action 0"] = {
+        "action": None,
+        "reward": 0.0,
+        "info": convert_ndarray_to_list(info),
+        "observation": convert_ndarray_to_list(obs)
+    }
+
     done = False
     action_count = 1  # Counter for actions
     while not done:
