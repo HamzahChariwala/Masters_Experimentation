@@ -95,7 +95,7 @@ if __name__ == "__main__":
     os.makedirs(log_dir, exist_ok=True)
 
     ENV_ID = 'MiniGrid-Empty-5x5-v0'
-    NUM_ENVS = 10  # Number of parallel environments
+    NUM_ENVS = 5  # Number of parallel environments
 
     env = make_parallel_env(
         env_id=ENV_ID,
@@ -103,8 +103,8 @@ if __name__ == "__main__":
         num_envs=NUM_ENVS,
         env_seed=42,
         window_size=5,
-        cnn_keys=[],
-        mlp_keys=["goal_angle", "goal_rotation", "goal_distance", "goal_direction_vector", "barrier_mask", "goal_mask", "lava_mask"]
+        cnn_keys=['grey_partial'],
+        mlp_keys=["goal_distance", "goal_direction_vector"]
     )
 
     # env = make_env(
@@ -144,7 +144,7 @@ if __name__ == "__main__":
         env,
         policy_kwargs=policy_kwargs,
         buffer_size=50000,
-        learning_starts=5000,
+        learning_starts=1000,
         batch_size=256,
         exploration_fraction=0.1,
         exploration_final_eps=0.02,
@@ -155,8 +155,8 @@ if __name__ == "__main__":
         device=device  # Specify the device here
     )
 
-    model.learn(total_timesteps=50_000, tb_log_name="DQN_MiniGrid")
-    model.save("dqn_minigrid_agent_cnn_grey")
+    model.learn(total_timesteps=100_000, tb_log_name="DQN_MiniGrid")
+    model.save("dqn_minigrid_agent_test")
 
     # obs = env.reset()
 
@@ -177,12 +177,8 @@ if __name__ == "__main__":
     raw_eval_env = make_env(
         ENV_ID, rank=0, env_seed=42,
         window_size=5,
-        cnn_keys=[], 
-        mlp_keys=[
-        "goal_angle","goal_rotation","goal_distance",
-        "goal_direction_vector","barrier_mask",
-        "goal_mask","lava_mask",
-        ]
+        cnn_keys=['grey_partial'],
+        mlp_keys=["goal_distance", "goal_direction_vector"]
     )
 
     eval_env = OldGymCompatibility(raw_eval_env)
