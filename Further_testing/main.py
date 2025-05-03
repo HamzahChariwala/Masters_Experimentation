@@ -10,7 +10,6 @@ from gymnasium.wrappers import RecordEpisodeStatistics
 from gymnasium.vector import AsyncVectorEnv
 from gymnasium.spaces import MultiDiscrete
 
-import minigrid
 from minigrid.wrappers import RGBImgPartialObsWrapper, ImgObsWrapper, FullyObsWrapper, RGBImgObsWrapper, OneHotPartialObsWrapper, NoDeath, DirectionObsWrapper
 
 from stable_baselines3 import PPO, DQN, DDPG
@@ -22,7 +21,7 @@ from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-from EnvironmentEdits.GymCompatibility import OldGymCompatibility
+from AgentTraining.TerminalCondition import CustomTerminationCallback
 
 # ---------------------------------------------------------------
 
@@ -34,7 +33,7 @@ from EnvironmentEdits.CustomWrappers import (GoalAngleDistanceWrapper,
                                              ForceFloat32)
 from EnvironmentEdits.FeatureExtractor import CustomCombinedExtractor, SelectiveObservationWrapper
 from EnvironmentEdits.ActionSpace import CustomActionWrapper
-from AgentTraining.TerminalCondition import CustomTerminationCallback
+from EnvironmentEdits.GymCompatibility import OldGymCompatibility
 
 # ---------------------------------------------------------------
 
@@ -44,10 +43,8 @@ torch.set_default_dtype(torch.float32)
 def make_env(env_id: str, rank: int, env_seed: int, render_mode: str = None,
     window_size: int = 5, cnn_keys: list = None, mlp_keys: list = None) -> callable:
 
-    if render_mode is not None:
-        env = gym.make(env_id, render_mode=render_mode)
-    else:
-        env = gym.make(env_id)
+    # Always use an explicit render_mode (default to None if not provided)
+    env = gym.make(env_id, render_mode=render_mode)
 
     # Wrap environment with our custom action wrapper
     env = CustomActionWrapper(env)
@@ -85,11 +82,58 @@ def make_parallel_env(env_id: str, num_envs: int, env_seed: int, window_size: in
     """
     def _make_env(rank):
         def _init():
-            env = make_env(env_id, rank, env_seed, window_size=window_size, cnn_keys=cnn_keys, mlp_keys=mlp_keys)
+            # Always pass explicit render_mode=None for vector environments
+            env = make_env(
+                env_id, 
+                rank, 
+                env_seed, 
+                render_mode=None,
+                window_size=window_size, 
+                cnn_keys=cnn_keys, 
+                mlp_keys=mlp_keys
+            )
             return env
         return _init
 
     return SubprocVecEnv([_make_env(i) for i in range(num_envs)])
+
+
+def make_eval_env(env_id: str, seed: int, window_size: int = 5, cnn_keys: list = None, mlp_keys: list = None):
+    """
+    Create a properly configured evaluation environment.
+    """
+    # Create the environment with explicit render_mode=None to avoid warning
+    env = gym.make(env_id, render_mode=None)
+    
+
+    
+    # Apply necessary wrappers - keeping all original observation features
+    env = CustomActionWrapper(env)
+    env = RecordEpisodeStatistics(env)
+    env = FullyObsWrapper(env)
+    env = GoalAngleDistanceWrapper(env)
+    env = PartialObsWrapper(env, window_size)
+    env = ExtractAbstractGrid(env)
+    env = PartialRGBObsWrapper(env, window_size)
+    env = PartialGrayObsWrapper(env, window_size)
+    
+    env = SelectiveObservationWrapper(
+        env,
+        cnn_keys=cnn_keys or [],
+        mlp_keys=mlp_keys or []
+    )
+    env = ForceFloat32(env)
+    
+    # Apply OldGymCompatibility wrapper
+    env = OldGymCompatibility(env)
+    
+    # IMPORTANT: Apply Monitor wrapper AFTER OldGymCompatibility
+    env = Monitor(env)
+    
+    # Reset with seed
+    env.reset(seed=seed)
+    
+    return env
 
 
 if __name__ == "__main__":
@@ -98,7 +142,7 @@ if __name__ == "__main__":
     os.makedirs(log_dir, exist_ok=True)
 
     ENV_ID = 'MiniGrid-Empty-5x5-v0'
-    NUM_ENVS = 5  # Number of parallel environments
+    NUM_ENVS = 10  # Number of parallel environments
 
     env = make_parallel_env(
         env_id=ENV_ID,
@@ -106,7 +150,7 @@ if __name__ == "__main__":
         num_envs=NUM_ENVS,
         env_seed=42,
         window_size=5,
-        cnn_keys=['grey_partial'],
+        cnn_keys=['rgb_partial'],
         mlp_keys=["goal_distance", "goal_direction_vector"]
     )
 
@@ -134,7 +178,7 @@ if __name__ == "__main__":
         )
     )
 
-    use_mps = True  # Set to False to disable MPS
+    use_mps = False  # Set to False to disable MPS
 
     # Ensure all tensors are in float32 for MPS compatibility
     # torch.set_default_dtype(torch.float32)
@@ -148,7 +192,7 @@ if __name__ == "__main__":
         policy_kwargs=policy_kwargs,
         buffer_size=50000,
         learning_starts=5000,
-        batch_size=256,
+        batch_size=64,
         exploration_fraction=0.1,
         exploration_final_eps=0.02,
         train_freq=256,
@@ -158,64 +202,69 @@ if __name__ == "__main__":
         device=device  # Specify the device here
     )
 
-    # Create evaluation environment for the callback
-    raw_eval_env = make_env(
-        ENV_ID, rank=0, env_seed=42,
+    # Use the dedicated function to create a properly configured eval environment
+    eval_env = make_eval_env(
+        env_id=ENV_ID, 
+        seed=811,
         window_size=5,
-        cnn_keys=['grey_partial'],
+        cnn_keys=['rgb_partial'],
         mlp_keys=["goal_distance", "goal_direction_vector"]
     )
-    eval_env = OldGymCompatibility(raw_eval_env)
-    
-    # Create the custom termination callback - only using parameters we need
+
     termination_callback = CustomTerminationCallback(
-        eval_env=eval_env,             # Required parameter
-        check_freq=10000,              # How often to check conditions
-        min_reward_threshold=0.9,      # Performance threshold
-        max_runtime=3600,              # 1 hour time limit
-        # Optional parameters we aren't using
-        # max_episodes=2000,
-        # max_no_improvement_steps=50000,
-        n_eval_episodes=20,            # Number of episodes to evaluate for performance
+        eval_env=eval_env,
+        check_freq=50000,              # Less frequent evaluation reduces bottlenecks
+        min_reward_threshold=0.9,      
+        target_reward_threshold=0.95,  
+        max_runtime=7200,              # 2 hour time limit
+        n_eval_episodes=5,             # Fewer evaluation episodes for speed
         verbose=1
     )
+    
+    # Create the custom termination callback with new parameters
+    # termination_callback = CustomTerminationCallback(
+    #     eval_env=eval_env,             # Required parameter
+    #     check_freq=50000,              # How often to check conditions
+        
+    #     # Minimum thresholds that must be met before other conditions apply
+    #     min_reward_threshold=0.9,      # Minimum reward threshold
+    #     # min_episode_length_threshold=100, # Minimum episode length threshold (lower is better)
+        
+    #     # Target conditions
+    #     target_reward_threshold=0.95,   # Target reward to achieve
+    #     # max_episodes=2000,             # Maximum number of episodes
+    #     max_runtime=7200,              # 1 hour time limit
+        
+    #     # No improvement conditions
+    #     # max_no_improvement_reward_steps=50000,  # Stop if no reward improvement
+    #     # max_no_improvement_length_steps=30000,  # Stop if no length improvement
+        
+    #     n_eval_episodes=5,            # Number of episodes to evaluate
+    #     verbose=1
+    # )
 
     model.learn(
         total_timesteps=500_000, 
         tb_log_name="DQN_MiniGrid",
         callback=termination_callback
     )
-    model.save("dqn_minigrid_agent_test_diagonal")
-
-    # obs = env.reset()
-
-    # print("Observation:", obs)
-    # print("Observation type:", type(obs))
-    # if isinstance(obs, dict):
-    #     for key, value in obs.items():
-    #         print(f"Key: {key}, Shape: {value.shape}, Dtype: {value.dtype}")
-
-    # done = False
-    # while not done:
-    #     action, _ = model.predict(obs, deterministic=True)
-    #     obs, reward, done, info = env.step(action)
-    #     print(f"Reward: {reward}, Info: {info}")
+    model.save("dqn_minigrid_agent_test_terminal")
 
 
-    # 1) wrap your single env in a DummyVecEnv
-    raw_eval_env = make_env(
-        ENV_ID, rank=0, env_seed=42,
+    # Create a fresh evaluation environment for final assessment
+    print("Creating final evaluation environment...")
+    final_eval_env = make_eval_env(
+        env_id=ENV_ID, 
+        seed=42,
         window_size=5,
-        cnn_keys=['grey_partial'],
+        cnn_keys=['rgb_partial'],
         mlp_keys=["goal_distance", "goal_direction_vector"]
     )
 
-    eval_env = OldGymCompatibility(raw_eval_env)
-
-    # returns two lists: all episode‐rewards and all episode‐lengths
+    print("Running final evaluation...")
     episode_rewards, episode_lengths = evaluate_policy(
         model,
-        eval_env,
+        final_eval_env,
         n_eval_episodes=100,
         deterministic=True,
         return_episode_rewards=True,
