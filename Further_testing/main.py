@@ -138,11 +138,11 @@ def make_eval_env(env_id: str, seed: int, window_size: int = 5, cnn_keys: list =
 
 if __name__ == "__main__":
 
-    log_dir = "./logs/dqn_run_1"
+    log_dir = "./logs/dqn_run_2"
     os.makedirs(log_dir, exist_ok=True)
 
-    ENV_ID = 'MiniGrid-Empty-5x5-v0'
-    NUM_ENVS = 10  # Number of parallel environments
+    ENV_ID = 'MiniGrid-LavaCrossingS9N2-v0'
+    NUM_ENVS = 8  # Number of parallel environments
 
     env = make_parallel_env(
         env_id=ENV_ID,
@@ -150,8 +150,13 @@ if __name__ == "__main__":
         num_envs=NUM_ENVS,
         env_seed=42,
         window_size=5,
-        cnn_keys=['rgb_partial'],
-        mlp_keys=["goal_distance", "goal_direction_vector"]
+        cnn_keys=[],
+        mlp_keys=["goal_direction_vector",
+                  "goal_angle",
+                  "goal_rotation",
+                  "barrier_mask",
+                  "lava_mask",
+                  "goal_mask"]
     )
 
     # env = make_env(
@@ -192,10 +197,10 @@ if __name__ == "__main__":
         policy_kwargs=policy_kwargs,
         buffer_size=50000,
         learning_starts=5000,
-        batch_size=64,
+        batch_size=128,
         exploration_fraction=0.1,
         exploration_final_eps=0.02,
-        train_freq=256,
+        train_freq=512,
         target_update_interval=1000,
         verbose=1,
         tensorboard_log=log_dir,
@@ -207,17 +212,22 @@ if __name__ == "__main__":
         env_id=ENV_ID, 
         seed=811,
         window_size=5,
-        cnn_keys=['rgb_partial'],
-        mlp_keys=["goal_distance", "goal_direction_vector"]
+        cnn_keys=[],
+        mlp_keys=["goal_direction_vector",
+                  "goal_angle",
+                  "goal_rotation",
+                  "barrier_mask",
+                  "lava_mask",
+                  "goal_mask"]
     )
 
     termination_callback = CustomTerminationCallback(
         eval_env=eval_env,
-        check_freq=50000,              # Less frequent evaluation reduces bottlenecks
+        check_freq=50000,             
         min_reward_threshold=0.9,      
         target_reward_threshold=0.95,  
-        max_runtime=7200,              # 2 hour time limit
-        n_eval_episodes=5,             # Fewer evaluation episodes for speed
+        max_runtime=30000,              
+        n_eval_episodes=5,             
         verbose=1
     )
     
@@ -244,11 +254,11 @@ if __name__ == "__main__":
     # )
 
     model.learn(
-        total_timesteps=500_000, 
+        total_timesteps=100_000_000, 
         tb_log_name="DQN_MiniGrid",
         callback=termination_callback
     )
-    model.save("dqn_minigrid_agent_test_terminal")
+    model.save("dqn_minigrid_agent_lava_test")
 
 
     # Create a fresh evaluation environment for final assessment
@@ -257,8 +267,13 @@ if __name__ == "__main__":
         env_id=ENV_ID, 
         seed=42,
         window_size=5,
-        cnn_keys=['rgb_partial'],
-        mlp_keys=["goal_distance", "goal_direction_vector"]
+        cnn_keys=[],
+        mlp_keys=["goal_direction_vector",
+                  "goal_angle",
+                  "goal_rotation",
+                  "barrier_mask",
+                  "lava_mask",
+                  "goal_mask"]
     )
 
     print("Running final evaluation...")

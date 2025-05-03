@@ -32,7 +32,7 @@ class CustomActionWrapper(gym.ActionWrapper):
         if walkable:
             self.env.agent_pos = new_pos.copy().astype(int)
             info = {"action": "diagonal", "diag_direction": diag_direction}
-            print(f"Diagonal move taken: {diag_direction}, New Position: {self.env.agent_pos}")
+            # print(f"Diagonal move taken: {diag_direction}, New Position: {self.env.agent_pos}")
         else:
             info = {"action": "diagonal", "diag_direction": diag_direction, "failed": True}
 
