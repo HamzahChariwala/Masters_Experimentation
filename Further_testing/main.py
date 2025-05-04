@@ -49,31 +49,54 @@ if __name__ == "__main__":
     os.makedirs(log_dir, exist_ok=True)
 
     ENV_ID = 'MiniGrid-LavaCrossingS9N2-v0'
-    NUM_ENVS = 5  # Number of parallel environments
+    NUM_ENVS = 10  # Increased number of environments for better diversity
+    
+    # Clearly separated seeds for different sources of randomness
+    MODEL_SEED = 42     # For network initialization
+    ENV_SEED = 12345    # For environment generation
+    EVAL_SEED = 67890   # For evaluation environments
 
+    # Define standard observation parameters
+    observation_params = {
+        "window_size": 5,
+        "cnn_keys": [],
+        "mlp_keys": ["goal_direction_vector",
+                    "goal_angle",
+                    "goal_rotation",
+                    "barrier_mask",
+                    "lava_mask",
+                    "goal_mask"]
+    }
+
+    # Set seeds for reproducible model training
+    random.seed(MODEL_SEED)
+    np.random.seed(MODEL_SEED)
+    torch.manual_seed(MODEL_SEED)
+
+    # Print training setup information
+    print("\n====== TRAINING SETUP ======")
+    print(f"Environment: {ENV_ID}")
+    print(f"Number of parallel environments: {NUM_ENVS}")
+    print(f"Model seed: {MODEL_SEED}")
+    print(f"Environment seed: {ENV_SEED}")
+    print(f"Evaluation seed: {EVAL_SEED}")
+    print("===========================\n")
+
+    # Option 1: Use the enhanced make_parallel_env with different environments
     env = Env.make_parallel_env(
         env_id=ENV_ID,
-        # rank=0,
         num_envs=NUM_ENVS,
-        env_seed=42,
-        window_size=5,
-        cnn_keys=[],
-        mlp_keys=["goal_direction_vector",
-                  "goal_angle",
-                  "goal_rotation",
-                  "barrier_mask",
-                  "lava_mask",
-                  "goal_mask"]
+        env_seed=ENV_SEED,       # Only pass the environment seed
+        use_different_envs=True,  # Enable diverse environments
+        **observation_params
     )
 
-    # env = Env.make_env(
+    # Option 2: Use the dedicated make_diverse_parallel_env function
+    # env = Env.make_diverse_parallel_env(
     #     env_id=ENV_ID,
-    #     rank=0,
-    #     # num_envs=NUM_ENVS,
-    #     env_seed=42,
-    #     window_size=5,
-    #     cnn_keys=[],
-    #     mlp_keys=["goal_angle", "goal_rotation", "goal_distance", "goal_direction_vector", "barrier_mask", "goal_mask", "lava_mask"]
+    #     num_envs=NUM_ENVS,
+    #     env_seed=ENV_SEED,     # Only pass the environment seed
+    #     **observation_params
     # )
 
     policy_kwargs = dict(
@@ -94,17 +117,20 @@ if __name__ == "__main__":
 
     device = torch.device("mps" if use_mps and torch.backends.mps.is_available() else "cpu")
     print(f"Using device: {device}")
-
+    
+    # Create model with improved exploration parameters
     model = DQN(
         "MultiInputPolicy",
         env,
         policy_kwargs=policy_kwargs,
-        buffer_size=50000,
-        learning_starts=5000,
-        batch_size=128,
-        exploration_fraction=0.1,
-        exploration_final_eps=0.02,
-        train_freq=512,
+        buffer_size=100000,             # Increased buffer size for more diverse experiences
+        learning_starts=10000,          # Allow more random exploration before learning starts
+        batch_size=256,                 # Larger batch size for more stable updates
+        exploration_fraction=0.3,       # Higher exploration rate 
+        exploration_final_eps=0.075,    # Higher final exploration
+        gamma=0.97,                     # Slightly reduced discount factor to focus more on immediate rewards
+        learning_rate=5e-4,             # Adjusted learning rate
+        train_freq=256,
         target_update_interval=1000,
         verbose=1,
         tensorboard_log=log_dir,
@@ -114,61 +140,59 @@ if __name__ == "__main__":
     # Use the dedicated function to create a properly configured eval environment
     eval_env = Env.make_eval_env(
         env_id=ENV_ID, 
-        seed=811,
-        window_size=5,
-        cnn_keys=[],
-        mlp_keys=["goal_direction_vector",
-                  "goal_angle",
-                  "goal_rotation",
-                  "barrier_mask",
-                  "lava_mask",
-                  "goal_mask"]
+        seed=EVAL_SEED,  # Separate seed for evaluation
+        **observation_params
     )
 
+    # Create termination callback with improved evaluation settings
     termination_callback = CustomTerminationCallback(
         eval_env=eval_env,
-        check_freq=50000,             
-        min_reward_threshold=0.9,      
-        target_reward_threshold=0.95,  
-        max_runtime=30000,              
-        n_eval_episodes=5,             
+        check_freq=50000,                # Check every 50k steps
+        min_reward_threshold=0.9,        # Minimum reward to meet before applying termination conditions
+        target_reward_threshold=0.95,    # Target reward to achieve
+        max_runtime=30000,               # Maximum runtime in seconds (about 8 hours)
+        n_eval_episodes=1,               # Only evaluate on a single episode
+        eval_timeout=60,                 # Allow up to 60 seconds for evaluation to complete
         verbose=1
     )
 
+    # Print training start message
+    print("\n====== STARTING TRAINING ======")
+    print(f"Target timesteps: 1,000,000")
+    print(f"Evaluation frequency: Every {termination_callback.check_freq} steps")
+    print(f"Evaluation episodes: {termination_callback.n_eval_episodes}")
+    print(f"Evaluation timeout: {termination_callback.eval_timeout} seconds")
+    print("==============================\n")
+
     model.learn(
-        total_timesteps=100_000_000, 
+        total_timesteps=1_000_000, 
         tb_log_name="DQN_MiniGrid",
         callback=termination_callback
     )
     model.save("dqn_minigrid_agent_lava_test")
 
+    # Print final evaluation message
+    print("\n====== TRAINING COMPLETE ======")
+    print("Running final evaluation...")
+    print("==============================\n")
 
     # Create a fresh evaluation environment for final assessment
-    print("Creating final evaluation environment...")
     final_eval_env = Env.make_eval_env(
         env_id=ENV_ID, 
-        seed=42,
-        window_size=5,
-        cnn_keys=[],
-        mlp_keys=["goal_direction_vector",
-                  "goal_angle",
-                  "goal_rotation",
-                  "barrier_mask",
-                  "lava_mask",
-                  "goal_mask"]
+        seed=EVAL_SEED + 1000,  # Different seed for final evaluation
+        **observation_params
     )
 
     print("Running final evaluation...")
     episode_rewards, episode_lengths = evaluate_policy(
         model,
         final_eval_env,
-        n_eval_episodes=100,
+        n_eval_episodes=10,  # More episodes for final evaluation
         deterministic=True,
         return_episode_rewards=True,
     )
 
-    # now you can compute whatever summary you like:
-    import numpy as np
+    print("\n====== FINAL RESULTS ======")
     print("Rewards   : mean %.3f  std %.3f  min %.3f  max %.3f"
         % (np.mean(episode_rewards),
             np.std(episode_rewards),
@@ -179,7 +203,7 @@ if __name__ == "__main__":
             np.std(episode_lengths),
             np.min(episode_lengths),
             np.max(episode_lengths)))
-
+    print("==========================\n")
 
     # obs, _ = env.reset()
 
