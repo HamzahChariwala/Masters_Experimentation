@@ -4,17 +4,13 @@ import json
 import gymnasium as gym
 import numpy as np
 from stable_baselines3 import DQN
-from EnvironmentEdits.BespokeEdits.ActionSpace import CustomActionWrapper
-from EnvironmentEdits.BespokeEdits.FeatureExtractor import SelectiveObservationWrapper, CustomCombinedExtractor
-from EnvironmentEdits.BespokeEdits.CustomWrappers import GoalAngleDistanceWrapper, PartialObsWrapper, ExtractAbstractGrid, PartialRGBObsWrapper, PartialGrayObsWrapper
-from gymnasium.wrappers import RecordEpisodeStatistics
-from stable_baselines3.common.monitor import Monitor
-from minigrid.wrappers import FullyObsWrapper
+
+# Import environment generation function
+from EnvironmentEdits.EnvironmentGeneration import make_env
+from EnvironmentEdits.BespokeEdits.FeatureExtractor import CustomCombinedExtractor
 
 # Add the root directory of the project to the Python path
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-
-# Ensure the EnvironmentEdits module is accessible during model loading
 
 def convert_ndarray_to_list(obj):
     """Recursively convert numpy.ndarray objects to lists."""
@@ -34,22 +30,22 @@ def run_agent_and_log(agent_path, env_id, output_json_path):
     custom_objects = {"features_extractor_class": CustomCombinedExtractor}
     model = DQN.load(agent_path, custom_objects=custom_objects)
 
-    # Create the environment
-    env = gym.make(env_id)
-    env = CustomActionWrapper(env)
-    env = RecordEpisodeStatistics(env)
-    env = FullyObsWrapper(env)
-    env = GoalAngleDistanceWrapper(env)
-    env = PartialObsWrapper(env, n=5)  # Example parameter, adjust as needed
-    env = ExtractAbstractGrid(env)
-    env = PartialRGBObsWrapper(env, n=5)  # Example parameter, adjust as needed
-    env = PartialGrayObsWrapper(env, n=5)  # Example parameter, adjust as needed
-    env = SelectiveObservationWrapper(
-        env,
-        cnn_keys=['grey_partial'],
-        mlp_keys=["goal_distance", "goal_direction_vector"]
+    # Create the environment using the imported function
+    env = make_env(
+        env_id=env_id,
+        rank=0,
+        env_seed=420,
+        window_size=5,
+        cnn_keys=[],
+        mlp_keys=["goal_direction_vector",
+                  "goal_angle",
+                  "goal_rotation",
+                  "barrier_mask",
+                  "lava_mask",
+                  "goal_mask"]
     )
-    env = Monitor(env)
+    
+    # Reset the environment
     obs, info = env.reset()
 
     # Data structure to store logs
@@ -91,9 +87,9 @@ def run_agent_and_log(agent_path, env_id, output_json_path):
 
 if __name__ == "__main__":
     # Example usage
-    agent_path = "dqn_minigrid_agent_test.zip"
-    env_id = "MiniGrid-Empty-5x5-v0"
-    output_json_path = "AgentTesting/agent_run_log.json"
+    agent_path = "dqn_minigrid_agent_lava_test.zip"
+    env_id = "MiniGrid-LavaCrossingS9N2-v0"
+    output_json_path = "AgentTesting/agent_run_log_lava.json"
 
     run_agent_and_log(agent_path, env_id, output_json_path)
     print(f"Agent run log saved to {output_json_path}")
