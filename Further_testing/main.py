@@ -142,7 +142,7 @@ if __name__ == "__main__":
     os.makedirs(log_dir, exist_ok=True)
 
     ENV_ID = 'MiniGrid-LavaCrossingS9N2-v0'
-    NUM_ENVS = 8  # Number of parallel environments
+    NUM_ENVS = 5  # Number of parallel environments
 
     env = make_parallel_env(
         env_id=ENV_ID,
