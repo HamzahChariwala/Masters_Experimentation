@@ -396,7 +396,7 @@ class RandomSpawnWrapper(gym.Wrapper):
         obs, info = self.env.reset(**kwargs)
         
         # Print original spawn position
-        print(f"Env {self.env_id} - Original spawn position: {self.unwrapped.agent_pos}")
+        # print(f"Env {self.env_id} - Original spawn position: {self.unwrapped.agent_pos}")
         
         # Get the grid
         grid = self.unwrapped.grid
@@ -415,7 +415,8 @@ class RandomSpawnWrapper(gym.Wrapper):
                     break
             
             if goal_pos:
-                print(f"Env {self.env_id} - Goal position: {goal_pos}")
+                # print(f"Env {self.env_id} - Goal position: {goal_pos}")
+                pass
         
         # Find all empty cells
         empty_cells = []
@@ -433,7 +434,7 @@ class RandomSpawnWrapper(gym.Wrapper):
                             continue
                     empty_cells.append((i, j))
         
-        print(f"Env {self.env_id} - Found {len(empty_cells)} valid spawn locations")
+        # print(f"Env {self.env_id} - Found {len(empty_cells)} valid spawn locations")
         
         if empty_cells:
             # Randomly select an empty cell
@@ -441,7 +442,7 @@ class RandomSpawnWrapper(gym.Wrapper):
             
             # Set agent position
             self.unwrapped.agent_pos = pos
-            print(f"Env {self.env_id} - Randomized spawn position: {pos}")
+            # print(f"Env {self.env_id} - Randomized spawn position: {pos}")
             
             # Update agent's position in the grid
             self.unwrapped.grid.set(*self.unwrapped.agent_pos, None)
@@ -458,7 +459,8 @@ class RandomSpawnWrapper(gym.Wrapper):
                 self.unwrapped.reset()
                 obs, _ = self.env.reset()
         else:
-            print(f"Env {self.env_id} - WARNING: No valid spawn locations found. Using original position.")
+            # print(f"Env {self.env_id} - WARNING: No valid spawn locations found. Using original position.")
+            pass
             
         return obs, info
 

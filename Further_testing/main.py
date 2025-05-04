@@ -58,6 +58,11 @@ if __name__ == "__main__":
     
     # Evaluation parameters
     EVAL_TIMEOUT = 10   # Timeout in seconds for each evaluation episode
+    
+    # NoDeath wrapper parameters
+    USE_NO_DEATH = True              # Whether to use the NoDeath wrapper
+    NO_DEATH_TYPES = ("lava",)       # Which elements should not cause death
+    DEATH_COST = -0.5               # Penalty for hitting death elements
 
     # Define standard observation parameters
     observation_params = {
@@ -70,7 +75,10 @@ if __name__ == "__main__":
                     "lava_mask",
                     "goal_mask"],
         "use_random_spawn": True,          # Enable random agent spawn positions
-        "exclude_goal_adjacent": True      # Don't spawn next to goal
+        "exclude_goal_adjacent": True,     # Don't spawn next to goal
+        "use_no_death": USE_NO_DEATH,      # Whether to use the NoDeath wrapper
+        "no_death_types": NO_DEATH_TYPES,  # Types that don't cause death
+        "death_cost": DEATH_COST           # Penalty for hitting death elements
     }
 
     # Set seeds for reproducible model training
@@ -87,6 +95,10 @@ if __name__ == "__main__":
     print(f"Evaluation seed: {EVAL_SEED}")
     print(f"Random agent spawning: {observation_params.get('use_random_spawn', False)}")
     print(f"Evaluation timeout: {EVAL_TIMEOUT} seconds")
+    print(f"NoDeath wrapper: {USE_NO_DEATH}")
+    if USE_NO_DEATH:
+        print(f"  - Death types: {NO_DEATH_TYPES}")
+        print(f"  - Death cost: {DEATH_COST}")
     print("===========================\n")
 
     # Option 1: Use the enhanced make_parallel_env with different environments
