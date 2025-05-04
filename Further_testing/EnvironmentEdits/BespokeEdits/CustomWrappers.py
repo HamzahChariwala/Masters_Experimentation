@@ -3,6 +3,8 @@ from gymnasium import spaces
 from minigrid.wrappers import FullyObsWrapper
 from gymnasium import ObservationWrapper
 from gymnasium.spaces import Box
+import random
+import gymnasium as gym
 
 
 class GoalAngleDistanceWrapper(ObservationWrapper):
@@ -366,5 +368,98 @@ class ForceFloat32(ObservationWrapper):
             if isinstance(v, np.ndarray) and v.dtype != np.float32:
                 obs[k] = v.astype(np.float32)
         return obs
+
+
+class RandomSpawnWrapper(gym.Wrapper):
+    """
+    Wrapper that randomizes the agent's starting position in the environment.
+    
+    The agent can spawn at any empty cell in the grid.
+    
+    Parameters:
+    ----------
+    env : gym.Env
+        The environment to wrap
+    exclude_goal_adjacent : bool
+        If True, prevents spawning directly adjacent to the goal
+    env_id : int
+        Identifier for this environment instance (for logging)
+    """
+    
+    def __init__(self, env, exclude_goal_adjacent=True, env_id=0):
+        super().__init__(env)
+        self.exclude_goal_adjacent = exclude_goal_adjacent
+        self.env_id = env_id
+        
+    def reset(self, **kwargs):
+        # First reset the environment
+        obs, info = self.env.reset(**kwargs)
+        
+        # Print original spawn position
+        print(f"Env {self.env_id} - Original spawn position: {self.unwrapped.agent_pos}")
+        
+        # Get the grid
+        grid = self.unwrapped.grid
+        width, height = grid.width, grid.height
+        
+        # Find goal position if we're excluding goal-adjacent cells
+        goal_pos = None
+        if self.exclude_goal_adjacent:
+            for i in range(width):
+                for j in range(height):
+                    cell = grid.get(i, j)
+                    if cell and cell.type == 'goal':
+                        goal_pos = (i, j)
+                        break
+                if goal_pos:
+                    break
+            
+            if goal_pos:
+                print(f"Env {self.env_id} - Goal position: {goal_pos}")
+        
+        # Find all empty cells
+        empty_cells = []
+        for i in range(width):
+            for j in range(height):
+                cell = grid.get(i, j)
+                # Check if cell is empty (None or empty type)
+                if cell is None or (hasattr(cell, 'type') and cell.type == 'empty'):
+                    # Skip cells adjacent to goal if requested
+                    if self.exclude_goal_adjacent and goal_pos:
+                        # Check if this cell is adjacent to the goal
+                        dx = abs(i - goal_pos[0])
+                        dy = abs(j - goal_pos[1])
+                        if dx <= 1 and dy <= 1:
+                            continue
+                    empty_cells.append((i, j))
+        
+        print(f"Env {self.env_id} - Found {len(empty_cells)} valid spawn locations")
+        
+        if empty_cells:
+            # Randomly select an empty cell
+            pos = random.choice(empty_cells)
+            
+            # Set agent position
+            self.unwrapped.agent_pos = pos
+            print(f"Env {self.env_id} - Randomized spawn position: {pos}")
+            
+            # Update agent's position in the grid
+            self.unwrapped.grid.set(*self.unwrapped.agent_pos, None)
+            
+            # Recalculate the observation
+            if hasattr(self.unwrapped, 'gen_obs'):
+                # MiniGrid environments use gen_obs()
+                obs = self.unwrapped.gen_obs()
+            elif hasattr(self.unwrapped, '_get_obs'):
+                # Some environments use _get_obs()
+                obs = self.unwrapped._get_obs()
+            else:
+                # If neither method exists, re-reset the environment
+                self.unwrapped.reset()
+                obs, _ = self.env.reset()
+        else:
+            print(f"Env {self.env_id} - WARNING: No valid spawn locations found. Using original position.")
+            
+        return obs, info
 
 

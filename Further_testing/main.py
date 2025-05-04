@@ -55,6 +55,9 @@ if __name__ == "__main__":
     MODEL_SEED = 42     # For network initialization
     ENV_SEED = 12345    # For environment generation
     EVAL_SEED = 67890   # For evaluation environments
+    
+    # Evaluation parameters
+    EVAL_TIMEOUT = 10   # Timeout in seconds for each evaluation episode
 
     # Define standard observation parameters
     observation_params = {
@@ -65,7 +68,9 @@ if __name__ == "__main__":
                     "goal_rotation",
                     "barrier_mask",
                     "lava_mask",
-                    "goal_mask"]
+                    "goal_mask"],
+        "use_random_spawn": True,          # Enable random agent spawn positions
+        "exclude_goal_adjacent": True      # Don't spawn next to goal
     }
 
     # Set seeds for reproducible model training
@@ -80,6 +85,8 @@ if __name__ == "__main__":
     print(f"Model seed: {MODEL_SEED}")
     print(f"Environment seed: {ENV_SEED}")
     print(f"Evaluation seed: {EVAL_SEED}")
+    print(f"Random agent spawning: {observation_params.get('use_random_spawn', False)}")
+    print(f"Evaluation timeout: {EVAL_TIMEOUT} seconds")
     print("===========================\n")
 
     # Option 1: Use the enhanced make_parallel_env with different environments
@@ -152,7 +159,7 @@ if __name__ == "__main__":
         target_reward_threshold=0.95,    # Target reward to achieve
         max_runtime=30000,               # Maximum runtime in seconds (about 8 hours)
         n_eval_episodes=1,               # Only evaluate on a single episode
-        eval_timeout=60,                 # Allow up to 60 seconds for evaluation to complete
+        eval_timeout=EVAL_TIMEOUT,       # Use the configurable timeout parameter
         verbose=1
     )
 
@@ -161,7 +168,7 @@ if __name__ == "__main__":
     print(f"Target timesteps: 1,000,000")
     print(f"Evaluation frequency: Every {termination_callback.check_freq} steps")
     print(f"Evaluation episodes: {termination_callback.n_eval_episodes}")
-    print(f"Evaluation timeout: {termination_callback.eval_timeout} seconds")
+    print(f"Evaluation timeout: {EVAL_TIMEOUT} seconds")
     print("==============================\n")
 
     model.learn(
