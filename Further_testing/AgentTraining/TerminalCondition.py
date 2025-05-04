@@ -1,5 +1,6 @@
 import time
 import numpy as np
+import threading
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 
@@ -31,6 +32,7 @@ class CustomTerminationCallback(BaseCallback):
         max_no_improvement_reward_steps: Stop if no improvement in reward for this many steps (default: None)
         max_no_improvement_length_steps: Stop if no improvement in episode length for this many steps (default: None)
         n_eval_episodes: Number of episodes to evaluate for performance checks (default: 10)
+        eval_timeout: Maximum time in seconds to wait for evaluation to complete (default: 30)
         verbose: Verbosity level (default: 1)
     """
     
@@ -46,6 +48,7 @@ class CustomTerminationCallback(BaseCallback):
         max_no_improvement_reward_steps=None,
         max_no_improvement_length_steps=None,
         n_eval_episodes=10,
+        eval_timeout=30,
         verbose=1
     ):
         super().__init__(verbose)
@@ -66,6 +69,7 @@ class CustomTerminationCallback(BaseCallback):
         self.max_no_improvement_length_steps = max_no_improvement_length_steps
         
         self.n_eval_episodes = n_eval_episodes
+        self.eval_timeout = eval_timeout
         
         # State tracking variables
         self.start_time = None
@@ -80,9 +84,40 @@ class CustomTerminationCallback(BaseCallback):
         # Safety variables
         self.evaluation_in_progress = False
         self.last_evaluation_time = 0
+        self.evaluation_count = 0
+        self.evaluation_results = None
+        self.evaluation_complete = False
+        self.evaluation_error = None
         
     def _init_callback(self):
         self.start_time = time.time()
+        
+    def _evaluate_agent(self):
+        """Thread-safe evaluation function to run in a separate thread."""
+        try:
+            # Reset evaluation state
+            self.evaluation_complete = False
+            self.evaluation_error = None
+            self.evaluation_results = None
+            
+            # Run evaluation
+            episode_rewards, episode_lengths = evaluate_policy(
+                self.model,
+                self.eval_env,
+                n_eval_episodes=self.n_eval_episodes,
+                deterministic=True,
+                return_episode_rewards=True,
+            )
+            
+            # Store results
+            self.evaluation_results = (episode_rewards, episode_lengths)
+            self.evaluation_complete = True
+            
+        except Exception as e:
+            if self.verbose > 0:
+                print(f"Error during evaluation: {e}")
+            self.evaluation_error = str(e)
+            self.evaluation_complete = True
         
     def _on_step(self):
         # Check for time-based termination immediately without expensive evaluation
@@ -109,28 +144,62 @@ class CustomTerminationCallback(BaseCallback):
             
         # Safety check to prevent potential deadlocks
         current_time = time.time()
-        if self.evaluation_in_progress and (current_time - self.last_evaluation_time < 120):
-            if self.verbose > 0:
-                print("Previous evaluation still in progress, skipping this one")
-            return True
+        if self.evaluation_in_progress:
+            time_since_last_eval = current_time - self.last_evaluation_time
+            if time_since_last_eval > 120:  # If more than 2 minutes, something is wrong
+                if self.verbose > 0:
+                    print(f"Warning: Previous evaluation has been running for {time_since_last_eval:.1f} seconds. Resetting state.")
+                self.evaluation_in_progress = False
+            else:
+                if self.verbose > 0:
+                    print("Previous evaluation still in progress, skipping this one")
+                return True
             
         try:
             self.evaluation_in_progress = True
             self.last_evaluation_time = current_time
+            self.evaluation_count += 1
             
-            # Evaluate performance
-            episode_rewards, episode_lengths = evaluate_policy(
-                self.model,
-                self.eval_env,
-                n_eval_episodes=self.n_eval_episodes,
-                deterministic=True,
-                return_episode_rewards=True,
-            )
+            if self.verbose > 0:
+                print(f"\n===== Starting evaluation #{self.evaluation_count} at timestep {self.num_timesteps} =====")
+                print(f"Evaluating over {self.n_eval_episodes} episodes with timeout {self.eval_timeout}s")
+            
+            # Reset evaluation state
+            self.evaluation_complete = False
+            self.evaluation_error = None
+            self.evaluation_results = None
+            
+            # Create and start evaluation thread
+            eval_thread = threading.Thread(target=self._evaluate_agent)
+            eval_thread.daemon = True  # Daemon thread will be killed if main thread exits
+            eval_thread.start()
+            
+            # Wait for evaluation to complete with timeout
+            start_wait = time.time()
+            while not self.evaluation_complete and (time.time() - start_wait) < self.eval_timeout:
+                time.sleep(0.1)  # Small sleep to avoid busy waiting
+            
+            # Check if evaluation completed or timed out
+            if not self.evaluation_complete:
+                if self.verbose > 0:
+                    print(f"Evaluation timed out after {self.eval_timeout} seconds")
+                self.evaluation_in_progress = False
+                return True
+            
+            # Check if evaluation had an error
+            if self.evaluation_error is not None:
+                if self.verbose > 0:
+                    print(f"Evaluation failed with error: {self.evaluation_error}")
+                self.evaluation_in_progress = False
+                return True
+            
+            # Get evaluation results
+            episode_rewards, episode_lengths = self.evaluation_results
             mean_reward = np.mean(episode_rewards)
             mean_length = np.mean(episode_lengths)
             
             if self.verbose > 0:
-                print(f"Evaluation at step {self.num_timesteps}: Mean reward = {mean_reward:.2f}, Mean length = {mean_length:.1f}")
+                print(f"Evaluation results: Mean reward = {mean_reward:.2f}, Mean length = {mean_length:.1f}")
             
             # Check minimum thresholds
             if self.min_reward_threshold is not None and mean_reward >= self.min_reward_threshold:
@@ -142,17 +211,27 @@ class CustomTerminationCallback(BaseCallback):
             # Track improvement regardless of thresholds
             # For reward, higher is better
             if mean_reward > self.best_mean_reward:
+                if self.verbose > 0:
+                    improvement = mean_reward - self.best_mean_reward
+                    print(f"New best mean reward: {mean_reward:.2f} (improvement: +{improvement:.2f})")
                 self.best_mean_reward = mean_reward
                 self.reward_steps_without_improvement = 0
             else:
                 self.reward_steps_without_improvement += self.check_freq
+                if self.verbose > 0:
+                    print(f"No improvement in reward for {self.reward_steps_without_improvement} steps. Current: {mean_reward:.2f}, Best: {self.best_mean_reward:.2f}")
                 
             # For episode length, lower is better (typically)
             if mean_length < self.best_mean_length:
+                if self.verbose > 0:
+                    improvement = self.best_mean_length - mean_length
+                    print(f"New best mean length: {mean_length:.1f} (improvement: -{improvement:.1f})")
                 self.best_mean_length = mean_length
                 self.length_steps_without_improvement = 0
             else:
                 self.length_steps_without_improvement += self.check_freq
+                if self.verbose > 0:
+                    print(f"No improvement in episode length for {self.length_steps_without_improvement} steps. Current: {mean_length:.1f}, Best: {self.best_mean_length:.1f}")
             
             # Only apply termination conditions if both minimum thresholds are met
             # or if the thresholds are not specified
@@ -181,10 +260,13 @@ class CustomTerminationCallback(BaseCallback):
                     if self.verbose > 0:
                         print(f"Stopping training as no improvement in episode length for {self.length_steps_without_improvement} steps")
                     return False
-        
+            
+            if self.verbose > 0:
+                print(f"===== Evaluation #{self.evaluation_count} completed =====\n")
+                
         except Exception as e:
             if self.verbose > 0:
-                print(f"Error during evaluation: {e}")
+                print(f"Error during callback logic: {e}")
         finally:
             self.evaluation_in_progress = False
                 
