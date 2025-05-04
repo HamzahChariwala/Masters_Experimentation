@@ -7,15 +7,15 @@ from stable_baselines3.common.monitor import Monitor
 
 from minigrid.wrappers import RGBImgPartialObsWrapper, ImgObsWrapper, FullyObsWrapper, RGBImgObsWrapper, OneHotPartialObsWrapper, NoDeath, DirectionObsWrapper
 
-from EnvironmentEdits.CustomWrappers import (GoalAngleDistanceWrapper, 
+from EnvironmentEdits.BespokeEdits.CustomWrappers import (GoalAngleDistanceWrapper, 
                                              PartialObsWrapper, 
                                              ExtractAbstractGrid, 
                                              PartialRGBObsWrapper, 
                                              PartialGrayObsWrapper, 
                                              ForceFloat32)
-from EnvironmentEdits.FeatureExtractor import CustomCombinedExtractor, SelectiveObservationWrapper
-from EnvironmentEdits.ActionSpace import CustomActionWrapper
-from EnvironmentEdits.GymCompatibility import OldGymCompatibility
+from EnvironmentEdits.BespokeEdits.FeatureExtractor import CustomCombinedExtractor, SelectiveObservationWrapper
+from EnvironmentEdits.BespokeEdits.ActionSpace import CustomActionWrapper
+from EnvironmentEdits.BespokeEdits.GymCompatibility import OldGymCompatibility
 
 
 def make_env(env_id: str, rank: int, env_seed: int, render_mode: str = None,

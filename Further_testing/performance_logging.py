@@ -4,9 +4,9 @@ import json
 import gymnasium as gym
 import numpy as np
 from stable_baselines3 import DQN
-from EnvironmentEdits.ActionSpace import CustomActionWrapper
-from EnvironmentEdits.FeatureExtractor import SelectiveObservationWrapper, CustomCombinedExtractor
-from EnvironmentEdits.CustomWrappers import GoalAngleDistanceWrapper, PartialObsWrapper, ExtractAbstractGrid, PartialRGBObsWrapper, PartialGrayObsWrapper
+from EnvironmentEdits.BespokeEdits.ActionSpace import CustomActionWrapper
+from EnvironmentEdits.BespokeEdits.FeatureExtractor import SelectiveObservationWrapper, CustomCombinedExtractor
+from EnvironmentEdits.BespokeEdits.CustomWrappers import GoalAngleDistanceWrapper, PartialObsWrapper, ExtractAbstractGrid, PartialRGBObsWrapper, PartialGrayObsWrapper
 from gymnasium.wrappers import RecordEpisodeStatistics
 from stable_baselines3.common.monitor import Monitor
 from minigrid.wrappers import FullyObsWrapper
