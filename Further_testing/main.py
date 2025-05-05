@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
 from AgentTraining.TerminalCondition import CustomTerminationCallback
+from AgentTraining.Visualization import visualize_agent_behavior
 
 # ---------------------------------------------------------------
 
@@ -48,37 +49,50 @@ if __name__ == "__main__":
     log_dir = "./logs/dqn_run_2"
     os.makedirs(log_dir, exist_ok=True)
 
-    ENV_ID = 'MiniGrid-LavaCrossingS9N1-v0'
-    NUM_ENVS = 10  # Increased number of environments for better diversity
+    ENV_ID = 'MiniGrid-Empty-8x8-v0'
+    # ENV_ID = 'MiniGrid-LavaCrossingS9N1-v0'
+    NUM_ENVS = 15  # Increased number of environments for better diversity
     
     # Clearly separated seeds for different sources of randomness
-    MODEL_SEED = 42     # For network initialization
+    MODEL_SEED = 811     # For network initialization
     ENV_SEED = 12345    # For environment generation
     EVAL_SEED = 67890   # For evaluation environments
     
     # Evaluation parameters
-    EVAL_TIMEOUT = 10   # Timeout in seconds for each evaluation episode
+    EVAL_TIMEOUT = 15   # Timeout in seconds for each evaluation episode
     
     # NoDeath wrapper parameters
     USE_NO_DEATH = True              # Whether to use the NoDeath wrapper
     NO_DEATH_TYPES = ("lava",)       # Which elements should not cause death
-    DEATH_COST = -0.3                # Penalty for hitting death elements
+    DEATH_COST = 0                   # Penalty for hitting death elements
+
+    # Environment step limit
+    MAX_EPISODE_STEPS = 150         # Maximum steps per episode (None = use env default)
+    
+    # Diagonal move parameters
+    DIAGONAL_SUCCESS_REWARD = 0.25   # Reward for successful diagonal moves
+    DIAGONAL_FAILURE_PENALTY = 0.1  # Penalty for failed diagonal moves
+    
+    # Diagonal movement monitoring
+    MONITOR_DIAGONAL_MOVES = True   # Track diagonal move usage
 
     # Define standard observation parameters
     observation_params = {
         "window_size": 7,
         "cnn_keys": [],
-        "mlp_keys": ["goal_direction_vector",
-                    "goal_angle",
-                    "goal_rotation",
+        "mlp_keys": ["four_way_goal_direction",
+                    "four_way_angle_alignment",
                     "barrier_mask",
-                    "lava_mask",
-                    "goal_mask"],
-        "use_random_spawn": True,          # Enable random agent spawn positions
-        "exclude_goal_adjacent": False,     # Don't spawn next to goal
-        "use_no_death": USE_NO_DEATH,      # Whether to use the NoDeath wrapper
-        "no_death_types": NO_DEATH_TYPES,  # Types that don't cause death
-        "death_cost": DEATH_COST           # Penalty for hitting death elements
+                    "lava_mask"],
+        "use_random_spawn": True,            # Enable random agent spawn positions
+        "exclude_goal_adjacent": False,      # Don't spawn next to goal
+        "use_no_death": USE_NO_DEATH,        # Whether to use the NoDeath wrapper
+        "no_death_types": NO_DEATH_TYPES,    # Types that don't cause death
+        "death_cost": DEATH_COST,            # Penalty for hitting death elements
+        "max_episode_steps": MAX_EPISODE_STEPS,  # Maximum steps per episode
+        "monitor_diagonal_moves": MONITOR_DIAGONAL_MOVES,  # Track diagonal move usage
+        "diagonal_success_reward": DIAGONAL_SUCCESS_REWARD,  # Reward for successful diagonal moves
+        "diagonal_failure_penalty": DIAGONAL_FAILURE_PENALTY  # Penalty for failed diagonal moves
     }
 
     # Set seeds for reproducible model training
@@ -95,6 +109,9 @@ if __name__ == "__main__":
     print(f"Evaluation seed: {EVAL_SEED}")
     print(f"Random agent spawning: {observation_params.get('use_random_spawn', False)}")
     print(f"Evaluation timeout: {EVAL_TIMEOUT} seconds")
+    print(f"Max episode steps: {MAX_EPISODE_STEPS}")
+    print(f"Diagonal success reward: {DIAGONAL_SUCCESS_REWARD}")
+    print(f"Diagonal failure penalty: {DIAGONAL_FAILURE_PENALTY}")
     print(f"NoDeath wrapper: {USE_NO_DEATH}")
     if USE_NO_DEATH:
         print(f"  - Death types: {NO_DEATH_TYPES}")
@@ -134,14 +151,14 @@ if __name__ == "__main__":
         "MultiInputPolicy",
         env,
         policy_kwargs=policy_kwargs,
-        buffer_size=100000,             # Increased buffer size for more diverse experiences
-        learning_starts=10000,          # Allow more random exploration before learning starts
-        batch_size=256,                 # Larger batch size for more stable updates
-        exploration_fraction=0.3,       # Higher exploration rate 
-        exploration_final_eps=0.075,    # Higher final exploration
-        gamma=0.97,                     # Slightly reduced discount factor to focus more on immediate rewards
-        learning_rate=5e-4,             # Adjusted learning rate
-        train_freq=256,
+        buffer_size=10000,             # Increased buffer size for more diverse experiences
+        learning_starts=5000,          # Allow more random exploration before learning starts
+        batch_size=32,                 # Larger batch size for more stable updates
+        exploration_fraction=0.4,      # Higher exploration rate to discover diagonal moves
+        exploration_final_eps=0.05,    # Higher final exploration to keep trying diagonal moves
+        gamma=0.99,                    # Slightly reduced discount factor to focus more on immediate rewards
+        learning_rate=5e-4,            # Adjusted learning rate
+        train_freq=64,
         target_update_interval=1000,
         verbose=1,
         tensorboard_log=log_dir,
@@ -151,9 +168,11 @@ if __name__ == "__main__":
     # Create a modified version of observation_params with random spawn disabled for evaluation
     eval_params = observation_params.copy()
     eval_params["use_random_spawn"] = False  # Disable random spawn for all evaluations
+    # Keep diagonal move monitoring during evaluation
+    eval_params["monitor_diagonal_moves"] = True
 
     # Create multiple evaluation environments with different seeds
-    NUM_EVAL_ENVS = 5  # Number of different evaluation environments
+    NUM_EVAL_ENVS = 15  # Number of different evaluation environments
     eval_envs = []
     
     print("\n====== CREATING EVALUATION ENVIRONMENTS ======")
@@ -197,11 +216,11 @@ if __name__ == "__main__":
     print("==============================\n")
 
     model.learn(
-        total_timesteps=10_000_000, 
+        total_timesteps=100_000, 
         tb_log_name="DQN_MiniGrid",
         callback=termination_callback
     )
-    model.save("dqn_minigrid_agent_simple_lava_test")
+    model.save("dqn_minigrid_agent_empty_test")
 
     # Print final evaluation message
     print("\n====== TRAINING COMPLETE ======")
@@ -268,3 +287,14 @@ if __name__ == "__main__":
             np.min(all_lengths),
             np.max(all_lengths)))
     print("==========================\n")
+    
+    # Visualize the agent's behavior
+    print("\n===== DETAILED AGENT BEHAVIOR ANALYSIS =====")
+    visualize_agent_behavior(
+        model=model,
+        env_id=ENV_ID,
+        observation_params=observation_params,
+        seed=EVAL_SEED + 5000,  # Use a different seed than training/evaluation
+        num_episodes=3,
+        render=False  # Set to True if you have a display available
+    )

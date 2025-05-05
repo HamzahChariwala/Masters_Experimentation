@@ -16,7 +16,10 @@ class GoalAngleDistanceWrapper(ObservationWrapper):
             'goal_angle': spaces.Box(low=0.0, high=np.pi, shape=(), dtype=np.float32),
             'goal_rotation': spaces.MultiBinary(2),  # [left, right]
             'goal_distance': spaces.Box(low=0.0, high=np.inf, shape=(), dtype=np.float32),
-            'goal_direction_vector': spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
+            'goal_direction_vector': spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32),
+            'four_way_goal_direction': spaces.Box(low=0.0, high=1.0, shape=(4,), dtype=np.float32),  # [right, left, down, up]
+            'four_way_angle_alignment': spaces.Box(low=0.0, high=1.0, shape=(4,), dtype=np.float32),  # [aligned, left_turn, right_turn, reverse]
+            'orientation_distance': spaces.Box(low=0.0, high=1.0, shape=(4,), dtype=np.float32)  # [forward, backward, leftward, rightward]
         })
 
     def observation(self, obs):
@@ -60,6 +63,9 @@ class GoalAngleDistanceWrapper(ObservationWrapper):
         angle = 0.0
         rotation = np.array([0, 0], dtype=np.uint8)
         direction_vector = np.array([0.0, 0.0], dtype=np.float32)
+        four_way_goal_direction = np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32)  # [right, left, down, up]
+        four_way_angle_alignment = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)  # Default to perfectly aligned
+        orientation_distance = np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32)  # [forward, backward, leftward, rightward]
 
         if norm_vec_to_goal != 0 and norm_facing_vec != 0:
             # Compute angle between facing vector and vector to goal
@@ -83,7 +89,103 @@ class GoalAngleDistanceWrapper(ObservationWrapper):
 
             # Normalize direction vector
             direction_vector = vec_to_goal / norm_vec_to_goal
-
+            
+            # Create four-way direction representation (non-negative values only)
+            # Convert 2D direction vector to 4D non-negative representation
+            # Order: [right, left, down, up]
+            right = max(0, direction_vector[0])  # Positive x = right
+            left = max(0, -direction_vector[0])  # Negative x = left
+            down = max(0, direction_vector[1])   # Positive y = down
+            up = max(0, -direction_vector[1])    # Negative y = up
+            
+            four_way_goal_direction = np.array([right, left, down, up], dtype=np.float32)
+            
+            # Create four-way angle alignment representation
+            # Order: [aligned, left_turn, right_turn, reverse]
+            # Define angle thresholds
+            aligned_threshold = np.pi / 6     # Within ±30 degrees
+            slight_turn_threshold = np.pi / 3  # Within ±60 degrees
+            large_turn_threshold = 2 * np.pi / 3  # Within ±120 degrees
+            
+            # Calculate the component values based on the angle and rotation direction
+            if angle <= aligned_threshold:
+                # Mostly aligned with the goal
+                aligned_value = 1.0 - (angle / aligned_threshold)
+                
+                # Slight turn needed (decreases as alignment increases)
+                turn_value = angle / aligned_threshold
+                
+                if cross > 0:  # Left turn needed
+                    four_way_angle_alignment = np.array([aligned_value, turn_value, 0.0, 0.0], dtype=np.float32)
+                elif cross < 0:  # Right turn needed
+                    four_way_angle_alignment = np.array([aligned_value, 0.0, turn_value, 0.0], dtype=np.float32)
+                else:  # Perfect alignment
+                    four_way_angle_alignment = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+                    
+            elif angle <= slight_turn_threshold:
+                # Moderate turn needed
+                turn_intensity = (angle - aligned_threshold) / (slight_turn_threshold - aligned_threshold)
+                
+                if cross > 0:  # Left turn needed
+                    four_way_angle_alignment = np.array([0.0, turn_intensity, 0.0, 0.0], dtype=np.float32)
+                elif cross < 0:  # Right turn needed
+                    four_way_angle_alignment = np.array([0.0, 0.0, turn_intensity, 0.0], dtype=np.float32)
+                    
+            elif angle <= large_turn_threshold:
+                # Large turn needed
+                turn_intensity = (angle - slight_turn_threshold) / (large_turn_threshold - slight_turn_threshold)
+                
+                if cross > 0:  # Left turn needed
+                    four_way_angle_alignment = np.array([0.0, 1.0, 0.0, turn_intensity], dtype=np.float32)
+                elif cross < 0:  # Right turn needed
+                    four_way_angle_alignment = np.array([0.0, 0.0, 1.0, turn_intensity], dtype=np.float32)
+                    
+            else:
+                # Almost completely reversed - prioritize the "reverse" component
+                reverse_intensity = (angle - large_turn_threshold) / (np.pi - large_turn_threshold)
+                
+                if cross > 0:  # Left turn suggested for reversing
+                    four_way_angle_alignment = np.array([0.0, 1.0 - reverse_intensity, 0.0, reverse_intensity], dtype=np.float32)
+                elif cross < 0:  # Right turn suggested for reversing
+                    four_way_angle_alignment = np.array([0.0, 0.0, 1.0 - reverse_intensity, reverse_intensity], dtype=np.float32)
+                else:  # Exactly reversed
+                    four_way_angle_alignment = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32)
+            
+            # Create orientation-aware distance
+            # Order: [forward, backward, leftward, rightward]
+            
+            # Define the agent's orientation vectors
+            forward_vec = facing_vec  # Agent's forward direction
+            backward_vec = -facing_vec  # Agent's backward direction
+            
+            # The left and right vectors are perpendicular to the forward direction
+            # For 2D, this is a 90-degree rotation
+            leftward_vec = np.array([-facing_vec[1], facing_vec[0]])  # 90° CCW
+            rightward_vec = np.array([facing_vec[1], -facing_vec[0]])  # 90° CW
+            
+            # Project the goal vector onto each orientation vector
+            # This gives us how far the goal is in each direction
+            forward_proj = max(0.0, np.dot(vec_to_goal, forward_vec))
+            backward_proj = max(0.0, np.dot(vec_to_goal, backward_vec))
+            leftward_proj = max(0.0, np.dot(vec_to_goal, leftward_vec))
+            rightward_proj = max(0.0, np.dot(vec_to_goal, rightward_vec))
+            
+            # Normalize these distances based on the grid dimensions
+            # to ensure values are in [0,1] range
+            max_possible_distance = np.sqrt(grid.width**2 + grid.height**2)
+            
+            forward_norm = min(1.0, forward_proj / max_possible_distance)
+            backward_norm = min(1.0, backward_proj / max_possible_distance)
+            leftward_norm = min(1.0, leftward_proj / max_possible_distance)
+            rightward_norm = min(1.0, rightward_proj / max_possible_distance)
+            
+            orientation_distance = np.array([
+                forward_norm,
+                backward_norm,
+                leftward_norm,
+                rightward_norm
+            ], dtype=np.float32)
+            
         # Euclidean distance
         distance = norm_vec_to_goal
 
@@ -92,6 +194,9 @@ class GoalAngleDistanceWrapper(ObservationWrapper):
         obs['goal_rotation'] = rotation
         obs['goal_distance'] = distance
         obs['goal_direction_vector'] = direction_vector
+        obs['four_way_goal_direction'] = four_way_goal_direction
+        obs['four_way_angle_alignment'] = four_way_angle_alignment
+        obs['orientation_distance'] = orientation_distance
 
         return obs
 
@@ -463,5 +568,90 @@ class RandomSpawnWrapper(gym.Wrapper):
             pass
             
         return obs, info
+
+
+class DiagonalMoveMonitor(gym.Wrapper):
+    """
+    A wrapper that monitors the usage of diagonal moves.
+    """
+    def __init__(self, env):
+        super().__init__(env)
+        self.reset_stats()
+        self.episode_count = 0
+        self.episode_history = []
+        
+    def reset_stats(self):
+        self.total_steps = 0
+        self.action_counts = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}  # Count of each action type
+        self.diagonal_steps = 0
+        self.successful_diagonal_steps = 0
+        self.left_diagonal_steps = 0
+        self.right_diagonal_steps = 0
+        
+    def step(self, action):
+        # Count the raw action before it's processed
+        self.action_counts[action] = self.action_counts.get(action, 0) + 1
+        
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        
+        self.total_steps += 1
+        
+        # Check if this was a diagonal move
+        if "action" in info and info["action"] == "diagonal":
+            self.diagonal_steps += 1
+            
+            # Check if it was successful
+            if "failed" not in info or not info["failed"]:
+                self.successful_diagonal_steps += 1
+                
+                # Track direction
+                if info["diag_direction"] == "left":
+                    self.left_diagonal_steps += 1
+                elif info["diag_direction"] == "right":
+                    self.right_diagonal_steps += 1
+                    
+        if terminated or truncated:
+            # Print statistics at the end of each episode
+            if self.total_steps > 0:
+                success_rate = 0
+                if self.diagonal_steps > 0:
+                    success_rate = (self.successful_diagonal_steps / self.diagonal_steps) * 100
+                
+                # Store episode statistics
+                self.episode_count += 1
+                episode_stats = {
+                    "episode": self.episode_count,
+                    "total_steps": self.total_steps,
+                    "action_counts": dict(self.action_counts),
+                    "diagonal_attempts": self.diagonal_steps,
+                    "diagonal_success": self.successful_diagonal_steps,
+                    "success_rate": success_rate,
+                    "left_diagonal": self.left_diagonal_steps,
+                    "right_diagonal": self.right_diagonal_steps
+                }
+                self.episode_history.append(episode_stats)
+                
+                # Only print every 10 episodes to avoid too much output
+                if self.episode_count % 10 == 0:
+                    print("\n===== Diagonal Move Statistics (Episode {}) =====".format(self.episode_count))
+                    print(f"Total steps: {self.total_steps}")
+                    print(f"Action counts: {self.action_counts}")
+                    print(f"Diagonal attempts: {self.diagonal_steps} ({self.diagonal_steps/self.total_steps*100:.1f}%)")
+                    if self.diagonal_steps > 0:
+                        print(f"Successful diagonal moves: {self.successful_diagonal_steps} ({success_rate:.1f}%)")
+                        print(f"Left diagonal: {self.left_diagonal_steps}, Right diagonal: {self.right_diagonal_steps}")
+                    print("==================================\n")
+                
+                # Reset stats for next episode
+                self.reset_stats()
+                
+        return obs, reward, terminated, truncated, info
+    
+    def reset(self, **kwargs):
+        return self.env.reset(**kwargs)
+        
+    def get_episode_history(self):
+        """Return the full history of episode statistics"""
+        return self.episode_history
 
 

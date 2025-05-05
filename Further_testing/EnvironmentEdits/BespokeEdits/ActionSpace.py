@@ -2,10 +2,13 @@ import numpy as np
 import gymnasium as gym
 
 class CustomActionWrapper(gym.ActionWrapper):
-    def __init__(self, env):
+    def __init__(self, env, diagonal_success_reward=1.5, diagonal_failure_penalty=0.1):
         super().__init__(env)
         # New action space: 3 preserved + 2 diagonal actions.
         self.action_space = gym.spaces.Discrete(5)
+        # Configurable reward values
+        self.diagonal_success_reward = diagonal_success_reward
+        self.diagonal_failure_penalty = diagonal_failure_penalty
     
     def _diagonal_move(self, diag_direction: str):
         # Compute vectors similar to CustomDiagonalEmptyEnv.
@@ -25,7 +28,8 @@ class CustomActionWrapper(gym.ActionWrapper):
         # Ensure the new position is within bounds and walkable.
         if hasattr(self.env, 'width') and hasattr(self.env, 'height'):
             if not (0 <= new_pos[0] < self.env.width and 0 <= new_pos[1] < self.env.height):
-                return self.env.gen_obs(), 0, False, False, {"action": "diagonal", "diag_direction": diag_direction, "failed": True}
+                # Return a configurable negative reward when trying to move out of bounds
+                return self.env.gen_obs(), -self.diagonal_failure_penalty, False, False, {"action": "diagonal", "diag_direction": diag_direction, "failed": True}
 
         walkable = self.env._is_walkable(new_pos) if hasattr(self.env, "_is_walkable") else True
 
@@ -35,6 +39,8 @@ class CustomActionWrapper(gym.ActionWrapper):
             # print(f"Diagonal move taken: {diag_direction}, New Position: {self.env.agent_pos}")
         else:
             info = {"action": "diagonal", "diag_direction": diag_direction, "failed": True}
+            # Return the current observation but with a configurable negative reward for failed diagonal move
+            return self.env.gen_obs(), -self.diagonal_failure_penalty, False, False, info
 
         if hasattr(self.env, "step_count"):
             self.env.step_count += 1
@@ -42,7 +48,9 @@ class CustomActionWrapper(gym.ActionWrapper):
         terminated = hasattr(self.env, "max_steps") and (self.env.step_count >= self.env.max_steps)
         truncated = False
         obs = self.env.gen_obs() if hasattr(self.env, "gen_obs") else self.env.observation_space.sample()
-        reward = 0 if walkable else 0
+        
+        # Give a configurable higher reward for successful diagonal moves
+        reward = self.diagonal_success_reward if walkable else 0
         return obs, reward, terminated, truncated, info
 
     def step(self, action):
@@ -83,6 +91,6 @@ class CustomActionWrapper(gym.ActionWrapper):
 #     def reverse_action(self, action):
 #         """
 #         (Optional) Convert a multi-discrete vector back to a flat index,
-#         if you ever need to inspect the env’s raw action.
+#         if you ever need to inspect the env's raw action.
 #         """
 #         return int(np.ravel_multi_index(action, self.nvec))

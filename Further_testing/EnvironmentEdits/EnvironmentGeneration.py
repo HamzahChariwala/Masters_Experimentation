@@ -1,5 +1,5 @@
 import gymnasium as gym
-from gymnasium.wrappers import RecordEpisodeStatistics
+from gymnasium.wrappers import RecordEpisodeStatistics, TimeLimit
 from gymnasium.vector import AsyncVectorEnv
 from gymnasium.spaces import MultiDiscrete
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
@@ -14,7 +14,8 @@ from EnvironmentEdits.BespokeEdits.CustomWrappers import (GoalAngleDistanceWrapp
                                              PartialRGBObsWrapper, 
                                              PartialGrayObsWrapper, 
                                              ForceFloat32,
-                                             RandomSpawnWrapper)
+                                             RandomSpawnWrapper,
+                                             DiagonalMoveMonitor)
 from EnvironmentEdits.BespokeEdits.FeatureExtractor import CustomCombinedExtractor, SelectiveObservationWrapper
 from EnvironmentEdits.BespokeEdits.ActionSpace import CustomActionWrapper
 from EnvironmentEdits.BespokeEdits.GymCompatibility import OldGymCompatibility
@@ -23,17 +24,29 @@ from EnvironmentEdits.BespokeEdits.GymCompatibility import OldGymCompatibility
 def make_env(env_id: str, rank: int, env_seed: int, render_mode: str = None,
     window_size: int = 5, cnn_keys: list = None, mlp_keys: list = None, 
     use_random_spawn: bool = False, exclude_goal_adjacent: bool = True,
-    use_no_death: bool = True, no_death_types: tuple = ("lava",), death_cost: float = -0.25) -> callable:
+    use_no_death: bool = True, no_death_types: tuple = ("lava",), death_cost: float = -0.25,
+    max_episode_steps: int = None, monitor_diagonal_moves: bool = False,
+    diagonal_success_reward: float = 1.5, diagonal_failure_penalty: float = 0.1) -> callable:
 
     # Always use an explicit render_mode (default to None if not provided)
     env = gym.make(env_id, render_mode=render_mode)
+
+    # Apply TimeLimit wrapper if max_episode_steps is specified
+    if max_episode_steps is not None:
+        env = TimeLimit(env, max_episode_steps=max_episode_steps)
 
     # Apply NoDeath wrapper to prevent episode termination on death if requested
     if use_no_death:
         env = NoDeath(env, no_death_types=no_death_types, death_cost=death_cost)
     
     # Wrap environment with our custom action wrapper
-    env = CustomActionWrapper(env)
+    env = CustomActionWrapper(env, 
+                             diagonal_success_reward=diagonal_success_reward, 
+                             diagonal_failure_penalty=diagonal_failure_penalty)
+    
+    # Add diagonal movement monitoring if requested
+    if monitor_diagonal_moves:
+        env = DiagonalMoveMonitor(env)
 
     env = RecordEpisodeStatistics(env)
     env = FullyObsWrapper(env)
@@ -70,7 +83,9 @@ def make_env(env_id: str, rank: int, env_seed: int, render_mode: str = None,
 def make_parallel_env(env_id: str, num_envs: int, env_seed: int, window_size: int = 5, 
                       cnn_keys: list = None, mlp_keys: list = None, use_different_envs: bool = True, 
                       seed_offset: int = 0, use_random_spawn: bool = False, exclude_goal_adjacent: bool = True,
-                      use_no_death: bool = True, no_death_types: tuple = ("lava",), death_cost: float = -0.25):
+                      use_no_death: bool = True, no_death_types: tuple = ("lava",), death_cost: float = -0.25,
+                      max_episode_steps: int = None, monitor_diagonal_moves: bool = False,
+                      diagonal_success_reward: float = 1.5, diagonal_failure_penalty: float = 0.1):
     """
     Create a parallelized environment using SubprocVecEnv.
     
@@ -103,6 +118,14 @@ def make_parallel_env(env_id: str, num_envs: int, env_seed: int, window_size: in
         Types of elements that shouldn't cause death (e.g., "lava")
     death_cost : float
         Penalty applied when agent would normally die but is prevented by the wrapper
+    max_episode_steps : int
+        Maximum number of steps per episode before truncation. If None, uses environment default.
+    monitor_diagonal_moves : bool
+        If True, apply the DiagonalMoveMonitor wrapper to track diagonal move usage
+    diagonal_success_reward : float
+        Reward for successful diagonal moves
+    diagonal_failure_penalty : float
+        Penalty for failed diagonal moves
         
     Returns:
     -------
@@ -139,7 +162,11 @@ def make_parallel_env(env_id: str, num_envs: int, env_seed: int, window_size: in
                 exclude_goal_adjacent=exclude_goal_adjacent,
                 use_no_death=use_no_death,
                 no_death_types=no_death_types,
-                death_cost=death_cost
+                death_cost=death_cost,
+                max_episode_steps=max_episode_steps,
+                monitor_diagonal_moves=monitor_diagonal_moves,
+                diagonal_success_reward=diagonal_success_reward,
+                diagonal_failure_penalty=diagonal_failure_penalty
             )
             return env
         return _init
@@ -194,7 +221,9 @@ def generate_env_seeds(base_seed: int, num_envs: int, separation: int = 1000):
 def make_diverse_parallel_env(env_id: str, num_envs: int, env_seed: int, 
                              window_size: int = 5, cnn_keys: list = None, mlp_keys: list = None,
                              use_random_spawn: bool = False, exclude_goal_adjacent: bool = True,
-                             use_no_death: bool = True, no_death_types: tuple = ("lava",), death_cost: float = -0.25):
+                             use_no_death: bool = True, no_death_types: tuple = ("lava",), death_cost: float = -0.25,
+                             max_episode_steps: int = None, monitor_diagonal_moves: bool = False,
+                             diagonal_success_reward: float = 1.5, diagonal_failure_penalty: float = 0.1):
     """
     Create a parallelized environment with diverse, reproducible seeds.
     
@@ -222,6 +251,14 @@ def make_diverse_parallel_env(env_id: str, num_envs: int, env_seed: int,
         Types of elements that shouldn't cause death (e.g., "lava")
     death_cost : float
         Penalty applied when agent would normally die but is prevented by the wrapper
+    max_episode_steps : int
+        Maximum number of steps per episode before truncation. If None, uses environment default.
+    monitor_diagonal_moves : bool
+        If True, apply the DiagonalMoveMonitor wrapper to track diagonal move usage
+    diagonal_success_reward : float
+        Reward for successful diagonal moves
+    diagonal_failure_penalty : float
+        Penalty for failed diagonal moves
         
     Returns:
     -------
@@ -260,7 +297,11 @@ def make_diverse_parallel_env(env_id: str, num_envs: int, env_seed: int,
                 exclude_goal_adjacent=exclude_goal_adjacent,
                 use_no_death=use_no_death,
                 no_death_types=no_death_types,
-                death_cost=death_cost
+                death_cost=death_cost,
+                max_episode_steps=max_episode_steps,
+                monitor_diagonal_moves=monitor_diagonal_moves,
+                diagonal_success_reward=diagonal_success_reward,
+                diagonal_failure_penalty=diagonal_failure_penalty
             )
             return env
         return _init
@@ -270,9 +311,42 @@ def make_diverse_parallel_env(env_id: str, num_envs: int, env_seed: int,
 
 def make_eval_env(env_id: str, seed: int, window_size: int = 5, cnn_keys: list = None, 
                  mlp_keys: list = None, use_random_spawn: bool = False, exclude_goal_adjacent: bool = True,
-                 use_no_death: bool = True, no_death_types: tuple = ("lava",), death_cost: float = -0.25):
+                 use_no_death: bool = True, no_death_types: tuple = ("lava",), death_cost: float = -0.25,
+                 max_episode_steps: int = None, monitor_diagonal_moves: bool = False,
+                 diagonal_success_reward: float = 1.5, diagonal_failure_penalty: float = 0.1):
     """
     Create a properly configured evaluation environment.
+    
+    Parameters:
+    ----------
+    env_id : str
+        The environment ID to create
+    seed : int
+        Seed for the environment
+    window_size : int
+        Size of observation window
+    cnn_keys : list
+        List of CNN observation keys to include
+    mlp_keys : list
+        List of MLP observation keys to include
+    use_random_spawn : bool
+        If True, agent will spawn at random empty locations
+    exclude_goal_adjacent : bool 
+        If True and use_random_spawn is True, agent won't spawn adjacent to goal
+    use_no_death : bool
+        If True, apply the NoDeath wrapper to prevent episode termination on death
+    no_death_types : tuple
+        Types of elements that shouldn't cause death (e.g., "lava")
+    death_cost : float
+        Penalty applied when agent would normally die but is prevented by the wrapper
+    max_episode_steps : int
+        Maximum number of steps per episode before truncation. If None, uses environment default.
+    monitor_diagonal_moves : bool
+        If True, apply the DiagonalMoveMonitor wrapper to track diagonal move usage
+    diagonal_success_reward : float
+        Reward for successful diagonal moves
+    diagonal_failure_penalty : float
+        Penalty for failed diagonal moves
     """
     print(f"\n====== EVALUATION ENVIRONMENT ======")
     print(f"Creating evaluation environment with seed: {seed}")
@@ -281,17 +355,27 @@ def make_eval_env(env_id: str, seed: int, window_size: int = 5, cnn_keys: list =
         print(f"NoDeath wrapper: active, types={no_death_types}, cost={death_cost}")
     else:
         print(f"NoDeath wrapper: disabled")
+    if max_episode_steps is not None:
+        print(f"Max episode steps: {max_episode_steps}")
+    print(f"Diagonal success reward: {diagonal_success_reward}")
+    print(f"Diagonal failure penalty: {diagonal_failure_penalty}")
     print("====================================\n")
     
     # Create the environment with explicit render_mode=None to avoid warning
     env = gym.make(env_id, render_mode=None)
+    
+    # Apply TimeLimit wrapper if max_episode_steps is specified
+    if max_episode_steps is not None:
+        env = TimeLimit(env, max_episode_steps=max_episode_steps)
     
     # Apply NoDeath wrapper to prevent episode termination on death if requested
     if use_no_death:
         env = NoDeath(env, no_death_types=no_death_types, death_cost=death_cost)
     
     # Apply necessary wrappers - keeping all original observation features
-    env = CustomActionWrapper(env)
+    env = CustomActionWrapper(env, 
+                             diagonal_success_reward=diagonal_success_reward, 
+                             diagonal_failure_penalty=diagonal_failure_penalty)
     env = RecordEpisodeStatistics(env)
     env = FullyObsWrapper(env)
     
