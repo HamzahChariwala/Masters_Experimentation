@@ -4,6 +4,9 @@ import threading
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 
+# Import performance tracker
+from AgentTraining.Tooling import PerformanceTracker
+
 class CustomTerminationCallback(BaseCallback):
     """
     Custom callback for checking termination conditions during training.
@@ -33,6 +36,7 @@ class CustomTerminationCallback(BaseCallback):
         max_no_improvement_length_steps: Stop if no improvement in episode length for this many steps (default: None)
         n_eval_episodes: Number of episodes to evaluate for performance checks (default: 10)
         eval_timeout: Maximum time in seconds to wait for evaluation to complete (default: 30)
+        log_dir: Directory to save performance plots (default: "./logs/performance")
         verbose: Verbosity level (default: 1)
     """
     
@@ -49,6 +53,7 @@ class CustomTerminationCallback(BaseCallback):
         max_no_improvement_length_steps=None,
         n_eval_episodes=10,
         eval_timeout=30,
+        log_dir="./logs/performance",
         verbose=1
     ):
         super().__init__(verbose)
@@ -75,6 +80,7 @@ class CustomTerminationCallback(BaseCallback):
         
         self.n_eval_episodes = n_eval_episodes
         self.eval_timeout = eval_timeout
+        self.log_dir = log_dir
         
         # State tracking variables
         self.start_time = None
@@ -85,6 +91,9 @@ class CustomTerminationCallback(BaseCallback):
         self.episode_count = 0
         self.reward_threshold_met = False
         self.length_threshold_met = False
+        
+        # Performance tracking
+        self.performance_tracker = PerformanceTracker(log_dir=log_dir)
         
         # Safety variables
         self.evaluation_in_progress = False
@@ -162,6 +171,16 @@ class CustomTerminationCallback(BaseCallback):
         if len(self.model.ep_info_buffer) > 0:
             self.episode_count = len(self.model.ep_info_buffer)
             
+            # Update training metrics in the performance tracker
+            train_rewards = [ep_info["r"] for ep_info in self.model.ep_info_buffer]
+            train_lengths = [ep_info["l"] for ep_info in self.model.ep_info_buffer]
+            self.performance_tracker.update_train_metrics(
+                self.num_timesteps, 
+                train_rewards, 
+                train_lengths, 
+                self.episode_count
+            )
+            
         # Check episode count termination immediately without expensive evaluation
         if self.max_episodes is not None and self.episode_count >= self.max_episodes:
             if self.verbose > 0:
@@ -229,11 +248,22 @@ class CustomTerminationCallback(BaseCallback):
             mean_reward = np.mean(episode_rewards)
             mean_length = np.mean(episode_lengths)
             
+            # Update the performance tracker with evaluation results
+            self.performance_tracker.update_eval_metrics(
+                self.num_timesteps,
+                episode_rewards,
+                episode_lengths
+            )
+            
+            # Generate performance plots
+            self.performance_tracker.plot_performance(save=True, show=False)
+            
             if self.verbose > 0:
                 print(f"Aggregated results across all environments:")
                 print(f"  Mean reward = {mean_reward:.2f}, Std = {np.std(episode_rewards):.2f}")
                 print(f"  Mean length = {mean_length:.1f}, Std = {np.std(episode_lengths):.1f}")
                 print(f"  Min reward = {np.min(episode_rewards):.2f}, Max reward = {np.max(episode_rewards):.2f}")
+                print(f"  Performance plots saved to {self.log_dir}")
             
             # Check minimum thresholds
             if self.min_reward_threshold is not None and mean_reward >= self.min_reward_threshold:

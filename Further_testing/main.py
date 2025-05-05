@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
 from AgentTraining.TerminalCondition import CustomTerminationCallback
-from AgentTraining.Visualization import visualize_agent_behavior
+from AgentTraining.Tooling import visualize_agent_behavior, evaluate_with_timeout
 
 # ---------------------------------------------------------------
 
@@ -48,6 +48,10 @@ if __name__ == "__main__":
 
     log_dir = "./logs/dqn_run_2"
     os.makedirs(log_dir, exist_ok=True)
+    
+    # Create directory for performance tracking
+    performance_log_dir = os.path.join(log_dir, "performance")
+    os.makedirs(performance_log_dir, exist_ok=True)
 
     ENV_ID = 'MiniGrid-Empty-8x8-v0'
     # ENV_ID = 'MiniGrid-LavaCrossingS9N1-v0'
@@ -194,12 +198,13 @@ if __name__ == "__main__":
     # Create termination callback with improved evaluation settings and multiple environments
     termination_callback = CustomTerminationCallback(
         eval_envs=eval_envs,  # Pass list of environments instead of single environment
-        check_freq=50000,                # Check every 50k steps
+        check_freq=5000,                # Check every 50k steps
         min_reward_threshold=0.9,        # Minimum reward to meet before applying termination conditions
         target_reward_threshold=0.95,    # Target reward to achieve
         max_runtime=30000,               # Maximum runtime in seconds (about 8 hours)
         n_eval_episodes=1,               # Only evaluate on a single episode per environment
         eval_timeout=EVAL_TIMEOUT,       # Use the configurable timeout parameter
+        log_dir=performance_log_dir,     # Directory for performance tracking
         verbose=1
     )
 
@@ -230,8 +235,10 @@ if __name__ == "__main__":
     # Final evaluation across multiple environments
     NUM_FINAL_EVAL_ENVS = 10  # More environments for final evaluation
     EPISODES_PER_ENV = 3      # Multiple episodes per environment
+    FINAL_EVAL_TIMEOUT = 3   # Timeout in seconds per environment evaluation
     
     print(f"Evaluating on {NUM_FINAL_EVAL_ENVS} environments, {EPISODES_PER_ENV} episodes each")
+    print(f"Timeout per environment: {FINAL_EVAL_TIMEOUT} seconds")
     
     all_rewards = []
     all_lengths = []
@@ -245,15 +252,21 @@ if __name__ == "__main__":
             **eval_params
         )
         
-        # Evaluate on this environment
-        env_rewards, env_lengths = evaluate_policy(
-            model,
-            final_eval_env,
+        # Use our timeout evaluation function
+        env_rewards, env_lengths, error = evaluate_with_timeout(
+            model=model,
+            env=final_eval_env,
             n_eval_episodes=EPISODES_PER_ENV,
-            deterministic=True,
-            return_episode_rewards=True,
+            timeout=FINAL_EVAL_TIMEOUT,
+            deterministic=True
         )
         
+        # Handle evaluation result
+        if error:
+            print(f"Environment {i+1}/{NUM_FINAL_EVAL_ENVS} (Seed: {final_eval_seed}): {error}")
+            final_eval_env.close()
+            continue
+            
         # Store results
         all_rewards.extend(env_rewards)
         all_lengths.extend(env_lengths)
@@ -273,21 +286,35 @@ if __name__ == "__main__":
         
         # Close the environment
         final_eval_env.close()
-
-    print("\n====== FINAL RESULTS (All Environments) ======")
-    print(f"Total episodes evaluated: {len(all_rewards)}")
-    print("Rewards   : mean %.3f  std %.3f  min %.3f  max %.3f"
-        % (np.mean(all_rewards),
-            np.std(all_rewards),
-            np.min(all_rewards),
-            np.max(all_rewards)))
-    print("Lengths   : mean %.1f  std %.1f  min %d    max %d"
-        % (np.mean(all_lengths),
-            np.std(all_lengths),
-            np.min(all_lengths),
-            np.max(all_lengths)))
+        
+    # Only print overall results if we have any
+    if len(all_rewards) > 0:
+        print("\n====== FINAL RESULTS (All Environments) ======")
+        print(f"Total episodes evaluated: {len(all_rewards)}")
+        print("Rewards   : mean %.3f  std %.3f  min %.3f  max %.3f"
+            % (np.mean(all_rewards),
+                np.std(all_rewards),
+                np.min(all_rewards),
+                np.max(all_rewards)))
+        print("Lengths   : mean %.1f  std %.1f  min %d    max %d"
+            % (np.mean(all_lengths),
+                np.std(all_lengths),
+                np.min(all_lengths),
+                np.max(all_lengths)))
+    else:
+        print("\n====== FINAL RESULTS ======")
+        print("No valid evaluation results obtained")
     print("==========================\n")
     
+    # Display final performance comparison if available
+    if hasattr(termination_callback, "performance_tracker"):
+        print("\n====== TRAINING VS EVALUATION PERFORMANCE ======")
+        print("Generating final performance comparison plots...")
+        # Generate final plots with the show option set to False (we're in headless mode)
+        termination_callback.performance_tracker.plot_performance(save=True, show=False)
+        print(f"Performance plots saved to: {performance_log_dir}")
+        print("===============================================\n")
+
     # Visualize the agent's behavior
     print("\n===== DETAILED AGENT BEHAVIOR ANALYSIS =====")
     visualize_agent_behavior(
