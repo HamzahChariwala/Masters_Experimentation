@@ -62,11 +62,11 @@ if __name__ == "__main__":
     # NoDeath wrapper parameters
     USE_NO_DEATH = True              # Whether to use the NoDeath wrapper
     NO_DEATH_TYPES = ("lava",)       # Which elements should not cause death
-    DEATH_COST = -0.1                # Penalty for hitting death elements
+    DEATH_COST = -0.3                # Penalty for hitting death elements
 
     # Define standard observation parameters
     observation_params = {
-        "window_size": 5,
+        "window_size": 7,
         "cnn_keys": [],
         "mlp_keys": ["goal_direction_vector",
                     "goal_angle",
@@ -152,21 +152,34 @@ if __name__ == "__main__":
     eval_params = observation_params.copy()
     eval_params["use_random_spawn"] = False  # Disable random spawn for all evaluations
 
-    # Use the dedicated function to create a properly configured eval environment
-    eval_env = Env.make_eval_env(
-        env_id=ENV_ID, 
-        seed=EVAL_SEED,  # Separate seed for evaluation
-        **eval_params
-    )
+    # Create multiple evaluation environments with different seeds
+    NUM_EVAL_ENVS = 5  # Number of different evaluation environments
+    eval_envs = []
+    
+    print("\n====== CREATING EVALUATION ENVIRONMENTS ======")
+    print(f"Creating {NUM_EVAL_ENVS} evaluation environments with different seeds")
+    
+    for i in range(NUM_EVAL_ENVS):
+        # Use different seeds for each evaluation environment
+        eval_seed = EVAL_SEED + (i * 1000)  # Well-spaced seeds
+        eval_env = Env.make_eval_env(
+            env_id=ENV_ID, 
+            seed=eval_seed,
+            **eval_params
+        )
+        eval_envs.append(eval_env)
+    
+    print(f"Created {len(eval_envs)} evaluation environments")
+    print("=============================================\n")
 
-    # Create termination callback with improved evaluation settings
+    # Create termination callback with improved evaluation settings and multiple environments
     termination_callback = CustomTerminationCallback(
-        eval_env=eval_env,
+        eval_envs=eval_envs,  # Pass list of environments instead of single environment
         check_freq=50000,                # Check every 50k steps
         min_reward_threshold=0.9,        # Minimum reward to meet before applying termination conditions
         target_reward_threshold=0.95,    # Target reward to achieve
         max_runtime=30000,               # Maximum runtime in seconds (about 8 hours)
-        n_eval_episodes=1,               # Only evaluate on a single episode
+        n_eval_episodes=1,               # Only evaluate on a single episode per environment
         eval_timeout=EVAL_TIMEOUT,       # Use the configurable timeout parameter
         verbose=1
     )
@@ -175,7 +188,9 @@ if __name__ == "__main__":
     print("\n====== STARTING TRAINING ======")
     print(f"Target timesteps: 1,000,000")
     print(f"Evaluation frequency: Every {termination_callback.check_freq} steps")
-    print(f"Evaluation episodes: {termination_callback.n_eval_episodes}")
+    print(f"Evaluation environments: {NUM_EVAL_ENVS}")
+    print(f"Evaluation episodes per environment: {termination_callback.n_eval_episodes}")
+    print(f"Total evaluation episodes: {NUM_EVAL_ENVS * termination_callback.n_eval_episodes}")
     print(f"Evaluation timeout: {EVAL_TIMEOUT} seconds")
     print(f"Random spawn during training: {observation_params['use_random_spawn']}")
     print(f"Random spawn during evaluation: {eval_params['use_random_spawn']}")
@@ -193,31 +208,63 @@ if __name__ == "__main__":
     print("Running final evaluation...")
     print("==============================\n")
 
-    # Create a fresh evaluation environment for final assessment
-    final_eval_env = Env.make_eval_env(
-        env_id=ENV_ID, 
-        seed=EVAL_SEED + 1000,  # Different seed for final evaluation
-        **eval_params  # Use the modified parameters without random spawn
-    )
+    # Final evaluation across multiple environments
+    NUM_FINAL_EVAL_ENVS = 10  # More environments for final evaluation
+    EPISODES_PER_ENV = 3      # Multiple episodes per environment
+    
+    print(f"Evaluating on {NUM_FINAL_EVAL_ENVS} environments, {EPISODES_PER_ENV} episodes each")
+    
+    all_rewards = []
+    all_lengths = []
+    
+    for i in range(NUM_FINAL_EVAL_ENVS):
+        # Create a fresh evaluation environment with a different seed
+        final_eval_seed = EVAL_SEED + 2000 + (i * 1000)  # Different seeds than those used during training
+        final_eval_env = Env.make_eval_env(
+            env_id=ENV_ID, 
+            seed=final_eval_seed,
+            **eval_params
+        )
+        
+        # Evaluate on this environment
+        env_rewards, env_lengths = evaluate_policy(
+            model,
+            final_eval_env,
+            n_eval_episodes=EPISODES_PER_ENV,
+            deterministic=True,
+            return_episode_rewards=True,
+        )
+        
+        # Store results
+        all_rewards.extend(env_rewards)
+        all_lengths.extend(env_lengths)
+        
+        # Print per-environment results
+        print(f"Environment {i+1}/{NUM_FINAL_EVAL_ENVS} (Seed: {final_eval_seed}):")
+        print("  Rewards   : mean %.3f  std %.3f  min %.3f  max %.3f"
+            % (np.mean(env_rewards),
+                np.std(env_rewards),
+                np.min(env_rewards),
+                np.max(env_rewards)))
+        print("  Lengths   : mean %.1f  std %.1f  min %d    max %d"
+            % (np.mean(env_lengths),
+                np.std(env_lengths),
+                np.min(env_lengths),
+                np.max(env_lengths)))
+        
+        # Close the environment
+        final_eval_env.close()
 
-    print("Running final evaluation...")
-    episode_rewards, episode_lengths = evaluate_policy(
-        model,
-        final_eval_env,
-        n_eval_episodes=15,  # More episodes for final evaluation
-        deterministic=True,
-        return_episode_rewards=True,
-    )
-
-    print("\n====== FINAL RESULTS ======")
+    print("\n====== FINAL RESULTS (All Environments) ======")
+    print(f"Total episodes evaluated: {len(all_rewards)}")
     print("Rewards   : mean %.3f  std %.3f  min %.3f  max %.3f"
-        % (np.mean(episode_rewards),
-            np.std(episode_rewards),
-            np.min(episode_rewards),
-            np.max(episode_rewards)))
+        % (np.mean(all_rewards),
+            np.std(all_rewards),
+            np.min(all_rewards),
+            np.max(all_rewards)))
     print("Lengths   : mean %.1f  std %.1f  min %d    max %d"
-        % (np.mean(episode_lengths),
-            np.std(episode_lengths),
-            np.min(episode_lengths),
-            np.max(episode_lengths)))
+        % (np.mean(all_lengths),
+            np.std(all_lengths),
+            np.min(all_lengths),
+            np.max(all_lengths)))
     print("==========================\n")

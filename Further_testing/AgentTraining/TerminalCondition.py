@@ -22,7 +22,7 @@ class CustomTerminationCallback(BaseCallback):
     you want to use. Any parameter set to None will be ignored.
     
     Parameters:
-        eval_env: Environment to evaluate on (required)
+        eval_envs: List of environments to evaluate on (required)
         check_freq: Frequency to evaluate performance in timesteps (default: 10000)
         min_reward_threshold: Minimum mean reward that must be reached before termination conditions apply (default: None)
         min_episode_length_threshold: Minimum mean episode length that must be reached before termination conditions apply (default: None)
@@ -38,7 +38,7 @@ class CustomTerminationCallback(BaseCallback):
     
     def __init__(
         self,
-        eval_env,
+        eval_envs,
         check_freq=10000,
         min_reward_threshold=None,
         min_episode_length_threshold=None,
@@ -52,7 +52,12 @@ class CustomTerminationCallback(BaseCallback):
         verbose=1
     ):
         super().__init__(verbose)
-        self.eval_env = eval_env
+        # Handle both single environment and list of environments
+        if isinstance(eval_envs, list):
+            self.eval_envs = eval_envs
+        else:
+            self.eval_envs = [eval_envs]
+            
         self.check_freq = check_freq
         
         # Minimum thresholds that must be met before other conditions apply
@@ -93,25 +98,50 @@ class CustomTerminationCallback(BaseCallback):
         self.start_time = time.time()
         
     def _evaluate_agent(self):
-        """Thread-safe evaluation function to run in a separate thread."""
+        """Thread-safe evaluation function to run in a separate thread.
+        Evaluates the agent on multiple environments and aggregates the results."""
         try:
             # Reset evaluation state
             self.evaluation_complete = False
             self.evaluation_error = None
             self.evaluation_results = None
             
-            # Run evaluation
-            episode_rewards, episode_lengths = evaluate_policy(
-                self.model,
-                self.eval_env,
-                n_eval_episodes=self.n_eval_episodes,
-                deterministic=True,
-                return_episode_rewards=True,
-            )
+            # Create lists to store results from all environments
+            all_rewards = []
+            all_lengths = []
             
-            # Store results
-            self.evaluation_results = (episode_rewards, episode_lengths)
-            self.evaluation_complete = True
+            # Run evaluation on each environment
+            for i, eval_env in enumerate(self.eval_envs):
+                try:
+                    if self.verbose > 0:
+                        print(f"Evaluating on environment {i+1}/{len(self.eval_envs)}")
+                    
+                    # Run evaluation on this environment
+                    env_rewards, env_lengths = evaluate_policy(
+                        self.model,
+                        eval_env,
+                        n_eval_episodes=self.n_eval_episodes,
+                        deterministic=True,
+                        return_episode_rewards=True,
+                    )
+                    
+                    # Store results
+                    all_rewards.extend(env_rewards)
+                    all_lengths.extend(env_lengths)
+                    
+                    if self.verbose > 0:
+                        print(f"  Environment {i+1} results: Mean reward = {np.mean(env_rewards):.2f}, Mean length = {np.mean(env_lengths):.1f}")
+                        
+                except Exception as env_error:
+                    if self.verbose > 0:
+                        print(f"Error evaluating on environment {i+1}: {env_error}")
+            
+            if len(all_rewards) > 0:
+                # Store aggregated results
+                self.evaluation_results = (all_rewards, all_lengths)
+                self.evaluation_complete = True
+            else:
+                raise Exception("No valid evaluation results collected from any environment")
             
         except Exception as e:
             if self.verbose > 0:
@@ -162,7 +192,8 @@ class CustomTerminationCallback(BaseCallback):
             
             if self.verbose > 0:
                 print(f"\n===== Starting evaluation #{self.evaluation_count} at timestep {self.num_timesteps} =====")
-                print(f"Evaluating over {self.n_eval_episodes} episodes with timeout {self.eval_timeout}s")
+                print(f"Evaluating on {len(self.eval_envs)} environments, {self.n_eval_episodes} episodes per environment")
+                print(f"Total episodes: {len(self.eval_envs) * self.n_eval_episodes}, timeout: {self.eval_timeout}s")
             
             # Reset evaluation state
             self.evaluation_complete = False
@@ -199,7 +230,10 @@ class CustomTerminationCallback(BaseCallback):
             mean_length = np.mean(episode_lengths)
             
             if self.verbose > 0:
-                print(f"Evaluation results: Mean reward = {mean_reward:.2f}, Mean length = {mean_length:.1f}")
+                print(f"Aggregated results across all environments:")
+                print(f"  Mean reward = {mean_reward:.2f}, Std = {np.std(episode_rewards):.2f}")
+                print(f"  Mean length = {mean_length:.1f}, Std = {np.std(episode_lengths):.1f}")
+                print(f"  Min reward = {np.min(episode_rewards):.2f}, Max reward = {np.max(episode_rewards):.2f}")
             
             # Check minimum thresholds
             if self.min_reward_threshold is not None and mean_reward >= self.min_reward_threshold:
