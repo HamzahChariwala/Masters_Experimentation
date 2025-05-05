@@ -34,7 +34,7 @@ def run_agent_and_log(agent_path, env_id, output_json_path):
     env = make_env(
         env_id=env_id,
         rank=0,
-        env_seed=420,
+        env_seed=12345,
         window_size=5,
         cnn_keys=[],
         mlp_keys=["goal_direction_vector",
@@ -87,9 +87,9 @@ def run_agent_and_log(agent_path, env_id, output_json_path):
 
 if __name__ == "__main__":
     # Example usage
-    agent_path = "dqn_minigrid_agent_lava_test.zip"
-    env_id = "MiniGrid-LavaCrossingS9N2-v0"
-    output_json_path = "AgentTesting/agent_run_log_lava.json"
+    agent_path = "dqn_minigrid_agent_simple_lava_test.zip"
+    env_id = "MiniGrid-LavaCrossingS9N1-v0"
+    output_json_path = "AgentTesting/agent_run_log_simple_lava.json"
 
     run_agent_and_log(agent_path, env_id, output_json_path)
     print(f"Agent run log saved to {output_json_path}")

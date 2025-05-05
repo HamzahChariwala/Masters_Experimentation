@@ -48,7 +48,7 @@ if __name__ == "__main__":
     log_dir = "./logs/dqn_run_2"
     os.makedirs(log_dir, exist_ok=True)
 
-    ENV_ID = 'MiniGrid-LavaCrossingS9N2-v0'
+    ENV_ID = 'MiniGrid-LavaCrossingS9N1-v0'
     NUM_ENVS = 10  # Increased number of environments for better diversity
     
     # Clearly separated seeds for different sources of randomness
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     # NoDeath wrapper parameters
     USE_NO_DEATH = True              # Whether to use the NoDeath wrapper
     NO_DEATH_TYPES = ("lava",)       # Which elements should not cause death
-    DEATH_COST = -0.5               # Penalty for hitting death elements
+    DEATH_COST = -0.1                # Penalty for hitting death elements
 
     # Define standard observation parameters
     observation_params = {
@@ -75,7 +75,7 @@ if __name__ == "__main__":
                     "lava_mask",
                     "goal_mask"],
         "use_random_spawn": True,          # Enable random agent spawn positions
-        "exclude_goal_adjacent": True,     # Don't spawn next to goal
+        "exclude_goal_adjacent": False,     # Don't spawn next to goal
         "use_no_death": USE_NO_DEATH,      # Whether to use the NoDeath wrapper
         "no_death_types": NO_DEATH_TYPES,  # Types that don't cause death
         "death_cost": DEATH_COST           # Penalty for hitting death elements
@@ -109,14 +109,6 @@ if __name__ == "__main__":
         use_different_envs=True,  # Enable diverse environments
         **observation_params
     )
-
-    # Option 2: Use the dedicated make_diverse_parallel_env function
-    # env = Env.make_diverse_parallel_env(
-    #     env_id=ENV_ID,
-    #     num_envs=NUM_ENVS,
-    #     env_seed=ENV_SEED,     # Only pass the environment seed
-    #     **observation_params
-    # )
 
     policy_kwargs = dict(
         features_extractor_class=CustomCombinedExtractor,
@@ -156,11 +148,15 @@ if __name__ == "__main__":
         device=device  # Specify the device here
     )
 
+    # Create a modified version of observation_params with random spawn disabled for evaluation
+    eval_params = observation_params.copy()
+    eval_params["use_random_spawn"] = False  # Disable random spawn for all evaluations
+
     # Use the dedicated function to create a properly configured eval environment
     eval_env = Env.make_eval_env(
         env_id=ENV_ID, 
         seed=EVAL_SEED,  # Separate seed for evaluation
-        **observation_params
+        **eval_params
     )
 
     # Create termination callback with improved evaluation settings
@@ -181,14 +177,16 @@ if __name__ == "__main__":
     print(f"Evaluation frequency: Every {termination_callback.check_freq} steps")
     print(f"Evaluation episodes: {termination_callback.n_eval_episodes}")
     print(f"Evaluation timeout: {EVAL_TIMEOUT} seconds")
+    print(f"Random spawn during training: {observation_params['use_random_spawn']}")
+    print(f"Random spawn during evaluation: {eval_params['use_random_spawn']}")
     print("==============================\n")
 
     model.learn(
-        total_timesteps=1_000_000, 
+        total_timesteps=10_000_000, 
         tb_log_name="DQN_MiniGrid",
         callback=termination_callback
     )
-    model.save("dqn_minigrid_agent_lava_test")
+    model.save("dqn_minigrid_agent_simple_lava_test")
 
     # Print final evaluation message
     print("\n====== TRAINING COMPLETE ======")
@@ -199,14 +197,14 @@ if __name__ == "__main__":
     final_eval_env = Env.make_eval_env(
         env_id=ENV_ID, 
         seed=EVAL_SEED + 1000,  # Different seed for final evaluation
-        **observation_params
+        **eval_params  # Use the modified parameters without random spawn
     )
 
     print("Running final evaluation...")
     episode_rewards, episode_lengths = evaluate_policy(
         model,
         final_eval_env,
-        n_eval_episodes=10,  # More episodes for final evaluation
+        n_eval_episodes=15,  # More episodes for final evaluation
         deterministic=True,
         return_episode_rewards=True,
     )
@@ -223,18 +221,3 @@ if __name__ == "__main__":
             np.min(episode_lengths),
             np.max(episode_lengths)))
     print("==========================\n")
-
-    # obs, _ = env.reset()
-
-    # print("Observation:", obs)
-    # print("Observation type:", type(obs))
-    # if isinstance(obs, dict):
-    #     for key, value in obs.items():
-    #         print(f"Key: {key}, Shape: {value.shape}, Dtype: {value.dtype}")
-
-    # done = False
-    # while not done:
-    #     action, _ = model.predict(obs, deterministic=True)
-    #     obs, reward, terminated, truncated, info = env.step(action)
-    #     done = terminated or truncated
-    #     print(f"Reward: {reward}, Info: {info}")
