@@ -97,6 +97,16 @@ https://arxiv.org/pdf/1908.04734
 https://deepmindsafetyresearch.medium.com/designing-agent-incentives-to-avoid-reward-tampering-4380c1bb6cd
 https://arxiv.org/pdf/2403.03185v4
 
+Reward Shaping
+https://arxiv.org/pdf/2408.10215v1
+https://arxiv.org/pdf/2312.01072v1
+https://citeseerx.ist.psu.edu/document?doi=a5ca908bac6dcc907a700d4e975dfc7e51a3fd89&repid=rep1&type=pdf&utm_source=chatgpt.com
+https://arxiv.org/pdf/2410.12197
+https://arxiv.org/pdf/2106.10268
+https://arxiv.org/pdf/2002.12292
+https://people.eecs.berkeley.edu/~pabbeel/cs287-fa09/readings/NgHaradaRussell-shaping-ICML1999.pdf?utm_source=chatgpt.com
+https://arxiv.org/pdf/1106.5267
+
 Linear representation hypothesis
 https://arxiv.org/pdf/2104.07143
 https://arxiv.org/pdf/2408.10920
@@ -191,6 +201,11 @@ https://www.nature.com/articles/s41592-024-02582-2
 
 Hyperparameters
 https://arxiv.org/pdf/2306.01324
+https://www.researchgate.net/publication/371290466_Augmented_Modular_Reinforcement_Learning_based_on_Heterogeneous_Knowledge
+https://arxiv.org/pdf/2306.01324
+https://www.researchgate.net/figure/Hyper-parameters-of-DQN-on-MiniGrid-and-MinAtar-environments_tbl1_387671564
+https://arxiv.org/pdf/2503.10318v1
+https://papers.neurips.cc/paper_files/paper/2023/file/a6f6a5c517b2b92f3d309786af64086c-Paper-Conference.pdf?utm_source=chatgpt.com
 
 Deep learning
 https://www.nature.com/articles/nature14539
