@@ -158,9 +158,9 @@ if __name__ == "__main__":
         buffer_size=100_000,             # Increased buffer size for more diverse experiences
         learning_starts=10_000,          # Allow more random exploration before learning starts
         batch_size=64,                 # Larger batch size for more stable updates
-        exploration_fraction=0.8,      # Higher exploration rate to discover diagonal moves
+        exploration_fraction=0.05,      # Higher exploration rate to discover diagonal moves
         exploration_final_eps=0.05,    # Higher final exploration to keep trying diagonal moves
-        gamma=0.96,                    # Slightly reduced discount factor to focus more on immediate rewards
+        gamma=0.6,                    # Slightly reduced discount factor to focus more on immediate rewards
         learning_rate=2.5e-4,            # Adjusted learning rate
         train_freq=8,
         target_update_interval=1000,
@@ -198,7 +198,7 @@ if __name__ == "__main__":
     # Create termination callback with improved evaluation settings and multiple environments
     termination_callback = CustomTerminationCallback(
         eval_envs=eval_envs,  # Pass list of environments instead of single environment
-        check_freq=100_000,                # Check every 50k steps
+        check_freq=10_000,                # Check every 50k steps
         # min_reward_threshold=0.96,        # Minimum reward to meet before applying termination conditions
         target_reward_threshold=0.99,    # Target reward to achieve
         max_runtime=30000,               # Maximum runtime in seconds (about 8 hours)
@@ -221,11 +221,11 @@ if __name__ == "__main__":
     print("==============================\n")
 
     model.learn(
-        total_timesteps=25_000_000, 
+        total_timesteps=100_000, 
         tb_log_name="DQN_MiniGrid",
         callback=termination_callback
     )
-    model.save("dqn_minigrid_agent_empty_test_25m_exp")
+    model.save("dqn_minigrid_agent_empty_test_100k_exp")
 
     # Print final evaluation message
     print("\n====== TRAINING COMPLETE ======")

@@ -70,27 +70,3 @@ class CustomActionWrapper(gym.ActionWrapper):
         if hasattr(self.env, name):
             return getattr(self.env, name)
         raise AttributeError(f"'{type(self.env).__name__}' object has no attribute '{name}'")
-    
-
-
-# class FlattenMultiDiscrete(gym.ActionWrapper):
-#     def __init__(self, env: gym.Env):
-#         super().__init__(env)
-#         # capture the original branch sizes (e.g. [5,5,...,5])
-#         self.nvec = self.env.action_space.nvec
-#         # flatten into one big Discrete space
-#         self.action_space = gym.spaces.Discrete(int(np.prod(self.nvec)))
-
-#     def action(self, action: int):
-#         """
-#         Convert flat index → multi-discrete tuple,
-#         e.g. 1234 → (a0, a1, ..., a9) each in 0–4
-#         """
-#         return np.unravel_index(action, self.nvec)
-
-#     def reverse_action(self, action):
-#         """
-#         (Optional) Convert a multi-discrete vector back to a flat index,
-#         if you ever need to inspect the env's raw action.
-#         """
-#         return int(np.ravel_multi_index(action, self.nvec))
