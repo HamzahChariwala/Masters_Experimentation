@@ -85,9 +85,9 @@ def run_agent_and_log(agent_path, env_id, output_json_path):
 
 if __name__ == "__main__":
     # Example usage
-    agent_path = "dqn_minigrid_agent_lava_test.zip"
+    agent_path = "dqn_minigrid_agent_empty_test_25m_exp.zip"
     env_id = "MiniGrid-Empty-8x8-v0"
-    output_json_path = "AgentTesting/agent_run_log_empty.json"
+    output_json_path = "AgentTesting/agent_run_log_empty_25m_exp.json"
 
     run_agent_and_log(agent_path, env_id, output_json_path)
     print(f"Agent run log saved to {output_json_path}")

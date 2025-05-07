@@ -327,6 +327,7 @@ def visualize_agent_behavior(model, env_id, observation_params, seed=42, num_epi
         Whether to render the environment (may require extra setup)
     """
     # Create a single environment for visualization
+    print(f"\n===== DETAILED AGENT BEHAVIOR ANALYSIS =====")
     print(f"\n===== Visualizing Agent Behavior ({num_episodes} episodes) =====")
     
     # Use the observation parameters but enable monitoring
@@ -367,6 +368,27 @@ def visualize_agent_behavior(model, env_id, observation_params, seed=42, num_epi
     env = OldGymCompatibility(env)
     env = Monitor(env)
     
+    # Helper function to safely get agent position and direction
+    def get_agent_info(env):
+        # Start with the environment
+        current_env = env
+        
+        # Keep unwrapping until we find agent_pos or run out of unwrapped envs
+        while hasattr(current_env, 'unwrapped'):
+            # Check if current level has the attributes
+            if hasattr(current_env, 'agent_pos') and hasattr(current_env, 'agent_dir'):
+                return current_env.agent_pos, current_env.agent_dir
+            
+            # Move to the next unwrapped level
+            current_env = current_env.unwrapped
+            
+            # Check again at this level
+            if hasattr(current_env, 'agent_pos') and hasattr(current_env, 'agent_dir'):
+                return current_env.agent_pos, current_env.agent_dir
+        
+        # If we got here, we couldn't find the attributes
+        return None, None
+    
     # Track action statistics across all episodes
     action_counter = Counter()
     successful_diag_counter = 0
@@ -381,7 +403,13 @@ def visualize_agent_behavior(model, env_id, observation_params, seed=42, num_epi
         done = False
         
         print(f"\nEpisode {episode+1}/{num_episodes}")
-        print(f"Starting position: {env.unwrapped.agent_pos}, direction: {env.unwrapped.agent_dir}")
+        
+        # Get agent position and direction safely
+        agent_pos, agent_dir = get_agent_info(env)
+        if agent_pos is not None and agent_dir is not None:
+            print(f"Starting position: {agent_pos}, direction: {agent_dir}")
+        else:
+            print("Could not determine agent position and direction")
         
         while not done:
             # Get the action from the model
@@ -411,8 +439,10 @@ def visualize_agent_behavior(model, env_id, observation_params, seed=42, num_epi
                     print(f"  Diagonal move SUCCESS: {info['diag_direction']}")
                     successful_diag_counter += 1
             
-            # Print position after move
-            print(f"  Position: {env.unwrapped.agent_pos}, Direction: {env.unwrapped.agent_dir}")
+            # Print position after move (safely)
+            agent_pos, agent_dir = get_agent_info(env)
+            if agent_pos is not None and agent_dir is not None:
+                print(f"  Position: {agent_pos}, Direction: {agent_dir}")
             
             episode_reward += reward
             total_rewards += reward

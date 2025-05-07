@@ -74,8 +74,8 @@ if __name__ == "__main__":
     MAX_EPISODE_STEPS = 150         # Maximum steps per episode (None = use env default)
     
     # Diagonal move parameters
-    DIAGONAL_SUCCESS_REWARD = 0.25   # Reward for successful diagonal moves
-    DIAGONAL_FAILURE_PENALTY = 0.1  # Penalty for failed diagonal moves
+    DIAGONAL_SUCCESS_REWARD = 0.01   # Reward for successful diagonal moves
+    DIAGONAL_FAILURE_PENALTY = 0  # Penalty for failed diagonal moves
     
     # Diagonal movement monitoring
     MONITOR_DIAGONAL_MOVES = True   # Track diagonal move usage
@@ -155,14 +155,14 @@ if __name__ == "__main__":
         "MultiInputPolicy",
         env,
         policy_kwargs=policy_kwargs,
-        buffer_size=10000,             # Increased buffer size for more diverse experiences
-        learning_starts=5000,          # Allow more random exploration before learning starts
-        batch_size=32,                 # Larger batch size for more stable updates
-        exploration_fraction=0.4,      # Higher exploration rate to discover diagonal moves
+        buffer_size=100_000,             # Increased buffer size for more diverse experiences
+        learning_starts=10_000,          # Allow more random exploration before learning starts
+        batch_size=64,                 # Larger batch size for more stable updates
+        exploration_fraction=0.8,      # Higher exploration rate to discover diagonal moves
         exploration_final_eps=0.05,    # Higher final exploration to keep trying diagonal moves
-        gamma=0.99,                    # Slightly reduced discount factor to focus more on immediate rewards
-        learning_rate=5e-4,            # Adjusted learning rate
-        train_freq=64,
+        gamma=0.96,                    # Slightly reduced discount factor to focus more on immediate rewards
+        learning_rate=2.5e-4,            # Adjusted learning rate
+        train_freq=8,
         target_update_interval=1000,
         verbose=1,
         tensorboard_log=log_dir,
@@ -198,9 +198,9 @@ if __name__ == "__main__":
     # Create termination callback with improved evaluation settings and multiple environments
     termination_callback = CustomTerminationCallback(
         eval_envs=eval_envs,  # Pass list of environments instead of single environment
-        check_freq=5000,                # Check every 50k steps
-        min_reward_threshold=0.9,        # Minimum reward to meet before applying termination conditions
-        target_reward_threshold=0.95,    # Target reward to achieve
+        check_freq=100_000,                # Check every 50k steps
+        # min_reward_threshold=0.96,        # Minimum reward to meet before applying termination conditions
+        target_reward_threshold=0.99,    # Target reward to achieve
         max_runtime=30000,               # Maximum runtime in seconds (about 8 hours)
         n_eval_episodes=1,               # Only evaluate on a single episode per environment
         eval_timeout=EVAL_TIMEOUT,       # Use the configurable timeout parameter
@@ -221,11 +221,11 @@ if __name__ == "__main__":
     print("==============================\n")
 
     model.learn(
-        total_timesteps=100_000, 
+        total_timesteps=25_000_000, 
         tb_log_name="DQN_MiniGrid",
         callback=termination_callback
     )
-    model.save("dqn_minigrid_agent_empty_test")
+    model.save("dqn_minigrid_agent_empty_test_25m_exp")
 
     # Print final evaluation message
     print("\n====== TRAINING COMPLETE ======")
