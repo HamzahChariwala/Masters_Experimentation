@@ -45,6 +45,38 @@ https://transformer-circuits.pub/2024/scaling-monosemanticity/
 Finding Key Neurons
 https://arxiv.org/pdf/2002.09815
 
+Network Patching
+https://arxiv.org/pdf/2505.02629
+https://ssvlab.github.io/lucasccordeiro/papers/icse2023.pdf?utm_source=chatgpt.com (AIRepair)
+https://thakur.cs.ucdavis.edu/assets/pubs/SRDM2019.pdf?utm_source=chatgpt.com
+https://openreview.net/pdf?id=0DcZxeWfOPt (MEND)
+https://openreview.net/pdf?id=1dkL3MVBfV
+https://arxiv.org/pdf/2203.00191 (NeuRecover)
+https://dl.acm.org/doi/pdf/10.1145/3597503.3623332 (VeRe)
+https://arxiv.org/pdf/1912.12463 (Arachne)
+https://dr.lib.iastate.edu/server/api/core/bitstreams/77548205-77dc-4c13-9538-25d59552a42c/content
+
+Knowledge Editing
+https://arxiv.org/pdf/2310.19704v3
+https://arxiv.org/pdf/2401.01286
+
+Weight Updates
+https://arxiv.org/pdf/2410.17146
+
+LLM Post Training
+https://arxiv.org/pdf/2503.06072
+https://adapt-llm.github.io
+https://arxiv.org/pdf/2504.15133 - GOOD INTRO STUFF
+
+Fine-Tuning
+https://arxiv.org/pdf/2504.02620
+
+Casual Layer Attribution
+https://arxiv.org/pdf/2504.02976
+
+Elastic Weight Consolidation
+https://arxiv.org/pdf/2105.04093
+
 Hypernetworks and weight space
 https://arxiv.org/pdf/2107.05479
 https://arxiv.org/pdf/2306.06955
@@ -83,6 +115,10 @@ https://arxiv.org/pdf/2106.09685
 DRL architectures
 https://arxiv.org/pdf/1705.10528
 https://arxiv.org/pdf/2301.03044
+
+Autoencoder Embedding Stuff
+https://arxiv.org/pdf/2106.14467
+https://arxiv.org/pdf/1908.09257
 
 Imitation learning
 https://arxiv.org/pdf/1907.03976
@@ -145,6 +181,11 @@ Policy extraction
 https://people.csail.mit.edu/asolar/papers/BastaniPS18.pdf
 https://openreview.net/pdf?id=Tk1VQDadfL
 
+DRL Policy Stuff
+https://arxiv.org/pdf/2305.16614
+https://arxiv.org/pdf/2309.01884
+https://arxiv.org/pdf/2409.08687
+
 Steering vectors & activation engineering
 https://arxiv.org/pdf/2406.00045
 https://arxiv.org/pdf/2306.03341
@@ -175,6 +216,8 @@ https://arxiv.org/pdf/2412.10400
 
 Interpretable policies
 https://www.researchgate.net/publication/363402542_Iterative_Bounding_MDPs_Learning_Interpretable_Policies_via_Non-Interpretable_Methods
+https://arxiv.org/pdf/2501.03888
+https://arxiv.org/pdf/2405.14956
 
 Representation engineering
 https://arxiv.org/pdf/2310.01405
@@ -209,6 +252,13 @@ https://papers.neurips.cc/paper_files/paper/2023/file/a6f6a5c517b2b92f3d309786af
 
 Deep learning
 https://www.nature.com/articles/nature14539
+
+Neural Functional Networks
+https://arxiv.org/pdf/2410.04213
+https://arxiv.org/pdf/2302.14040
+
+Lipschitz Bounds
+https://arxiv.org/pdf/2410.21053
 
 Misc
 https://arxiv.org/pdf/2402.07896
