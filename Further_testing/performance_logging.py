@@ -67,6 +67,47 @@ def run_agent_and_log(
     debug=False,
     timeout=30  # Timeout in seconds
 ):
+    """
+    Run a trained agent in the environment and log its performance.
+    
+    Parameters:
+    ----------
+    agent_path : str
+        Path to the trained agent model file
+    env_id : str
+        Environment ID (e.g., MiniGrid-Empty-8x8-v0)
+    output_json_path : str
+        Path to save the output JSON log
+    agent_type : str, optional
+        Type of agent ("dqn", "ppo", or "a2c"), default="dqn"
+    max_episode_steps : int, optional
+        Maximum steps per episode, default=150
+    use_random_spawn : bool, optional
+        If True, agent will spawn at random empty locations instead of the default top-left position.
+        If False, agent will spawn at the environment's default position (usually top-left).
+        Default=False.
+    use_no_death : bool, optional
+        If True, apply the NoDeath wrapper, default=True
+    no_death_types : tuple, optional
+        Types of elements that don't cause death, default=("lava",)
+    death_cost : float, optional
+        Penalty for death, default=0
+    monitor_diagonal_moves : bool, optional
+        If True, monitor diagonal move usage, default=True
+    diagonal_success_reward : float, optional
+        Reward for successful diagonal moves, default=0.01
+    diagonal_failure_penalty : float, optional
+        Penalty for failed diagonal moves, default=0
+    debug : bool, optional
+        If True, print debug information, default=False
+    timeout : int, optional
+        Timeout in seconds, default=30
+        
+    Returns:
+    -------
+    bool
+        True if execution completed successfully, False otherwise
+    """
     print(f"DEBUG: Starting run_agent_and_log function")
     
     # For non-Unix platforms or if timeout is disabled
@@ -234,8 +275,10 @@ def run_agent_and_log(
         if timeout > 0 and HAS_ALARM:
             signal.alarm(0)
 
+# Commented out parse_args function for reference
+"""
 def parse_args():
-    """Parse command line arguments."""
+    \"\"\"Parse command line arguments.\"\"\"
     parser = argparse.ArgumentParser(description='Run agent and log results')
     
     # Required arguments
@@ -257,42 +300,24 @@ def parse_args():
     parser.add_argument('--timeout', type=int, default=60, help='Timeout in seconds (default: 60, 0 to disable)')
     
     return parser.parse_args()
+"""
 
 if __name__ == "__main__":
-    # Parse command line arguments if provided, otherwise use defaults
-    if len(sys.argv) > 1:
-        args = parse_args()
-        
-        agent_path = args.agent
-        env_id = args.env
-        output_json_path = args.output
-        agent_type = args.agent_type
-        max_episode_steps = args.max_steps
-        use_random_spawn = args.random_spawn
-        use_no_death = args.no_death
-        no_death_types = tuple(args.no_death_types.split(','))
-        death_cost = args.death_cost
-        monitor_diagonal_moves = args.monitor_diag
-        diagonal_success_reward = args.diag_reward
-        diagonal_failure_penalty = args.diag_penalty
-        debug_mode = args.debug
-        timeout_seconds = args.timeout
-    else:
-        # Example usage with default values
-        agent_path = "dqn_minigrid_agent_empty_test_100k_exp.zip"
-        env_id = "MiniGrid-Empty-8x8-v0"
-        output_json_path = "AgentTesting/agent_run_log_empty_100k_exp.json"
-        agent_type = "dqn"
-        max_episode_steps = 150
-        use_random_spawn = False
-        use_no_death = True
-        no_death_types = ("lava",)
-        death_cost = 0
-        monitor_diagonal_moves = True
-        diagonal_success_reward = 0.01
-        diagonal_failure_penalty = 0
-        debug_mode = True
-        timeout_seconds = 60
+    # Manual configuration (no command line arguments)
+    agent_path = "dqn_minigrid_agent_empty_test_100k_exp.zip"
+    env_id = "MiniGrid-Empty-8x8-v0"
+    output_json_path = "AgentTesting/agent_run_log_empty_100k_exp.json"
+    agent_type = "dqn"
+    max_episode_steps = 150
+    use_random_spawn = True
+    use_no_death = True
+    no_death_types = ("lava",)
+    death_cost = 0
+    monitor_diagonal_moves = True
+    diagonal_success_reward = 0.01
+    diagonal_failure_penalty = 0
+    debug_mode = True
+    timeout_seconds = 60
 
     # Print configuration
     print("\n====== AGENT EVALUATION SETTINGS ======")

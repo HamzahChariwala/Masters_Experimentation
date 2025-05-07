@@ -1,0 +1,331 @@
+{
+  "environment": "MiniGrid-Empty-8x8-v0",
+  "wall_positions": [
+    [
+      3,
+      3
+    ],
+    [
+      3,
+      4
+    ],
+    [
+      4,
+      3
+    ],
+    [
+      3,
+      6
+    ],
+    [
+      4,
+      1
+    ],
+    [
+      6,
+      3
+    ]
+  ],
+  "results": [
+    {
+      "test_case": 1,
+      "description": "Moving diagonally into a corner from top left (blocked by walls)",
+      "position": [
+        2,
+        2
+      ],
+      "direction": 0,
+      "direction_name": "right",
+      "diagonal_direction": "right",
+      "expected_success": false,
+      "actual_success": true,
+      "success_match": false,
+      "forward_position": [
+        3,
+        2
+      ],
+      "forward_walkable": true,
+      "lateral_position": [
+        2,
+        1
+      ],
+      "lateral_walkable": true,
+      "diagonal_position": [
+        3,
+        1
+      ],
+      "diagonal_walkable": true,
+      "valid_diagonal": true
+    },
+    {
+      "test_case": 2,
+      "description": "Moving diagonally into a corner from bottom right (blocked by walls)",
+      "position": [
+        5,
+        5
+      ],
+      "direction": 2,
+      "direction_name": "left",
+      "diagonal_direction": "left",
+      "expected_success": false,
+      "actual_success": true,
+      "success_match": false,
+      "forward_position": [
+        4,
+        5
+      ],
+      "forward_walkable": true,
+      "lateral_position": [
+        5,
+        4
+      ],
+      "lateral_walkable": true,
+      "diagonal_position": [
+        4,
+        4
+      ],
+      "diagonal_walkable": true,
+      "valid_diagonal": true
+    },
+    {
+      "test_case": 3,
+      "description": "Diagonal move blocked by wall in forward direction",
+      "position": [
+        2,
+        3
+      ],
+      "direction": 0,
+      "direction_name": "right",
+      "diagonal_direction": "right",
+      "expected_success": false,
+      "actual_success": false,
+      "success_match": true,
+      "forward_position": [
+        3,
+        3
+      ],
+      "forward_walkable": false,
+      "lateral_position": [
+        2,
+        2
+      ],
+      "lateral_walkable": true,
+      "diagonal_position": [
+        3,
+        2
+      ],
+      "diagonal_walkable": true,
+      "valid_diagonal": false
+    },
+    {
+      "test_case": 4,
+      "description": "Diagonal move blocked by wall in lateral direction",
+      "position": [
+        3,
+        2
+      ],
+      "direction": 1,
+      "direction_name": "down",
+      "diagonal_direction": "left",
+      "expected_success": false,
+      "actual_success": false,
+      "success_match": true,
+      "forward_position": [
+        3,
+        3
+      ],
+      "forward_walkable": false,
+      "lateral_position": [
+        2,
+        2
+      ],
+      "lateral_walkable": true,
+      "diagonal_position": [
+        2,
+        3
+      ],
+      "diagonal_walkable": true,
+      "valid_diagonal": false
+    },
+    {
+      "test_case": 5,
+      "description": "Diagonal path is clear despite adjacent walls",
+      "position": [
+        2,
+        4
+      ],
+      "direction": 0,
+      "direction_name": "right",
+      "diagonal_direction": "right",
+      "expected_success": true,
+      "actual_success": false,
+      "success_match": false,
+      "forward_position": [
+        3,
+        4
+      ],
+      "forward_walkable": false,
+      "lateral_position": [
+        2,
+        3
+      ],
+      "lateral_walkable": true,
+      "diagonal_position": [
+        3,
+        3
+      ],
+      "diagonal_walkable": false,
+      "valid_diagonal": false
+    },
+    {
+      "test_case": 6,
+      "description": "Diagonal path is clear despite adjacent walls (opposite side)",
+      "position": [
+        4,
+        2
+      ],
+      "direction": 1,
+      "direction_name": "down",
+      "diagonal_direction": "right",
+      "expected_success": true,
+      "actual_success": false,
+      "success_match": false,
+      "forward_position": [
+        4,
+        3
+      ],
+      "forward_walkable": false,
+      "lateral_position": [
+        5,
+        2
+      ],
+      "lateral_walkable": true,
+      "diagonal_position": [
+        5,
+        3
+      ],
+      "diagonal_walkable": true,
+      "valid_diagonal": false
+    },
+    {
+      "test_case": 7,
+      "description": "Diagonal move into an isolated wall",
+      "position": [
+        2,
+        6
+      ],
+      "direction": 0,
+      "direction_name": "right",
+      "diagonal_direction": "left",
+      "expected_success": false,
+      "actual_success": false,
+      "success_match": true,
+      "forward_position": [
+        3,
+        6
+      ],
+      "forward_walkable": false,
+      "lateral_position": [
+        2,
+        7
+      ],
+      "lateral_walkable": false,
+      "diagonal_position": [
+        3,
+        7
+      ],
+      "diagonal_walkable": false,
+      "valid_diagonal": false
+    },
+    {
+      "test_case": 8,
+      "description": "Diagonal move around an isolated wall",
+      "position": [
+        5,
+        3
+      ],
+      "direction": 2,
+      "direction_name": "left",
+      "diagonal_direction": "right",
+      "expected_success": true,
+      "actual_success": false,
+      "success_match": false,
+      "forward_position": [
+        4,
+        3
+      ],
+      "forward_walkable": false,
+      "lateral_position": [
+        5,
+        4
+      ],
+      "lateral_walkable": true,
+      "diagonal_position": [
+        4,
+        4
+      ],
+      "diagonal_walkable": true,
+      "valid_diagonal": false
+    },
+    {
+      "test_case": 9,
+      "description": "Entirely clear diagonal move",
+      "position": [
+        1,
+        1
+      ],
+      "direction": 0,
+      "direction_name": "right",
+      "diagonal_direction": "right",
+      "expected_success": true,
+      "actual_success": false,
+      "success_match": false,
+      "forward_position": [
+        2,
+        1
+      ],
+      "forward_walkable": true,
+      "lateral_position": [
+        1,
+        0
+      ],
+      "lateral_walkable": false,
+      "diagonal_position": [
+        2,
+        0
+      ],
+      "diagonal_walkable": false,
+      "valid_diagonal": false
+    },
+    {
+      "test_case": 10,
+      "description": "Diagonal move where target position is a wall",
+      "position": [
+        3,
+        5
+      ],
+      "direction": 0,
+      "direction_name": "right",
+      "diagonal_direction": "left",
+      "expected_success": false,
+      "actual_success": false,
+      "success_match": true,
+      "forward_position": [
+        4,
+        5
+      ],
+      "forward_walkable": true,
+      "lateral_position": [
+        3,
+        6
+      ],
+      "lateral_walkable": false,
+      "diagonal_position": [
+        4,
+        6
+      ],
+      "diagonal_walkable": true,
+      "valid_diagonal": false
+    }
+  ]
+}
