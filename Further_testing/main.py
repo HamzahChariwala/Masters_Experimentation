@@ -74,7 +74,7 @@ if __name__ == "__main__":
     MAX_EPISODE_STEPS = 150         # Maximum steps per episode (None = use env default)
     
     # Diagonal move parameters
-    DIAGONAL_SUCCESS_REWARD = 0.01   # Reward for successful diagonal moves
+    DIAGONAL_SUCCESS_REWARD = 0.01   # Reward for successful diagonal movesx
     DIAGONAL_FAILURE_PENALTY = 0  # Penalty for failed diagonal moves
     
     # Diagonal movement monitoring
