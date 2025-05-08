@@ -1,3 +1,6 @@
+
+------ INTRODUCTION ---------------
+
 Deep Learning
 
 Deep Reinforcement Learning
@@ -11,3 +14,12 @@ DNN Anatomy
 Exploiting Semanticity
 
 Direct Behaviour Modulation
+
+Resource Efficiency
+
+-----------------------------------
+
+------ OBJECTIVES -----------------
+
+Contextual Setting
+
