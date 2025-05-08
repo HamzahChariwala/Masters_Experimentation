@@ -19,65 +19,194 @@ from EnvironmentEdits.BespokeEdits.CustomWrappers import (GoalAngleDistanceWrapp
 from EnvironmentEdits.BespokeEdits.FeatureExtractor import CustomCombinedExtractor, SelectiveObservationWrapper
 from EnvironmentEdits.BespokeEdits.ActionSpace import CustomActionWrapper
 from EnvironmentEdits.BespokeEdits.GymCompatibility import OldGymCompatibility
+from SpawnDistributions.spawn_distributions import FlexibleSpawnWrapper
+
+
+def _make_env(env_id, 
+             seed=None,
+             render_mode=None,
+             window_size=None, 
+             cnn_keys=None,
+             mlp_keys=None,
+             use_random_spawn=False,
+             exclude_goal_adjacent=False,
+             use_no_death=False,
+             no_death_types=None,
+             death_cost=0,
+             max_episode_steps=None,
+             monitor_diagonal_moves=False,
+             diagonal_success_reward=0.01,
+             diagonal_failure_penalty=0.01,
+             use_flexible_spawn=False,
+             spawn_distribution_type="uniform",
+             spawn_distribution_params=None,
+             use_stage_training=False,
+             stage_training_config=None,
+             use_continuous_transition=False,
+             continuous_transition_config=None,
+             spawn_vis_dir=None,
+             spawn_vis_frequency=10000,
+             **kwargs):
+    """
+    Make a single environment with the given parameters.
+    """
+    # Create the environment
+    env = gym.make(env_id, render_mode=render_mode)
+
+    # Apply maximum episode steps if specified
+    if max_episode_steps is not None:
+        env = gym.wrappers.TimeLimit(env, max_episode_steps)
+
+    # Apply No Death wrapper if specified
+    if use_no_death:
+        no_death_types = no_death_types or ("lava",)
+        env = NoDeath(env, no_death_types=no_death_types, death_cost=death_cost)
+
+    # Apply random spawning if specified
+    if use_random_spawn and not use_flexible_spawn:  # Only use random spawn if flexible spawn is not enabled
+        env = RandomSpawnWrapper(env, exclude_goal_adjacent=exclude_goal_adjacent)
+    
+    # Apply flexible spawn distribution if specified
+    if use_flexible_spawn:
+        # Determine total timesteps (if not provided, use a reasonable default)
+        total_timesteps = kwargs.get("total_timesteps", 100000)
+        
+        # Prepare the distribution parameters
+        if spawn_distribution_params is None:
+            spawn_distribution_params = {}
+        
+        # Handle different curriculum learning approaches
+        if use_stage_training and stage_training_config:
+            # Use stage-based training
+            env = FlexibleSpawnWrapper(
+                env,
+                distribution_type=spawn_distribution_type,  # This will be overridden by stages
+                distribution_params=spawn_distribution_params,
+                total_timesteps=total_timesteps,
+                exclude_occupied=True,
+                exclude_goal_adjacent=exclude_goal_adjacent,
+                stage_based_training=stage_training_config
+            )
+        elif use_continuous_transition and continuous_transition_config:
+            # Use continuous transition
+            env = FlexibleSpawnWrapper(
+                env,
+                distribution_type=spawn_distribution_type,
+                distribution_params=spawn_distribution_params,
+                total_timesteps=total_timesteps,
+                exclude_occupied=True,
+                exclude_goal_adjacent=exclude_goal_adjacent,
+                temporal_transition=continuous_transition_config
+            )
+        else:
+            # Use fixed distribution
+            env = FlexibleSpawnWrapper(
+                env,
+                distribution_type=spawn_distribution_type,
+                distribution_params=spawn_distribution_params,
+                exclude_occupied=True,
+                exclude_goal_adjacent=exclude_goal_adjacent
+            )
+
+    # Apply custom action wrapper if using diagonal moves
+    if monitor_diagonal_moves:
+        env = CustomActionWrapper(
+            env,
+            diagonal_success_reward=diagonal_success_reward,
+            diagonal_failure_penalty=diagonal_failure_penalty
+        )
+
+    # Apply necessary observation wrappers
+    env = FullyObsWrapper(env)
+    env = GoalAngleDistanceWrapper(env)
+    
+    # Apply partial observation for windowed view
+    if window_size is not None:
+        env = PartialObsWrapper(env, window_size)
+        env = ExtractAbstractGrid(env)
+        env = PartialRGBObsWrapper(env, window_size)
+        env = PartialGrayObsWrapper(env, window_size)
+    
+    # Apply wrapper to select specific observation keys
+    if cnn_keys is not None or mlp_keys is not None:
+        env = SelectiveObservationWrapper(
+            env,
+            cnn_keys=cnn_keys or [],
+            mlp_keys=mlp_keys or []
+        )
+    
+    # Apply wrapper to ensure float32 type for observations
+    env = ForceFloat32(env)
+
+    # Apply action wrapper to ensure compatibility with old gym action space
+    env = OldGymCompatibility(env)
+
+    # If seed is provided, seed the environment
+    if seed is not None:
+        env.reset(seed=seed)
+    
+    return env
 
 
 def make_env(env_id: str, rank: int, env_seed: int, render_mode: str = None,
-    window_size: int = 5, cnn_keys: list = None, mlp_keys: list = None, 
-    use_random_spawn: bool = False, exclude_goal_adjacent: bool = True,
-    use_no_death: bool = True, no_death_types: tuple = ("lava",), death_cost: float = -0.25,
-    max_episode_steps: int = None, monitor_diagonal_moves: bool = False,
-    diagonal_success_reward: float = 1.5, diagonal_failure_penalty: float = 0.1) -> callable:
+           window_size: int = 7, cnn_keys: list = None, mlp_keys: list = None,
+           use_random_spawn: bool = False, exclude_goal_adjacent: bool = False,
+           use_no_death: bool = True, no_death_types: tuple = ("lava",), death_cost: float = -0.25,
+           max_episode_steps: int = None, monitor_diagonal_moves: bool = False,
+           diagonal_success_reward: float = 1.5, diagonal_failure_penalty: float = 0.1,
+           use_flexible_spawn: bool = False, spawn_distribution_type: str = "uniform",
+           spawn_distribution_params: dict = None, use_stage_training: bool = False,
+           stage_training_config: dict = None, use_continuous_transition: bool = False,
+           continuous_transition_config: dict = None, spawn_vis_dir: str = None,
+           spawn_vis_frequency: int = 10000, **kwargs) -> callable:
 
     # Always use an explicit render_mode (default to None if not provided)
-    env = gym.make(env_id, render_mode=render_mode)
+    render_mode = render_mode or None
 
-    # Apply TimeLimit wrapper if max_episode_steps is specified
-    if max_episode_steps is not None:
-        env = TimeLimit(env, max_episode_steps=max_episode_steps)
-
-    # Apply NoDeath wrapper to prevent episode termination on death if requested
-    if use_no_death:
-        env = NoDeath(env, no_death_types=no_death_types, death_cost=death_cost)
-    
-    # Wrap environment with our custom action wrapper
-    env = CustomActionWrapper(env, 
-                             diagonal_success_reward=diagonal_success_reward, 
-                             diagonal_failure_penalty=diagonal_failure_penalty)
-    
-    # Add diagonal movement monitoring if requested
-    if monitor_diagonal_moves:
-        env = DiagonalMoveMonitor(env)
-
-    env = RecordEpisodeStatistics(env)
-    env = FullyObsWrapper(env)
-    
-    # Apply RandomSpawnWrapper if requested
-    if use_random_spawn:
-        env = RandomSpawnWrapper(env, exclude_goal_adjacent=exclude_goal_adjacent, env_id=rank)
+    def _init():
+        # Create the environment with a unique seed based on env_seed + rank
+        env_instance_seed = env_seed + rank
         
-    env = GoalAngleDistanceWrapper(env)
-    env = PartialObsWrapper(env, window_size)
-    env = ExtractAbstractGrid(env)
-    env = PartialRGBObsWrapper(env, window_size)
-    env = PartialGrayObsWrapper(env, window_size)
-    env = SelectiveObservationWrapper(
-        env,
-        cnn_keys=cnn_keys or [],
-        mlp_keys=mlp_keys or []
-    )
-    env = ForceFloat32(env)
-    env = Monitor(env)
+        # Use the _make_env function
+        env = _make_env(
+            env_id=env_id,
+            seed=env_instance_seed,
+            render_mode=render_mode,
+            window_size=window_size,
+            cnn_keys=cnn_keys,
+            mlp_keys=mlp_keys,
+            use_random_spawn=use_random_spawn,
+            exclude_goal_adjacent=exclude_goal_adjacent,
+            use_no_death=use_no_death,
+            no_death_types=no_death_types,
+            death_cost=death_cost,
+            max_episode_steps=max_episode_steps,
+            monitor_diagonal_moves=monitor_diagonal_moves,
+            diagonal_success_reward=diagonal_success_reward,
+            diagonal_failure_penalty=diagonal_failure_penalty,
+            use_flexible_spawn=use_flexible_spawn,
+            spawn_distribution_type=spawn_distribution_type,
+            spawn_distribution_params=spawn_distribution_params,
+            use_stage_training=use_stage_training,
+            stage_training_config=stage_training_config,
+            use_continuous_transition=use_continuous_transition,
+            continuous_transition_config=continuous_transition_config,
+            spawn_vis_dir=spawn_vis_dir,
+            spawn_vis_frequency=spawn_vis_frequency,
+            **kwargs
+        )
+        
+        # Apply Monitor wrapper to record episode information
+        env = Monitor(env)
 
-    observation, info = env.reset(seed=env_seed + rank)
+        observation, info = env.reset(seed=env_seed + rank)
+        
+        if render_mode is not None:
+            print(f"Created environment {env_id} with render_mode={render_mode}, seed={env_instance_seed}")
+        
+        return env
 
-    print("Custom action space:", env.action_space)
-    print(info)
-    print(f"Available observation keys: {list(observation.keys())}")
-    print(f"Observation space type: {type(env.observation_space)}")
-    print(env.observation_space)
-
-    # Return only the environment for compatibility with DQN
-    return env
+    return _init
 
 
 def make_parallel_env(env_id: str, num_envs: int, env_seed: int, window_size: int = 5, 
@@ -85,7 +214,12 @@ def make_parallel_env(env_id: str, num_envs: int, env_seed: int, window_size: in
                       seed_offset: int = 0, use_random_spawn: bool = False, exclude_goal_adjacent: bool = True,
                       use_no_death: bool = True, no_death_types: tuple = ("lava",), death_cost: float = -0.25,
                       max_episode_steps: int = None, monitor_diagonal_moves: bool = False,
-                      diagonal_success_reward: float = 1.5, diagonal_failure_penalty: float = 0.1):
+                      diagonal_success_reward: float = 1.5, diagonal_failure_penalty: float = 0.1,
+                      use_flexible_spawn: bool = False, spawn_distribution_type: str = "uniform",
+                      spawn_distribution_params: dict = None, use_stage_training: bool = False,
+                      stage_training_config: dict = None, use_continuous_transition: bool = False,
+                      continuous_transition_config: dict = None, spawn_vis_dir: str = None,
+                      spawn_vis_frequency: int = 10000, **kwargs):
     """
     Create a parallelized environment using SubprocVecEnv.
     
@@ -126,6 +260,24 @@ def make_parallel_env(env_id: str, num_envs: int, env_seed: int, window_size: in
         Reward for successful diagonal moves
     diagonal_failure_penalty : float
         Penalty for failed diagonal moves
+    use_flexible_spawn : bool
+        If True, use the FlexibleSpawnWrapper for spawn distribution
+    spawn_distribution_type : str
+        Type of spawn distribution to use
+    spawn_distribution_params : dict
+        Parameters for the spawn distribution
+    use_stage_training : bool
+        If True, use stage-based training for spawn distribution
+    stage_training_config : dict
+        Configuration for stage-based training
+    use_continuous_transition : bool
+        If True, use continuous transition for spawn distribution
+    continuous_transition_config : dict
+        Configuration for continuous transition
+    spawn_vis_dir : str
+        Directory for spawn visualization
+    spawn_vis_frequency : int
+        Frequency for spawn visualization
         
     Returns:
     -------
@@ -134,7 +286,7 @@ def make_parallel_env(env_id: str, num_envs: int, env_seed: int, window_size: in
     # Store seeds for printing
     env_seeds = []
     
-    def _make_env(rank):
+    def env_creator(rank):
         def _init():
             # Calculate the seed for this environment
             if use_different_envs:
@@ -149,12 +301,11 @@ def make_parallel_env(env_id: str, num_envs: int, env_seed: int, window_size: in
             if rank >= len(env_seeds):
                 env_seeds.append(env_instance_seed)
             
-            # Always pass explicit render_mode=None for vector environments
-            env = make_env(
-                env_id, 
-                rank, 
-                env_instance_seed, 
-                render_mode=None,
+            # Use the global _make_env function
+            env = _make_env(
+                env_id=env_id, 
+                seed=env_instance_seed,
+                render_mode=None,  # Always use None for vector environments
                 window_size=window_size, 
                 cnn_keys=cnn_keys, 
                 mlp_keys=mlp_keys,
@@ -166,13 +317,27 @@ def make_parallel_env(env_id: str, num_envs: int, env_seed: int, window_size: in
                 max_episode_steps=max_episode_steps,
                 monitor_diagonal_moves=monitor_diagonal_moves,
                 diagonal_success_reward=diagonal_success_reward,
-                diagonal_failure_penalty=diagonal_failure_penalty
+                diagonal_failure_penalty=diagonal_failure_penalty,
+                use_flexible_spawn=use_flexible_spawn,
+                spawn_distribution_type=spawn_distribution_type,
+                spawn_distribution_params=spawn_distribution_params,
+                use_stage_training=use_stage_training,
+                stage_training_config=stage_training_config,
+                use_continuous_transition=use_continuous_transition,
+                continuous_transition_config=continuous_transition_config,
+                spawn_vis_dir=spawn_vis_dir,
+                spawn_vis_frequency=spawn_vis_frequency,
+                **kwargs
             )
+            
+            # Wrap with monitor
+            env = Monitor(env)
             return env
+            
         return _init
 
     # Create environments
-    env = SubprocVecEnv([_make_env(i) for i in range(num_envs)])
+    env = SubprocVecEnv([env_creator(i) for i in range(num_envs)])
     
     # Print environment seeds
     print("\n====== ENVIRONMENT SEEDS ======")
@@ -223,7 +388,12 @@ def make_diverse_parallel_env(env_id: str, num_envs: int, env_seed: int,
                              use_random_spawn: bool = False, exclude_goal_adjacent: bool = True,
                              use_no_death: bool = True, no_death_types: tuple = ("lava",), death_cost: float = -0.25,
                              max_episode_steps: int = None, monitor_diagonal_moves: bool = False,
-                             diagonal_success_reward: float = 1.5, diagonal_failure_penalty: float = 0.1):
+                             diagonal_success_reward: float = 1.5, diagonal_failure_penalty: float = 0.1,
+                             use_flexible_spawn: bool = False, spawn_distribution_type: str = "uniform",
+                             spawn_distribution_params: dict = None, use_stage_training: bool = False,
+                             stage_training_config: dict = None, use_continuous_transition: bool = False,
+                             continuous_transition_config: dict = None, spawn_vis_dir: str = None,
+                             spawn_vis_frequency: int = 10000, **kwargs):
     """
     Create a parallelized environment with diverse, reproducible seeds.
     
@@ -259,6 +429,24 @@ def make_diverse_parallel_env(env_id: str, num_envs: int, env_seed: int,
         Reward for successful diagonal moves
     diagonal_failure_penalty : float
         Penalty for failed diagonal moves
+    use_flexible_spawn : bool
+        If True, use the FlexibleSpawnWrapper for spawn distribution
+    spawn_distribution_type : str
+        Type of spawn distribution to use
+    spawn_distribution_params : dict
+        Parameters for the spawn distribution
+    use_stage_training : bool
+        If True, use stage-based training for spawn distribution
+    stage_training_config : dict
+        Configuration for stage-based training
+    use_continuous_transition : bool
+        If True, use continuous transition for spawn distribution
+    continuous_transition_config : dict
+        Configuration for continuous transition
+    spawn_vis_dir : str
+        Directory for spawn visualization
+    spawn_vis_frequency : int
+        Frequency for spawn visualization
         
     Returns:
     -------
@@ -279,17 +467,16 @@ def make_diverse_parallel_env(env_id: str, num_envs: int, env_seed: int,
         print(f"Environment {i}: Seed = {seed}")
     print("======================================\n")
     
-    def _make_env(rank):
+    def env_creator(rank):
         def _init():
             # Use the generated seed for this environment
-            env_seed = int(seeds[rank])
+            env_instance_seed = int(seeds[rank])
             
-            # Always pass explicit render_mode=None for vector environments
-            env = make_env(
-                env_id, 
-                rank, 
-                env_seed, 
-                render_mode=None,
+            # Use the global _make_env function
+            env = _make_env(
+                env_id=env_id, 
+                seed=env_instance_seed,
+                render_mode=None,  # Always use None for vector environments
                 window_size=window_size, 
                 cnn_keys=cnn_keys, 
                 mlp_keys=mlp_keys,
@@ -301,19 +488,37 @@ def make_diverse_parallel_env(env_id: str, num_envs: int, env_seed: int,
                 max_episode_steps=max_episode_steps,
                 monitor_diagonal_moves=monitor_diagonal_moves,
                 diagonal_success_reward=diagonal_success_reward,
-                diagonal_failure_penalty=diagonal_failure_penalty
+                diagonal_failure_penalty=diagonal_failure_penalty,
+                use_flexible_spawn=use_flexible_spawn,
+                spawn_distribution_type=spawn_distribution_type,
+                spawn_distribution_params=spawn_distribution_params,
+                use_stage_training=use_stage_training,
+                stage_training_config=stage_training_config,
+                use_continuous_transition=use_continuous_transition,
+                continuous_transition_config=continuous_transition_config,
+                spawn_vis_dir=spawn_vis_dir,
+                spawn_vis_frequency=spawn_vis_frequency,
+                **kwargs
             )
+            
+            # Wrap with monitor
+            env = Monitor(env)
             return env
         return _init
 
-    return SubprocVecEnv([_make_env(i) for i in range(num_envs)])
+    return SubprocVecEnv([env_creator(i) for i in range(num_envs)])
 
 
 def make_eval_env(env_id: str, seed: int, window_size: int = 5, cnn_keys: list = None, 
                  mlp_keys: list = None, use_random_spawn: bool = False, exclude_goal_adjacent: bool = True,
                  use_no_death: bool = True, no_death_types: tuple = ("lava",), death_cost: float = -0.25,
                  max_episode_steps: int = None, monitor_diagonal_moves: bool = False,
-                 diagonal_success_reward: float = 1.5, diagonal_failure_penalty: float = 0.1):
+                 diagonal_success_reward: float = 1.5, diagonal_failure_penalty: float = 0.1,
+                 use_flexible_spawn: bool = False, spawn_distribution_type: str = "uniform",
+                 spawn_distribution_params: dict = None, use_stage_training: bool = False,
+                 stage_training_config: dict = None, use_continuous_transition: bool = False,
+                 continuous_transition_config: dict = None, spawn_vis_dir: str = None,
+                 spawn_vis_frequency: int = 10000, **kwargs):
     """
     Create a properly configured evaluation environment.
     
@@ -347,6 +552,24 @@ def make_eval_env(env_id: str, seed: int, window_size: int = 5, cnn_keys: list =
         Reward for successful diagonal moves
     diagonal_failure_penalty : float
         Penalty for failed diagonal moves
+    use_flexible_spawn : bool
+        If True, use the FlexibleSpawnWrapper for spawn distribution
+    spawn_distribution_type : str
+        Type of spawn distribution to use
+    spawn_distribution_params : dict
+        Parameters for the spawn distribution
+    use_stage_training : bool
+        If True, use stage-based training for spawn distribution
+    stage_training_config : dict
+        Configuration for stage-based training
+    use_continuous_transition : bool
+        If True, use continuous transition for spawn distribution
+    continuous_transition_config : dict
+        Configuration for continuous transition
+    spawn_vis_dir : str
+        Directory for spawn visualization
+    spawn_vis_frequency : int
+        Frequency for spawn visualization
     """
     print(f"\n====== EVALUATION ENVIRONMENT ======")
     print(f"Creating evaluation environment with seed: {seed}")
@@ -405,4 +628,46 @@ def make_eval_env(env_id: str, seed: int, window_size: int = 5, cnn_keys: list =
     # Reset with seed
     env.reset(seed=seed)
     
+    # Apply flexible spawn distribution if specified
+    if use_flexible_spawn:
+        # Determine total timesteps (if not provided, use a reasonable default)
+        total_timesteps = kwargs.get("total_timesteps", 100000)
+        
+        # Prepare the distribution parameters
+        if spawn_distribution_params is None:
+            spawn_distribution_params = {}
+        
+        # Handle different curriculum learning approaches
+        if use_stage_training and stage_training_config:
+            # Use stage-based training
+            env = FlexibleSpawnWrapper(
+                env,
+                distribution_type=spawn_distribution_type,  # This will be overridden by stages
+                distribution_params=spawn_distribution_params,
+                total_timesteps=total_timesteps,
+                exclude_occupied=True,
+                exclude_goal_adjacent=exclude_goal_adjacent,
+                stage_based_training=stage_training_config
+            )
+        elif use_continuous_transition and continuous_transition_config:
+            # Use continuous transition
+            env = FlexibleSpawnWrapper(
+                env,
+                distribution_type=spawn_distribution_type,
+                distribution_params=spawn_distribution_params,
+                total_timesteps=total_timesteps,
+                exclude_occupied=True,
+                exclude_goal_adjacent=exclude_goal_adjacent,
+                temporal_transition=continuous_transition_config
+            )
+        else:
+            # Use fixed distribution
+            env = FlexibleSpawnWrapper(
+                env,
+                distribution_type=spawn_distribution_type,
+                distribution_params=spawn_distribution_params,
+                exclude_occupied=True,
+                exclude_goal_adjacent=exclude_goal_adjacent
+            )
+
     return env

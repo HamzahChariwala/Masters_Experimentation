@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import os
 import random
 import numpy as np
@@ -40,224 +41,22 @@ from EnvironmentEdits.BespokeEdits.GymCompatibility import OldGymCompatibility
 import EnvironmentEdits.EnvironmentGeneration as Env
 
 # Import our flexible spawn distribution wrapper
-from SpawnDistributions.spawn_distributions import FlexibleSpawnWrapper, DistributionMap
+from SpawnDistributions.spawn_distributions import FlexibleSpawnWrapper
+
+# Import spawn configuration
+from spawn_config import *
 
 # Import visualization tools for spawn distributions
-from SpawnDistributions.visualization import EnhancedSpawnDistributionCallback, generate_final_visualizations
+from SpawnDistributions.visualization import SpawnDistributionCallback, generate_final_visualizations
 
 # ---------------------------------------------------------------
 
 torch.set_default_dtype(torch.float32)
 
 
-def print_spawn_distribution_info(env_params, total_timesteps):
-    """
-    Print a text representation of spawn distribution information.
-    
-    Parameters:
-    ----------
-    env_params : dict
-        Environment parameters including spawn distribution settings
-    total_timesteps : int
-        Total training timesteps
-    """
-    # Check if flexible spawn is enabled
-    if not env_params.get("use_flexible_spawn", False):
-        print("\n====== SPAWN DISTRIBUTION ======")
-        print("Flexible spawn distribution is disabled")
-        print("Using default MiniGrid random spawn")
-        print("===============================\n")
-        return
-        
-    print("\n====== SPAWN DISTRIBUTION CONFIGURATION ======")
-    print(f"Exclude goal-adjacent spawns: {env_params.get('exclude_goal_adjacent', False)}")
-    
-    # Handle stage-based training
-    if env_params.get("use_stage_training", False) and env_params.get("stage_training_config"):
-        config = env_params["stage_training_config"]
-        num_stages = config["num_stages"]
-        print(f"Using stage-based curriculum with {num_stages} stages:")
-        
-        # Calculate approximate timesteps per stage
-        timesteps_per_stage = total_timesteps / num_stages
-        
-        for i, dist in enumerate(config["distributions"]):
-            dist_type = dist["type"]
-            start_step = int(i * timesteps_per_stage)
-            end_step = int((i+1) * timesteps_per_stage)
-            
-            # Format parameters nicely
-            param_str = ""
-            if "params" in dist:
-                param_parts = []
-                for k, v in dist["params"].items():
-                    param_parts.append(f"{k}={v}")
-                if param_parts:
-                    param_str = ", " + ", ".join(param_parts)
-            
-            print(f"  Stage {i+1}: {dist_type}{param_str}")
-            print(f"    Timesteps: {start_step:,} to {end_step:,}")
-            
-            # Print a simple character-based visualization for key distribution types
-            if dist_type in ["poisson_goal", "gaussian_goal", "distance_goal"]:
-                favor_near = dist.get("params", {}).get("favor_near", True)
-                direction = "near goal" if favor_near else "far from goal"
-                print(f"    Direction: {direction}")
-                _print_simple_distribution_visual(dist_type, favor_near)
-    
-    # Handle continuous transition
-    elif env_params.get("use_continuous_transition", False) and env_params.get("continuous_transition_config"):
-        config = env_params["continuous_transition_config"]
-        initial_type = env_params["spawn_distribution_type"]
-        target_type = config["target_type"]
-        rate = config.get("rate", 1.0)
-        
-        print(f"Using continuous curriculum learning:")
-        print(f"  Initial distribution: {initial_type}")
-        
-        # Format parameters nicely
-        if env_params.get("spawn_distribution_params"):
-            param_parts = []
-            for k, v in env_params["spawn_distribution_params"].items():
-                param_parts.append(f"{k}={v}")
-            if param_parts:
-                print(f"    Parameters: {', '.join(param_parts)}")
-                
-        if initial_type in ["poisson_goal", "gaussian_goal", "distance_goal"]:
-            favor_near = env_params.get("spawn_distribution_params", {}).get("favor_near", True)
-            direction = "near goal" if favor_near else "far from goal"
-            print(f"    Direction: {direction}")
-            _print_simple_distribution_visual(initial_type, favor_near)
-            
-        print(f"\n  Target distribution: {target_type}")
-        print(f"  Transition rate: {rate}")
-        
-        # Print a simple transition timeline
-        _print_transition_timeline(rate, total_timesteps)
-        
-    # Handle fixed distribution
-    else:
-        dist_type = env_params.get("spawn_distribution_type", "uniform")
-        print(f"Using fixed spawn distribution: {dist_type}")
-        
-        # Format parameters nicely
-        if env_params.get("spawn_distribution_params"):
-            param_parts = []
-            for k, v in env_params["spawn_distribution_params"].items():
-                param_parts.append(f"{k}={v}")
-            if param_parts:
-                print(f"  Parameters: {', '.join(param_parts)}")
-                
-        if dist_type in ["poisson_goal", "gaussian_goal", "distance_goal"]:
-            favor_near = env_params.get("spawn_distribution_params", {}).get("favor_near", True)
-            direction = "near goal" if favor_near else "far from goal"
-            print(f"  Direction: {direction}")
-            _print_simple_distribution_visual(dist_type, favor_near)
-    
-    # Print additional statistics about visualization
-    if env_params.get("spawn_vis_frequency", 0) > 0:
-        print(f"\nVisualization frequency: Every {env_params.get('spawn_vis_frequency'):,} steps")
-        print(f"Visualization directory: {env_params.get('spawn_vis_dir', './spawn_vis')}")
-    
-    print("===========================================\n")
-
-
-def _print_simple_distribution_visual(dist_type, favor_near):
-    """Print a simple ASCII visualization of the distribution."""
-    size = 11  # Grid size (odd number to have a center)
-    center = size // 2
-    
-    print("\n    Distribution Pattern (G = goal):")
-    
-    # Create a grid with empty spaces
-    grid = [[' ' for _ in range(size)] for _ in range(size)]
-    
-    # Place a G in the center to represent the goal
-    grid[center][center] = 'G'
-    
-    # Define a set of characters to represent density
-    characters = ' .,:;+*#@'  # From low to high density
-    
-    # Fill the grid with density indicators
-    for y in range(size):
-        for x in range(size):
-            if x == center and y == center:
-                continue  # Skip the goal position
-                
-            # Calculate Manhattan distance from goal
-            distance = abs(x - center) + abs(y - center)
-            max_distance = 2 * center
-            
-            # Normalized distance [0, 1]
-            norm_distance = distance / max_distance
-            
-            # Calculate density based on distribution type and favor_near
-            density = 0
-            if dist_type == "uniform":
-                density = 0.5  # Uniform density
-            elif favor_near:
-                # Higher density near the goal
-                if dist_type == "poisson_goal":
-                    density = max(0, 1 - norm_distance * 1.5)
-                elif dist_type == "gaussian_goal":
-                    density = max(0, 1 - (norm_distance * 1.2) ** 2)
-                elif dist_type == "distance_goal":
-                    density = max(0, 1 - norm_distance ** 1.5)
-            else:
-                # Higher density far from the goal
-                if dist_type == "poisson_goal":
-                    density = min(1, norm_distance * 1.5)
-                elif dist_type == "gaussian_goal":
-                    density = min(1, (norm_distance * 1.2) ** 2)
-                elif dist_type == "distance_goal":
-                    density = min(1, norm_distance ** 1.5)
-            
-            # Convert density to character (skip the goal position)
-            if not (x == center and y == center):
-                # Map density [0,1] to character index
-                char_idx = min(len(characters) - 1, int(density * len(characters)))
-                grid[y][x] = characters[char_idx]
-    
-    # Print the grid
-    for row in grid:
-        print("    " + ''.join(row))
-    print()
-
-
-def _print_transition_timeline(rate, total_timesteps):
-    """Print a simple timeline showing the continuous transition."""
-    width = 50  # Width of the timeline
-    print("\n    Transition Timeline:")
-    print("    Start " + "-" * width + " End")
-    
-    # Calculate marker positions for different percentages
-    markers = []
-    for pct in [0.25, 0.5, 0.75]:
-        # Apply the rate function to calculate the actual position
-        # rate > 1 means slow start, fast finish
-        # rate < 1 means fast start, slow finish
-        position = int(width * (pct ** rate))
-        markers.append((position, f"{int(pct * 100)}%"))
-    
-    # Print the markers
-    marker_line = "         "
-    for pos, label in markers:
-        space = " " * (pos - len(marker_line))
-        marker_line += space + "↓"
-    print(marker_line)
-    
-    # Print the percentages
-    pct_line = "         "
-    for pos, label in markers:
-        space = " " * (pos - len(pct_line))
-        pct_line += space + label
-    print(pct_line)
-    print()
-
-
 if __name__ == "__main__":
 
-    log_dir = "./logs/dqn_run_2"
+    log_dir = "./logs/dqn_spawn_config"
     os.makedirs(log_dir, exist_ok=True)
     
     # Create directory for performance tracking
@@ -291,44 +90,44 @@ if __name__ == "__main__":
     # Diagonal movement monitoring
     MONITOR_DIAGONAL_MOVES = True   # Track diagonal move usage
 
-    # Flexible spawn distribution parameters
-    USE_FLEXIBLE_SPAWN = True          # Whether to use flexible spawn distribution
-    SPAWN_DISTRIBUTION_TYPE = "poisson_goal"  # Options: "uniform", "poisson_goal", "gaussian_goal", "distance_goal"
-    SPAWN_DISTRIBUTION_PARAMS = {       # Parameters for the chosen distribution
-        "lambda_param": 1.0,            # For poisson distribution
-        "sigma": 2.0,                   # For gaussian distribution
-        "power": 1,                     # For distance-based distribution
-        "favor_near": False             # Whether to favor positions near the reference point
-    }
-    EXCLUDE_GOAL_ADJACENT = True       # Whether to avoid spawning adjacent to goal
-
-    # Curriculum learning with stage-based training
-    USE_STAGE_TRAINING = True           # Whether to use stage-based training
-    STAGE_TRAINING_CONFIG = {
-        "num_stages": 4,                # Number of training stages
-        "distributions": [
-            # Stage 1: Very close to goal (easy learning)
-            {"type": "poisson_goal", "params": {"lambda_param": 1.0, "favor_near": True}},
-            # Stage 2: Medium distance from goal
-            {"type": "distance_goal", "params": {"favor_near": True, "power": 1}},
-            # Stage 3: Farther from goal (more challenge)
-            {"type": "gaussian_goal", "params": {"sigma": 2.0, "favor_near": False}},
-            # Stage 4: Anywhere in the grid (full mastery)
-            {"type": "uniform"}
-        ]
-    }
-
-    # Curriculum learning with continuous transition
-    USE_CONTINUOUS_TRANSITION = False    # Whether to use continuous transition (mutually exclusive with stage training)
-    CONTINUOUS_TRANSITION_CONFIG = {
-        "target_type": "uniform",        # Target distribution type
-        "rate": 1.0                      # Transition rate (1.0 = linear)
-    }
-
-    # Visualization parameters
-    SPAWN_DISTRIBUTION_VIS_DIR = os.path.join(log_dir, "spawn_distributions")
-    os.makedirs(SPAWN_DISTRIBUTION_VIS_DIR, exist_ok=True)
-    VISUALIZE_SPAWN_FREQUENCY = 10000    # Visualize spawn distribution every N steps
+    # Process spawn configuration from spawn_config.py
+    # Determine which type of distribution to use based on config
+    if USE_FLEXIBLE_SPAWN:
+        SPAWN_DISTRIBUTION_VIS_DIR = os.path.join(log_dir, "spawn_distributions")
+        os.makedirs(SPAWN_DISTRIBUTION_VIS_DIR, exist_ok=True)
+        
+        # Setup based on the selected approach
+        if USE_STAGE_BASED_TRAINING:
+            # Use stage-based training
+            USE_STAGE_TRAINING = True
+            USE_CONTINUOUS_TRANSITION = False
+            SPAWN_DISTRIBUTION_TYPE = "uniform"  # Will be overridden by stages
+            SPAWN_DISTRIBUTION_PARAMS = {}
+        elif USE_CONTINUOUS_TRANSITION:
+            # Use continuous transition
+            USE_STAGE_TRAINING = False
+            USE_CONTINUOUS_TRANSITION = True
+            SPAWN_DISTRIBUTION_TYPE = CONTINUOUS_TRANSITION_CONFIG.get("initial_type", "poisson_goal") 
+            SPAWN_DISTRIBUTION_PARAMS = CONTINUOUS_TRANSITION_CONFIG.get("initial_params", {"lambda_param": 1.0, "favor_near": True})
+            # Reformat the continuous transition config 
+            CONTINUOUS_TRANSITION_CONFIG = {
+                "target_type": CONTINUOUS_TRANSITION_CONFIG.get("target_type", "uniform"),
+                "target_params": CONTINUOUS_TRANSITION_CONFIG.get("target_params", {}),
+                "rate": CONTINUOUS_TRANSITION_CONFIG.get("rate", 1.0)
+            }
+        else:
+            # Use fixed distribution
+            USE_STAGE_TRAINING = False
+            USE_CONTINUOUS_TRANSITION = False
+            SPAWN_DISTRIBUTION_TYPE = FIXED_DISTRIBUTION.get("type", "uniform")
+            SPAWN_DISTRIBUTION_PARAMS = FIXED_DISTRIBUTION.get("params", {})
+    else:
+        # Fall back to random spawn if flexible spawn is disabled
+        USE_RANDOM_SPAWN = True
+        USE_STAGE_TRAINING = False
+        USE_CONTINUOUS_TRANSITION = False
+        SPAWN_DISTRIBUTION_TYPE = "uniform"
+        SPAWN_DISTRIBUTION_PARAMS = {}
 
     # Define standard observation parameters
     observation_params = {
@@ -338,12 +137,12 @@ if __name__ == "__main__":
                     "four_way_angle_alignment",
                     "barrier_mask",
                     "lava_mask"],
-        "use_random_spawn": False,              # Disable default random spawn in favor of our flexible spawn
-        "exclude_goal_adjacent": EXCLUDE_GOAL_ADJACENT,      # Don't spawn next to goal
-        "use_no_death": USE_NO_DEATH,           # Whether to use the NoDeath wrapper
-        "no_death_types": NO_DEATH_TYPES,       # Types that don't cause death
-        "death_cost": DEATH_COST,               # Penalty for hitting death elements
-        "max_episode_steps": MAX_EPISODE_STEPS, # Maximum steps per episode
+        "use_random_spawn": not USE_FLEXIBLE_SPAWN,  # Use random spawn only if flexible spawn is disabled
+        "exclude_goal_adjacent": EXCLUDE_GOAL_ADJACENT,  # Don't spawn next to goal
+        "use_no_death": USE_NO_DEATH,       # Whether to use the NoDeath wrapper
+        "no_death_types": NO_DEATH_TYPES,   # Types that don't cause death
+        "death_cost": DEATH_COST,           # Penalty for hitting death elements
+        "max_episode_steps": MAX_EPISODE_STEPS,  # Maximum steps per episode
         "monitor_diagonal_moves": MONITOR_DIAGONAL_MOVES,  # Track diagonal move usage
         "diagonal_success_reward": DIAGONAL_SUCCESS_REWARD,  # Reward for successful diagonal moves
         "diagonal_failure_penalty": DIAGONAL_FAILURE_PENALTY,  # Penalty for failed diagonal moves
@@ -351,11 +150,11 @@ if __name__ == "__main__":
         "spawn_distribution_type": SPAWN_DISTRIBUTION_TYPE,  # Type of distribution to use for flexible spawn
         "spawn_distribution_params": SPAWN_DISTRIBUTION_PARAMS,  # Parameters for the distribution
         "use_stage_training": USE_STAGE_TRAINING,  # Whether to use stage-based training
-        "stage_training_config": STAGE_TRAINING_CONFIG,  # Configuration for stage-based training
+        "stage_training_config": STAGE_TRAINING_CONFIG if USE_STAGE_TRAINING else None,  # Configuration for stage-based training
         "use_continuous_transition": USE_CONTINUOUS_TRANSITION,  # Whether to use continuous transition
-        "continuous_transition_config": CONTINUOUS_TRANSITION_CONFIG,  # Configuration for continuous transition
-        "spawn_vis_dir": SPAWN_DISTRIBUTION_VIS_DIR,  # Directory for spawn distribution visualizations
-        "spawn_vis_frequency": VISUALIZE_SPAWN_FREQUENCY  # Frequency of spawn distribution visualizations
+        "continuous_transition_config": CONTINUOUS_TRANSITION_CONFIG if USE_CONTINUOUS_TRANSITION else None,  # Configuration for continuous transition
+        "spawn_vis_dir": SPAWN_DISTRIBUTION_VIS_DIR if USE_FLEXIBLE_SPAWN else None,  # Directory for spawn distribution visualizations
+        "spawn_vis_frequency": VISUALIZE_FREQUENCY if VISUALIZE_SPAWN_DISTRIBUTIONS else 0  # Frequency of spawn distribution visualizations
     }
 
     # Set seeds for reproducible model training
@@ -380,15 +179,47 @@ if __name__ == "__main__":
         print(f"  - Death types: {NO_DEATH_TYPES}")
         print(f"  - Death cost: {DEATH_COST}")
     
-    # Visualize spawn distribution configuration before training
-    print_spawn_distribution_info(observation_params, 1_000_000)  # Using 1M as default total timesteps
+    # Print spawn distribution information
+    if USE_FLEXIBLE_SPAWN:
+        print("\n=== Spawn Distribution Settings (from spawn_config.py) ===")
+        if USE_STAGE_BASED_TRAINING:
+            print("Using stage-based curriculum learning")
+            print(f"Number of stages: {STAGE_TRAINING_CONFIG['num_stages']}")
+            for i, dist in enumerate(STAGE_TRAINING_CONFIG['distributions']):
+                near_far = ""
+                if "params" in dist and "favor_near" in dist["params"]:
+                    near_far = "near goal" if dist["params"]["favor_near"] else "far from goal"
+                
+                print(f"  Stage {i+1}: {dist['type']} {near_far}")
+        elif USE_CONTINUOUS_TRANSITION:
+            print("Using continuous curriculum learning")
+            print(f"Initial distribution: {SPAWN_DISTRIBUTION_TYPE}")
+            if "favor_near" in SPAWN_DISTRIBUTION_PARAMS:
+                near_far = "near goal" if SPAWN_DISTRIBUTION_PARAMS["favor_near"] else "far from goal"
+                print(f"  - {near_far}")
+            
+            print(f"Target distribution: {CONTINUOUS_TRANSITION_CONFIG['target_type']}")
+            print(f"Transition rate: {CONTINUOUS_TRANSITION_CONFIG['rate']}")
+        else:
+            print(f"Using fixed spawn distribution: {SPAWN_DISTRIBUTION_TYPE}")
+            if "favor_near" in SPAWN_DISTRIBUTION_PARAMS:
+                near_far = "near goal" if SPAWN_DISTRIBUTION_PARAMS["favor_near"] else "far from goal"
+                print(f"  - {near_far}")
+        
+        print(f"Exclude goal-adjacent spawns: {EXCLUDE_GOAL_ADJACENT}")
+        print(f"Visualization frequency: Every {VISUALIZE_FREQUENCY} steps")
+    else:
+        print("\nUsing default random spawn (flexible spawn disabled in spawn_config.py)")
     
+    print("===========================\n")
+
     # Option 1: Use the enhanced make_parallel_env with different environments
     env = Env.make_parallel_env(
         env_id=ENV_ID,
         num_envs=NUM_ENVS,
         env_seed=ENV_SEED,       # Only pass the environment seed
         use_different_envs=True,  # Enable diverse environments
+        total_timesteps=100_000,  # For calculating stage transitions
         **observation_params
     )
 
@@ -430,14 +261,15 @@ if __name__ == "__main__":
         device=device  # Specify the device here
     )
 
-    # Create a modified version of observation_params with random spawn disabled for evaluation
+    # Create a modified version of observation_params with flexible spawn disabled for evaluation
     eval_params = observation_params.copy()
     eval_params["use_flexible_spawn"] = False  # Disable flexible spawn for evaluation
+    eval_params["use_random_spawn"] = False  # Also disable random spawn for evaluation (fixed start pos)
     # Keep diagonal move monitoring during evaluation
     eval_params["monitor_diagonal_moves"] = True
 
     # Create multiple evaluation environments with different seeds
-    NUM_EVAL_ENVS = 15  # Number of different evaluation environments
+    NUM_EVAL_ENVS = 5  # Number of different evaluation environments
     eval_envs = []
     
     print("\n====== CREATING EVALUATION ENVIRONMENTS ======")
@@ -459,8 +291,7 @@ if __name__ == "__main__":
     # Create termination callback with improved evaluation settings and multiple environments
     termination_callback = CustomTerminationCallback(
         eval_envs=eval_envs,  # Pass list of environments instead of single environment
-        check_freq=10_000,                # Check every 50k steps
-        # min_reward_threshold=0.96,        # Minimum reward to meet before applying termination conditions
+        check_freq=10_000,                # Check every 10k steps
         target_reward_threshold=0.99,    # Target reward to achieve
         max_runtime=30000,               # Maximum runtime in seconds (about 8 hours)
         n_eval_episodes=1,               # Only evaluate on a single episode per environment
@@ -470,14 +301,19 @@ if __name__ == "__main__":
     )
 
     # Create the spawn distribution visualization callback
-    spawn_vis_callback = EnhancedSpawnDistributionCallback(
-        vis_dir=SPAWN_DISTRIBUTION_VIS_DIR,
-        vis_frequency=VISUALIZE_SPAWN_FREQUENCY
+    spawn_vis_callback = SpawnDistributionCallback(
+        vis_dir=SPAWN_DISTRIBUTION_VIS_DIR if USE_FLEXIBLE_SPAWN else None,
+        vis_frequency=VISUALIZE_FREQUENCY if USE_FLEXIBLE_SPAWN and VISUALIZE_SPAWN_DISTRIBUTIONS else 0
     )
+
+    # Combine callbacks
+    callbacks = [termination_callback]
+    if USE_FLEXIBLE_SPAWN and VISUALIZE_SPAWN_DISTRIBUTIONS:
+        callbacks.append(spawn_vis_callback)
 
     # Print training start message
     print("\n====== STARTING TRAINING ======")
-    print(f"Target timesteps: 1,000,000")
+    print(f"Target timesteps: 100,000")
     print(f"Evaluation frequency: Every {termination_callback.check_freq} steps")
     print(f"Evaluation environments: {NUM_EVAL_ENVS}")
     print(f"Evaluation episodes per environment: {termination_callback.n_eval_episodes}")
@@ -488,9 +324,9 @@ if __name__ == "__main__":
     model.learn(
         total_timesteps=100_000, 
         tb_log_name="DQN_MiniGrid",
-        callback=[termination_callback, spawn_vis_callback]
+        callback=callbacks
     )
-    model.save("dqn_minigrid_agent_empty_test_100k_exp")
+    model.save(os.path.join(log_dir, "trained_model"))
 
     # Print final evaluation message
     print("\n====== TRAINING COMPLETE ======")
@@ -498,7 +334,7 @@ if __name__ == "__main__":
     print("==============================\n")
 
     # Final evaluation across multiple environments
-    NUM_FINAL_EVAL_ENVS = 10  # More environments for final evaluation
+    NUM_FINAL_EVAL_ENVS = 5  # More environments for final evaluation
     EPISODES_PER_ENV = 3      # Multiple episodes per environment
     FINAL_EVAL_TIMEOUT = 3   # Timeout in seconds per environment evaluation
     
@@ -585,7 +421,7 @@ if __name__ == "__main__":
         generate_final_visualizations(
             model=model,
             spawn_vis_dir=SPAWN_DISTRIBUTION_VIS_DIR,
-            use_stage_based_training=USE_STAGE_TRAINING
+            use_stage_based_training=USE_STAGE_BASED_TRAINING
         )
 
     # Visualize the agent's behavior
@@ -597,4 +433,4 @@ if __name__ == "__main__":
         seed=EVAL_SEED + 5000,  # Use a different seed than training/evaluation
         num_episodes=3,
         render=False  # Set to True if you have a display available
-    )
+    ) 

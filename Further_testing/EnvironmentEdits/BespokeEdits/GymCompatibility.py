@@ -26,5 +26,30 @@ class OldGymCompatibility(gym.Env):
 
     def close(self):
         return self.env.close()
+        
+    def get_wrapper_attr(self, name):
+        """
+        Recursive attribute getter that searches through the wrapper stack.
+        Used by SubprocVecEnv to fetch attributes from the environment.
+        """
+        if hasattr(self, name):
+            return getattr(self, name)
+        elif hasattr(self.env, 'get_wrapper_attr'):
+            return self.env.get_wrapper_attr(name)
+        elif hasattr(self.env, name):
+            return getattr(self.env, name)
+        
+        # Try to recurse through env chain if nested
+        if hasattr(self.env, 'env'):
+            env = self.env.env
+            while env:
+                if hasattr(env, name):
+                    return getattr(env, name)
+                if not hasattr(env, 'env'):
+                    break
+                env = env.env
+                
+        # If we reach here, the attribute wasn't found
+        raise AttributeError(f"'{type(self).__name__}' object and its wrappers have no attribute '{name}'")
 
 

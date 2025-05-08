@@ -718,6 +718,20 @@ class FlexibleSpawnWrapper(gym.Wrapper):
         
         return obs, reward, terminated, truncated, info
     
+    def get_current_distribution_probabilities(self):
+        """
+        Returns the current distribution probabilities for external access.
+        This method is used by visualization tools to directly access the distribution.
+        
+        Returns:
+        -------
+        numpy.ndarray
+            The current probability distribution for spawn positions
+        """
+        if hasattr(self, 'current_distribution') and self.current_distribution is not None:
+            return self.current_distribution.probabilities
+        return None
+    
     def visualize_distribution(self, title=None, save_path=None):
         """Visualize the current spawn distribution."""
         if self.current_distribution:
