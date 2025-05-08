@@ -2,7 +2,7 @@ import os
 import numpy as np
 import gymnasium as gym
 import matplotlib.pyplot as plt
-from spawn_distributions import FlexibleSpawnWrapper
+from EnvironmentEdits.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper
 import time
 from minigrid.wrappers import RGBImgObsWrapper, ImgObsWrapper
 

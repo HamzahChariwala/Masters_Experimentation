@@ -5,7 +5,7 @@ import os
 import gymnasium as gym
 from minigrid.wrappers import RGBImgObsWrapper
 from minigrid.envs.empty import EmptyEnv
-from SpawnDistributions.spawn_distributions import DistributionMap, FlexibleSpawnWrapper
+from EnvironmentEdits.BespokeEdits.SpawnDistribution import DistributionMap, FlexibleSpawnWrapper
 
 # Create output directory for stage-based training visualization
 output_dir = "stage_distribution_samples"

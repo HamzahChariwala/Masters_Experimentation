@@ -19,7 +19,7 @@ from EnvironmentEdits.BespokeEdits.CustomWrappers import (GoalAngleDistanceWrapp
 from EnvironmentEdits.BespokeEdits.FeatureExtractor import CustomCombinedExtractor, SelectiveObservationWrapper
 from EnvironmentEdits.BespokeEdits.ActionSpace import CustomActionWrapper
 from EnvironmentEdits.BespokeEdits.GymCompatibility import OldGymCompatibility
-from SpawnDistributions.spawn_distributions import FlexibleSpawnWrapper
+from EnvironmentEdits.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper
 
 
 def _make_env(env_id, 

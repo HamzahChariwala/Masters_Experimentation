@@ -10,6 +10,13 @@ This module provides a flexible system for controlling agent spawn locations in 
 - **Masking**: Exclude occupied cells or cells adjacent to the goal
 - **Visualization tools**: Visualize distributions and spawn frequencies
 
+## Project Structure
+
+The code is organized as follows:
+
+- Core functionality (`DistributionMap` and `FlexibleSpawnWrapper` classes) is in `EnvironmentEdits/BespokeEdits/SpawnDistribution.py`
+- Visualization and testing utilities are in the `SpawnDistributions` directory
+
 ## Components
 
 ### `DistributionMap`
@@ -66,7 +73,7 @@ The system supports curriculum learning by gradually changing the spawn distribu
 
 ```python
 import gymnasium as gym
-from spawn_distributions import FlexibleSpawnWrapper
+from EnvironmentEdits.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper
 
 # Create environment
 env = gym.make("MiniGrid-Empty-8x8-v0")
@@ -102,13 +109,13 @@ env = FlexibleSpawnWrapper(
 
 The module includes:
 
-1. `test_distributions.py`: Tests the different distribution types and visualizes them
-2. `demo.py`: Demonstrates how to use the module with MiniGrid environments
+1. `SpawnDistributions/test_distributions.py`: Tests the different distribution types and visualizes them
+2. `SpawnDistributions/demo.py`: Demonstrates how to use the module with MiniGrid environments
 
 Run the demo:
 
 ```bash
-python demo.py
+python SpawnDistributions/demo.py
 ```
 
 This will create various visualizations in the `demo_outputs` directory.

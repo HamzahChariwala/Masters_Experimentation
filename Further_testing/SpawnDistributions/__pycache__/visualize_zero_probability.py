@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import os
 import matplotlib.patches as patches
 from minigrid.envs.crossing import CrossingEnv
-from SpawnDistributions.spawn_distributions import FlexibleSpawnWrapper
+from EnvironmentEdits.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper
 
 # Create output directory
 output_dir = "zero_prob_visualizations"

@@ -6,7 +6,7 @@ import gymnasium as gym
 from minigrid.wrappers import RGBImgObsWrapper
 from minigrid.envs.empty import EmptyEnv
 from minigrid.envs.crossing import CrossingEnv  # Has lava
-from SpawnDistributions.spawn_distributions import DistributionMap, FlexibleSpawnWrapper
+from EnvironmentEdits.BespokeEdits.SpawnDistribution import DistributionMap, FlexibleSpawnWrapper
 
 # Create output directory
 output_dir = "validation_results"

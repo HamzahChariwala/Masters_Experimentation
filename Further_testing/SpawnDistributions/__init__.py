@@ -15,8 +15,9 @@ Main components:
 - visualize_curriculum: Script for visualizing curriculum learning approaches
 """
 
-from .spawn_distributions import DistributionMap, FlexibleSpawnWrapper
-from .visualization import SpawnDistributionCallback, EnhancedSpawnDistributionCallback, generate_final_visualizations
+# Import from the new location in BespokeEdits
+from EnvironmentEdits.BespokeEdits.SpawnDistribution import DistributionMap, FlexibleSpawnWrapper
+from SpawnDistributions.visualization import SpawnDistributionCallback, EnhancedSpawnDistributionCallback, generate_final_visualizations
 
 __all__ = [
     'DistributionMap', 

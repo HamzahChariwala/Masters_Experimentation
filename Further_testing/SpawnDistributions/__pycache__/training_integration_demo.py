@@ -3,7 +3,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from minigrid.envs.empty import EmptyEnv
-from SpawnDistributions.spawn_distributions import FlexibleSpawnWrapper, DistributionMap
+from EnvironmentEdits.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper, DistributionMap
 
 # Create output directory
 output_dir = "training_demo"

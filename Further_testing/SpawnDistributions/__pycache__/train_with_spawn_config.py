@@ -41,7 +41,7 @@ from EnvironmentEdits.BespokeEdits.GymCompatibility import OldGymCompatibility
 import EnvironmentEdits.EnvironmentGeneration as Env
 
 # Import our flexible spawn distribution wrapper
-from SpawnDistributions.spawn_distributions import FlexibleSpawnWrapper
+from EnvironmentEdits.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper
 
 # Import spawn configuration
 from spawn_config import *

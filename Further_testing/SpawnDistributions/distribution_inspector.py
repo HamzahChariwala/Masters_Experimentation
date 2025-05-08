@@ -9,6 +9,9 @@ from pprint import pprint
 import os
 import time  # For timestamp generation
 from stable_baselines3.common.callbacks import BaseCallback
+import gymnasium as gym
+from minigrid.core.constants import OBJECT_TO_IDX, IDX_TO_OBJECT, COLOR_TO_IDX, IDX_TO_COLOR
+from EnvironmentEdits.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper
 
 
 def print_numeric_distribution(grid, goal_pos=None, lava_positions=None, title=None, summary=True):

@@ -11,6 +11,9 @@ import matplotlib.pyplot as plt
 from stable_baselines3.common.callbacks import BaseCallback
 import time
 
+# Import the wrapper and DistributionMap from the new location
+from EnvironmentEdits.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper, DistributionMap
+
 class EnhancedSpawnDistributionCallback(BaseCallback):
     """
     Callback for visualizing spawn distributions during training.
@@ -69,18 +72,9 @@ class EnhancedSpawnDistributionCallback(BaseCallback):
         if depth > max_depth:
             return None
         
-        # Try to import the wrapper class
-        try:
-            from SpawnDistributions.spawn_distributions import FlexibleSpawnWrapper
-            
-            # Check if this is the wrapper we're looking for
-            if isinstance(env, FlexibleSpawnWrapper):
-                return env
-        except ImportError:
-            # Module not available, can't check
-            if self.verbose > 0:
-                print("Could not import FlexibleSpawnWrapper class")
-            return None
+        # Check if this is the wrapper we're looking for
+        if isinstance(env, FlexibleSpawnWrapper):
+            return env
         
         # Try common ways to access sub-environments
         

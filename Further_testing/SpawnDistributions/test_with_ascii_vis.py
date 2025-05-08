@@ -15,7 +15,7 @@ import logging
 from main import Env, DQN, CustomCombinedExtractor
 
 # Import our new distribution inspector
-from spawn_distribution_inspector import (
+from SpawnDistributions.distribution_inspector import (
     visualize_env_spawn_distribution, 
     print_numeric_distribution,
     extract_distribution_from_env,
@@ -23,7 +23,7 @@ from spawn_distribution_inspector import (
 )
 
 # Import the distribution creation functions from test_spawn_distributions
-from test_spawn_distributions import (
+from SpawnDistributions.test_distributions_standalone import (
     apply_uniform_distribution,
     apply_poisson_distribution,
     apply_gaussian_distribution,
@@ -36,6 +36,7 @@ from test_spawn_distributions import (
 
 # Import the visualization callback
 from SpawnDistributions.visualization import EnhancedSpawnDistributionCallback, generate_final_visualizations
+from EnvironmentEdits.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper
 
 def debug_env_hierarchy(env, prefix=""):
     """
@@ -52,7 +53,6 @@ def debug_env_hierarchy(env, prefix=""):
     
     # Try to find the FlexibleSpawnWrapper
     try:
-        from SpawnDistributions.spawn_distributions import FlexibleSpawnWrapper
         if isinstance(env, FlexibleSpawnWrapper):
             print(f"{prefix}*** FOUND FlexibleSpawnWrapper ***")
             return True

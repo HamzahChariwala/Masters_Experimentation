@@ -2,7 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from SpawnDistributions.spawn_distributions import DistributionMap
+from EnvironmentEdits.BespokeEdits.SpawnDistribution import DistributionMap
 
 # Create output directory
 output_dir = "distribution_samples"

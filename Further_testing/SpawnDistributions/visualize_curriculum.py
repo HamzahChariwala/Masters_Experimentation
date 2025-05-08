@@ -14,7 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.colors import LinearSegmentedColormap
-from .spawn_distributions import DistributionMap
+from EnvironmentEdits.BespokeEdits.SpawnDistribution import DistributionMap
 
 def visualize_stage_based_curriculum(output_dir="curriculum_visualizations", 
                                      grid_size=(8, 8), 

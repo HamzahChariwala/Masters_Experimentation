@@ -10,7 +10,7 @@ Run this script to generate visualization images of the different distribution t
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from .spawn_distributions import DistributionMap
+from EnvironmentEdits.BespokeEdits.SpawnDistribution import DistributionMap
 
 def visualize_all_distributions(output_dir="distribution_visualizations", grid_size=(8, 8), goal_pos=(7, 7)):
     """
