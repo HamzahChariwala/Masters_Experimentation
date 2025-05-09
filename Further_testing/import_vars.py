@@ -122,8 +122,26 @@ def create_observation_params(config: Dict[str, Any], spawn_vis_dir: str) -> Dic
         use_stage_training = True
         stage_training_config = {
             'num_stages': spawn_config['stage_training']['num_stages'],
-            'distributions': spawn_config['stage_training']['distributions']
+            'distributions': spawn_config['stage_training']['distributions'],
+            'curriculum_proportion': spawn_config['stage_training'].get('curriculum_proportion', 1.0),
+            'smooth_transitions': spawn_config['stage_training'].get('smooth_transitions', {'enabled': False})
         }
+        
+        # Add smooth transition parameters if enabled
+        if stage_training_config['smooth_transitions']['enabled']:
+            stage_training_config['smooth_transitions']['transition_proportion'] = (
+                spawn_config['stage_training']['smooth_transitions'].get('transition_proportion', 0.2)
+            )
+        
+        # Process relative durations for stages
+        if 'distributions' in stage_training_config:
+            # Calculate total relative duration
+            total_relative_duration = 0
+            for dist in stage_training_config['distributions']:
+                total_relative_duration += dist.get('relative_duration', 1.0)
+            
+            # Store this for calculations
+            stage_training_config['total_relative_duration'] = total_relative_duration
     else:
         use_stage_training = False
         stage_training_config = None

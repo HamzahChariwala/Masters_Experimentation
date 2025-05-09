@@ -89,22 +89,24 @@ CONTINUOUS_CONFIGS = [
     }
 ]
 
-def generate_numeric_distribution(dist_type, favor_near=True, width=7, height=7, env_type="empty", env_id=None):
+def generate_numeric_distribution(dist_type, favor_near=True, width=7, height=7, env_type="empty", env_id=None, params=None):
     """
     Generate a numeric probability distribution.
     
     Parameters:
     ----------
     dist_type : str
-        Type of distribution (uniform, poisson_goal, gaussian_goal, distance_goal)
+        Type of distribution (uniform, poisson_goal, gaussian_goal, distance_goal, gaussian_2d)
     favor_near : bool
-        Whether to favor positions near the goal
+        Whether to favor positions near the goal (for legacy distribution types)
     width, height : int
         Grid dimensions
     env_type : str
         Environment type ("empty", "lava_gap", "lava_crossing")
     env_id : str or None
         If provided, use this environment ID to determine the actual layout
+    params : dict
+        Distribution parameters (for newer distribution types like gaussian_2d)
     
     Returns:
     -------
@@ -113,6 +115,9 @@ def generate_numeric_distribution(dist_type, favor_near=True, width=7, height=7,
     dict
         Environment information (goal position, lava positions)
     """
+    # Use empty dict if params is None
+    params = params or {}
+    
     # Initialize grid and environment information
     grid = np.zeros((height, width))
     goal_pos = (width-2, height-2)  # Typical goal position (bottom right)
@@ -299,6 +304,56 @@ def generate_numeric_distribution(dist_type, favor_near=True, width=7, height=7,
                     else:
                         prob = norm_distance ** power
                 
+                elif dist_type == "gaussian_2d":
+                    # Default to goal position if not specified
+                    center_x = goal_x
+                    center_y = goal_y
+                    
+                    # Get parameters from params dictionary if provided
+                    center = params.get("center", [1.0, 1.0])
+                    std = params.get("std", [0.2, 0.2])
+                    directional = params.get("directional", False)
+                    angle = params.get("angle", 0)
+                    
+                    # Convert normalized center coordinates to grid coordinates
+                    if center:
+                        center_x = int(center[0] * (width - 1))
+                        center_y = int(center[1] * (height - 1))
+                    
+                    # Convert normalized standard deviations to grid units
+                    scale_factor = max(width, height)
+                    sigma_x = std[0] * scale_factor if std else width * 0.2
+                    sigma_y = std[1] * scale_factor if std else height * 0.2
+                    
+                    # Handle directional Gaussian if specified
+                    if directional:
+                        # Convert angle to radians
+                        theta = np.radians(angle)
+                        cos_theta = np.cos(theta)
+                        sin_theta = np.sin(theta)
+                        
+                        # Rotate coordinates
+                        x_shifted = x - center_x
+                        y_shifted = y - center_y
+                        
+                        x_rot = x_shifted * cos_theta + y_shifted * sin_theta
+                        y_rot = -x_shifted * sin_theta + y_shifted * cos_theta
+                        
+                        # Calculate probability using rotated coordinates
+                        x_term = (x_rot / sigma_x) ** 2
+                        y_term = (y_rot / sigma_y) ** 2
+                    else:
+                        # Standard Gaussian
+                        x_term = ((x - center_x) / sigma_x) ** 2
+                        y_term = ((y - center_y) / sigma_y) ** 2
+                    
+                    # Calculate probability
+                    prob = np.exp(-0.5 * (x_term + y_term))
+                
+                else:
+                    # Default to uniform for unknown distribution types
+                    prob = 1.0 / (width * height)
+                    
                 grid[y, x] = prob
     
     # Zero out goal position (can't spawn on goal)

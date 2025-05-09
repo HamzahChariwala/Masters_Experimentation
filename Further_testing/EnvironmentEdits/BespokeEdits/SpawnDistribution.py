@@ -571,9 +571,15 @@ class FlexibleSpawnWrapper(gym.Wrapper):
                     {
                         "type": str,  # Distribution type
                         "params": dict,  # Distribution parameters
+                        "relative_duration": float,  # Relative duration of this stage
                     },
                     ...
-                ]
+                ],
+                "curriculum_proportion": float,  # Proportion of total timesteps to use for curriculum
+                "smooth_transitions": {
+                    "enabled": bool,  # Whether to use smooth transitions
+                    "transition_proportion": float,  # Proportion of each stage for transition
+                }
             }
         """
         super().__init__(env)
@@ -584,6 +590,7 @@ class FlexibleSpawnWrapper(gym.Wrapper):
         self.distribution_params = distribution_params or {}
         self.temporal_transition = temporal_transition
         self.stage_based_training = stage_based_training
+        self.verbose = 1  # Set verbosity level for logging
         
         # Initialize timestep counter
         self.timestep = 0
@@ -591,10 +598,47 @@ class FlexibleSpawnWrapper(gym.Wrapper):
         # Stage-based tracking
         self.current_stage = 0
         self.next_stage_transition = 0
+        self.curriculum_end = None  # Timestep when the curriculum ends
+        
+        # Calculate curriculum-based timings if applicable
         if stage_based_training and total_timesteps:
-            if 'num_stages' in stage_based_training and 'distributions' in stage_based_training:
-                self.stage_timesteps = total_timesteps / stage_based_training['num_stages']
-                self.next_stage_transition = self.stage_timesteps
+            # Get curriculum proportion (default to 1.0 if not specified)
+            curriculum_proportion = stage_based_training.get('curriculum_proportion', 1.0)
+            
+            # Calculate when the curriculum should end
+            self.curriculum_end = int(total_timesteps * curriculum_proportion)
+            
+            if 'distributions' in stage_based_training:
+                # Calculate stage durations based on relative durations
+                distributions = stage_based_training['distributions']
+                total_relative_duration = stage_based_training.get('total_relative_duration', None)
+                
+                # If total_relative_duration wasn't calculated, do it now
+                if total_relative_duration is None:
+                    total_relative_duration = 0
+                    for dist in distributions:
+                        total_relative_duration += dist.get('relative_duration', 1.0)
+                
+                # Calculate the timestamps for stage transitions
+                self.stage_durations = []
+                self.stage_transitions = [0]  # Start at timestep 0
+                
+                for i, dist in enumerate(distributions):
+                    relative_duration = dist.get('relative_duration', 1.0)
+                    # Calculate stage duration as proportion of curriculum duration
+                    stage_duration = int((relative_duration / total_relative_duration) * self.curriculum_end)
+                    self.stage_durations.append(stage_duration)
+                    # Add this duration to the previous transition point
+                    next_transition = self.stage_transitions[-1] + stage_duration
+                    self.stage_transitions.append(next_transition)
+                
+                # Initialize the next transition point
+                if len(self.stage_transitions) > 1:
+                    self.next_stage_transition = self.stage_transitions[1]
+                    
+                if self.verbose > 0:
+                    print(f"Curriculum transitions will occur at timesteps: {self.stage_transitions[1:]}")
+                    print(f"Curriculum will end at timestep: {self.curriculum_end}")
                 
         # Placeholder for distribution maps
         self.current_distribution = None
@@ -828,7 +872,7 @@ class FlexibleSpawnWrapper(gym.Wrapper):
     
     def step(self, action):
         """
-        Take a step in the environment and update the spawn distribution if needed.
+        Take a step and update distribution if needed.
         
         Parameters:
         ----------
@@ -854,80 +898,104 @@ class FlexibleSpawnWrapper(gym.Wrapper):
         
         # Handle distribution updates based on timesteps
         if self.stage_based_training and self.total_timesteps:
-            # Get smooth transition settings if available
-            smooth_transitions = self.stage_based_training.get('smooth_transitions', {'enabled': False})
-            smooth_enabled = smooth_transitions.get('enabled', False)
-            transition_duration = smooth_transitions.get('transition_duration', 1000)
-            transition_rate = smooth_transitions.get('transition_rate', 'linear')
-            
-            # Get stage duration (can be specified directly or calculated from num_stages)
-            stage_duration = self.stage_based_training.get('stage_duration')
-            if stage_duration is None and 'num_stages' in self.stage_based_training:
-                stage_duration = self.total_timesteps / self.stage_based_training['num_stages']
-            
-            # If stage_duration is defined, use it instead of stage_timesteps
-            if stage_duration is not None:
-                self.stage_timesteps = stage_duration
-            
-            # Calculate next stage transition point
-            current_stage_end = (self.current_stage + 1) * self.stage_timesteps
-            
-            # Check if we've reached the time for a stage transition
-            if smooth_enabled and self.current_stage < len(self.stage_based_training['distributions']) - 1:
-                # Calculate transition start and end times
-                transition_start = current_stage_end - transition_duration
-                
-                # If we're in the transition period between stages
-                if self.timestep >= transition_start and self.timestep < current_stage_end:
-                    # Calculate progress through the transition (0.0 to 1.0)
-                    progress = (self.timestep - transition_start) / transition_duration
+            # Check if we've reached the end of the curriculum
+            if self.curriculum_end is not None and self.timestep >= self.curriculum_end:
+                # If we haven't already switched to uniform after curriculum
+                if self.current_stage != -1:
+                    # Switch to uniform distribution after curriculum is done
+                    self._apply_distribution("uniform", {})
                     
-                    # Apply different transition rates
-                    if transition_rate == 'exponential':
-                        progress = progress ** 2  # Exponential transition
-                    elif transition_rate == 'sigmoid':
-                        # Sigmoid function to create an S-shaped transition
-                        progress = 1 / (1 + np.exp(-10 * (progress - 0.5)))
-                    # 'linear' is the default, so we don't modify progress in that case
-                    
-                    # Get current and next stage configurations
-                    current_stage_config = self.stage_based_training['distributions'][self.current_stage]
-                    next_stage_config = self.stage_based_training['distributions'][self.current_stage + 1]
-                    
-                    # Create temporary distribution maps for interpolation
-                    current_dist_map = DistributionMap(self.current_distribution.width, self.current_distribution.height)
-                    next_dist_map = DistributionMap(self.current_distribution.width, self.current_distribution.height)
-                    
-                    # Apply distributions
-                    self._apply_distribution_to_map(current_stage_config['type'], 
-                                                  current_stage_config.get('params', {}),
-                                                  current_dist_map)
-                    
-                    self._apply_distribution_to_map(next_stage_config['type'],
-                                                  next_stage_config.get('params', {}),
-                                                  next_dist_map)
-                    
-                    # Apply masks to both distributions
+                    # Apply masks to ensure goal and invalid cells have zero probability
                     if self.goal_pos:
                         goal_mask = np.ones_like(self.valid_cells_mask)
                         goal_mask[self.goal_pos[1], self.goal_pos[0]] = 0
-                        current_dist_map.mask_cells(goal_mask)
-                        next_dist_map.mask_cells(goal_mask)
+                        self.current_distribution.mask_cells(goal_mask)
                     
-                    current_dist_map.mask_cells(self.valid_cells_mask)
-                    next_dist_map.mask_cells(self.valid_cells_mask)
-                    
-                    # Interpolate between the two distributions
-                    self.current_distribution.from_existing_distribution(current_dist_map.probabilities)
-                    self.current_distribution.temporal_interpolation(next_dist_map, progress)
+                    self.current_distribution.mask_cells(self.valid_cells_mask)
                     self.current_distribution.build_sampling_map()
                     
-                    # Store transition point for visualization (at midpoint)
-                    if progress >= 0.5 and progress < 0.51:
-                        self.distribution_history.append((self.timestep, self.current_distribution.probabilities.copy()))
+                    # Store for visualization
+                    self.distribution_history.append((self.timestep, self.current_distribution.probabilities.copy()))
+                    
+                    # Mark as post-curriculum by setting stage to -1
+                    self.current_stage = -1
+                    
+                    if self.verbose > 0:
+                        print(f"Curriculum completed at timestep {self.timestep}. Switching to uniform distribution.")
+                
+                # No need to process further distribution updates
+                return obs, reward, terminated, truncated, info
+            
+            # Get smooth transition settings if available
+            smooth_transitions = self.stage_based_training.get('smooth_transitions', {'enabled': False})
+            smooth_enabled = smooth_transitions.get('enabled', False)
+            
+            # Calculate transition duration as a proportion of stage duration
+            transition_proportion = smooth_transitions.get('transition_proportion', 0.2)
+            transition_rate = smooth_transitions.get('transition_rate', 'linear')
+            
+            # Check if we're still within the valid stages
+            if self.current_stage < len(self.stage_based_training['distributions']) - 1:
+                # Get current stage duration and transition points
+                current_stage_end = self.stage_transitions[self.current_stage + 1]
+                
+                # Calculate transition parameters
+                if smooth_enabled:
+                    stage_duration = self.stage_durations[self.current_stage]
+                    transition_duration = int(stage_duration * transition_proportion)
+                    transition_start = current_stage_end - transition_duration
+                    
+                    # If we're in the transition period between stages
+                    if self.timestep >= transition_start and self.timestep < current_stage_end:
+                        # Calculate progress through the transition (0.0 to 1.0)
+                        progress = (self.timestep - transition_start) / transition_duration
+                        
+                        # Apply different transition rates
+                        if transition_rate == 'exponential':
+                            progress = progress ** 2  # Exponential transition
+                        elif transition_rate == 'sigmoid':
+                            # Sigmoid function to create an S-shaped transition
+                            progress = 1 / (1 + np.exp(-10 * (progress - 0.5)))
+                        # 'linear' is the default, so we don't modify progress in that case
+                        
+                        # Get current and next stage configurations
+                        current_stage_config = self.stage_based_training['distributions'][self.current_stage]
+                        next_stage_config = self.stage_based_training['distributions'][self.current_stage + 1]
+                        
+                        # Create temporary distribution maps for interpolation
+                        current_dist_map = DistributionMap(self.current_distribution.width, self.current_distribution.height)
+                        next_dist_map = DistributionMap(self.current_distribution.width, self.current_distribution.height)
+                        
+                        # Apply distributions
+                        self._apply_distribution_to_map(current_stage_config['type'], 
+                                                    current_stage_config.get('params', {}),
+                                                    current_dist_map)
+                        
+                        self._apply_distribution_to_map(next_stage_config['type'],
+                                                    next_stage_config.get('params', {}),
+                                                    next_dist_map)
+                        
+                        # Apply masks to both distributions
+                        if self.goal_pos:
+                            goal_mask = np.ones_like(self.valid_cells_mask)
+                            goal_mask[self.goal_pos[1], self.goal_pos[0]] = 0
+                            current_dist_map.mask_cells(goal_mask)
+                            next_dist_map.mask_cells(goal_mask)
+                        
+                        current_dist_map.mask_cells(self.valid_cells_mask)
+                        next_dist_map.mask_cells(self.valid_cells_mask)
+                        
+                        # Interpolate between the two distributions
+                        self.current_distribution.from_existing_distribution(current_dist_map.probabilities)
+                        self.current_distribution.temporal_interpolation(next_dist_map, progress)
+                        self.current_distribution.build_sampling_map()
+                        
+                        # Store transition point for visualization (at midpoint)
+                        if progress >= 0.5 and progress < 0.51:
+                            self.distribution_history.append((self.timestep, self.current_distribution.probabilities.copy()))
                     
                 # If we've completed the transition to the next stage
-                elif self.timestep >= current_stage_end and self.current_stage < len(self.stage_based_training['distributions']) - 1:
+                elif self.timestep >= current_stage_end:
                     # Move to next stage
                     self.current_stage += 1
                     
@@ -952,27 +1020,7 @@ class FlexibleSpawnWrapper(gym.Wrapper):
                         print(f"Distribution: {next_stage_config['type']}")
                         if 'description' in next_stage_config:
                             print(f"Description: {next_stage_config['description']}")
-            
-            elif not smooth_enabled and self.timestep >= current_stage_end and self.current_stage < len(self.stage_based_training['distributions']) - 1:
-                # Non-smooth transition - just switch immediately to the next stage
-                # Move to next stage
-                self.current_stage += 1
-                
-                # Apply the distribution for the new stage
-                next_stage_config = self.stage_based_training['distributions'][self.current_stage]
-                self._apply_distribution(next_stage_config['type'], next_stage_config.get('params', {}))
-                
-                # Apply masks to ensure goal and invalid cells have zero probability
-                if self.goal_pos:
-                    goal_mask = np.ones_like(self.valid_cells_mask)
-                    goal_mask[self.goal_pos[1], self.goal_pos[0]] = 0
-                    self.current_distribution.mask_cells(goal_mask)
-                
-                self.current_distribution.mask_cells(self.valid_cells_mask)
-                self.current_distribution.build_sampling_map()
-                
-                # Store for visualization
-                self.distribution_history.append((self.timestep, self.current_distribution.probabilities.copy()))
+                        print(f"Relative duration: {next_stage_config.get('relative_duration', 1.0)}")
         
         # Handle continuous transition
         elif self.temporal_transition and self.target_distribution and self.total_timesteps:

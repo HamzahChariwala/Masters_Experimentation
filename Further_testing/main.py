@@ -272,33 +272,46 @@ if __name__ == "__main__":
         # Add smooth transition parameters if defined
         smooth_transitions = {
             "enabled": True,
-            "transition_duration": 2000,  # Number of steps to spend transitioning
+            "transition_proportion": 0.2,  # Proportion of stage used for transition
             "transition_rate": "linear"   # Linear transition between stages
         }
         
         # Update the stage training config with smooth transitions
         observation_params["stage_training_config"]["smooth_transitions"] = smooth_transitions
         
-        # Calculate stage duration based on total timesteps and number of stages
-        num_stages = observation_params["stage_training_config"]["num_stages"]
-        total_steps = 100_000  # Hardcoded for this example
-        stage_duration = total_steps // num_stages
+        # Get the total timesteps for the training
+        total_steps = config['experiment']['output']['total_timesteps']
         
-        # Add stage duration to config
-        observation_params["stage_training_config"]["stage_duration"] = stage_duration
+        # Get curriculum proportion
+        curriculum_proportion = observation_params["stage_training_config"].get("curriculum_proportion", 0.8)
         
         print(f"\n===== STAGE TRAINING CONFIGURATION =====")
-        print(f"Number of stages: {num_stages}")
-        print(f"Stage duration: {stage_duration} steps")
+        print(f"Number of stages: {observation_params['stage_training_config']['num_stages']}")
+        print(f"Curriculum proportion: {curriculum_proportion * 100:.1f}% of total training")
+        print(f"Curriculum timesteps: {int(total_steps * curriculum_proportion)}")
         print(f"Smooth transitions: {smooth_transitions['enabled']}")
-        print(f"Transition duration: {smooth_transitions['transition_duration']} steps")
+        print(f"Transition proportion: {smooth_transitions['transition_proportion'] * 100:.1f}% of each stage")
         print(f"Transition rate: {smooth_transitions['transition_rate']}")
+        
+        # Print information about relative durations if available
+        if "distributions" in observation_params["stage_training_config"]:
+            distributions = observation_params["stage_training_config"]["distributions"]
+            total_relative = 0
+            for dist in distributions:
+                total_relative += dist.get("relative_duration", 1.0)
+            
+            print("\nStage relative durations:")
+            for i, dist in enumerate(distributions):
+                rel_duration = dist.get("relative_duration", 1.0)
+                percentage = (rel_duration / total_relative) * 100
+                print(f"  Stage {i+1}: {rel_duration} ({percentage:.1f}%)")
+                
         print("==========================================\n")
 
     # Print training start message
     print("\n====== STARTING TRAINING ======")
-    print(f"Target timesteps: 1,000,000")
-    print(f"Evaluation frequency: Every {termination_callback.check_freq} steps")
+    print(f"Target timesteps: {config['experiment']['output']['total_timesteps']:,}")
+    print(f"Evaluation frequency: Every {termination_callback.check_freq:,} steps")
     print(f"Evaluation environments: {NUM_EVAL_ENVS}")
     print(f"Evaluation episodes per environment: {termination_callback.n_eval_episodes}")
     print(f"Total evaluation episodes: {NUM_EVAL_ENVS * termination_callback.n_eval_episodes}")
@@ -306,7 +319,7 @@ if __name__ == "__main__":
     print("==============================\n")
 
     model.learn(
-        total_timesteps=100_000, 
+        total_timesteps=config['experiment']['output']['total_timesteps'], 
         tb_log_name="DQN_MiniGrid",
         callback=termination_callback
     )

@@ -64,33 +64,105 @@ def print_spawn_distribution_info(env_params, total_timesteps):
         distributions = stage_config.get("distributions", [])
         
         print(f"Using stage-based curriculum with {num_stages} stages")
-        timesteps_per_stage = total_timesteps / num_stages
+        
+        # Check for curriculum proportion
+        curriculum_proportion = stage_config.get("curriculum_proportion", 1.0)
+        if curriculum_proportion < 1.0:
+            curriculum_timesteps = int(total_timesteps * curriculum_proportion)
+            print(f"Curriculum will use {curriculum_proportion:.1%} of total training ({curriculum_timesteps:,} timesteps)")
+            print(f"After curriculum completion, will use uniform random spawn distribution")
+            timesteps_per_stage = curriculum_timesteps / num_stages
+        else:
+            timesteps_per_stage = total_timesteps / num_stages
+        
+        # Check for smooth transitions
+        smooth_transitions = stage_config.get("smooth_transitions", {"enabled": False})
+        if smooth_transitions.get("enabled", False):
+            transition_proportion = smooth_transitions.get("transition_proportion", 0.2)
+            transition_rate = smooth_transitions.get("transition_rate", "linear")
+            print(f"Smooth transitions enabled: {transition_proportion:.1%} of each stage with {transition_rate} rate")
+            
+        # Calculate total relative duration if available
+        total_relative = 0
+        has_relative_durations = False
+        for dist in distributions:
+            if "relative_duration" in dist:
+                has_relative_durations = True
+                total_relative += dist.get("relative_duration", 1.0)
         
         # Display each stage
+        current_step = 0
         for i, dist_config in enumerate(distributions):
-            start_step = int(i * timesteps_per_stage)
-            end_step = int((i+1) * timesteps_per_stage)
-            
             dist_type = dist_config.get("type", "uniform")
             params = dist_config.get("params", {})
-            favor_near = params.get("favor_near", True)
+            
+            # Calculate stage duration based on relative duration if available
+            if has_relative_durations:
+                relative_duration = dist_config.get("relative_duration", 1.0)
+                if total_relative > 0:
+                    stage_duration = int((relative_duration / total_relative) * curriculum_timesteps)
+                else:
+                    stage_duration = int(timesteps_per_stage)
+            else:
+                stage_duration = int(timesteps_per_stage)
+                
+            start_step = current_step
+            end_step = start_step + stage_duration
+            current_step = end_step  # Update for next stage
             
             print(f"\n  Stage {i+1}: {dist_type}")
-            if params:
+            
+            # Format parameters based on distribution type
+            if dist_type == "gaussian_2d":
+                center = params.get("center", [1.0, 1.0])
+                std = params.get("std", [0.2, 0.2])
+                directional = params.get("directional", False)
+                angle = params.get("angle", 0)
+                
+                print(f"  Parameters: center={center}, std={std}")
+                if directional:
+                    print(f"  Directional: True, angle={angle} degrees")
+            elif params:
                 param_str = ", ".join([f"{k}={v}" for k, v in params.items()])
                 print(f"  Parameters: {param_str}")
-            print(f"  Timesteps: {start_step:,} to {end_step:,}")
+                
+            # Show stage duration
+            if has_relative_durations:
+                relative_duration = dist_config.get("relative_duration", 1.0)
+                rel_percentage = (relative_duration / total_relative) * 100 if total_relative > 0 else 0
+                print(f"  Relative duration: {relative_duration} ({rel_percentage:.1f}%)")
+                
+            print(f"  Timesteps: {start_step:,} to {end_step:,} ({stage_duration:,} steps)")
+            
+            # Show description if available
+            if "description" in dist_config:
+                print(f"  Description: {dist_config['description']}")
             
             if use_numeric_display:
                 # Generate and display distribution for this stage
-                grid, env_info = generate_numeric_distribution(
-                    dist_type, 
-                    favor_near=favor_near,
-                    width=width,
-                    height=height,
-                    env_type=env_type,
-                    env_id=env_id
-                )
+                # Need to handle new distribution types here...
+                favor_near = params.get("favor_near", True)  # Default for older distribution types
+                
+                # For gaussian_2d, pass the parameters directly
+                if dist_type == "gaussian_2d":
+                    grid, env_info = generate_numeric_distribution(
+                        dist_type, 
+                        width=width,
+                        height=height,
+                        env_type=env_type,
+                        env_id=env_id,
+                        params=params
+                    )
+                else:
+                    # For other distribution types, use the legacy favor_near parameter
+                    grid, env_info = generate_numeric_distribution(
+                        dist_type, 
+                        favor_near=favor_near,
+                        width=width,
+                        height=height,
+                        env_type=env_type,
+                        env_id=env_id
+                    )
                 
                 # Display detailed numeric distribution
                 print_numeric_distribution(
@@ -100,9 +172,6 @@ def print_spawn_distribution_info(env_params, total_timesteps):
                     env_info["wall_positions"],
                     title=f"Stage {i+1} Distribution"
                 )
-            else:
-                # Text-only fallback
-                print(f"  {dist_type} distribution {'near goal' if favor_near else 'far from goal'}")
     
     # Check if continuous transition is enabled
     elif env_params.get("use_continuous_transition", False):

@@ -53,13 +53,16 @@ spawn:
   stage_training:
     enabled: true
     num_stages: 8
-    # Equal time for each stage by default (can be adjusted)
-    stage_duration: 12500  # Each stage lasts for 12,500 steps (100k total / 8 stages)
     
-    # Smooth transitions between stages
+    # Global curriculum controls
+    curriculum_proportion: 0.8  # Fraction of total timesteps to use for curriculum (0.0-1.0)
+                               # After this proportion, defaults to uniform random spawn
+    
+    # Transition controls
     smooth_transitions:
       enabled: true
-      transition_duration: 2000  # Number of steps to spend transitioning between stages
+      transition_proportion: 0.2  # Fraction of each stage's duration to use for transition
+                                 # (e.g., 0.2 means 20% of stage time is used for transition)
       transition_rate: "linear"  # Options: "linear", "exponential", "sigmoid"
     
     distributions:
@@ -67,15 +70,17 @@ spawn:
       - type: "gaussian_2d"
         params: 
           center: [1.0, 1.0]  # Goal position (bottom-right)
-          std: [0.1, 0.1]     # Small standard deviation (tight concentration)
+          std: [0.15, 0.15]   # Small standard deviation (tight concentration) - increased slightly
         description: "Goal-centered tight Gaussian"
+        relative_duration: 1.0  # Relative duration of this stage
       
       # Stage 2: Same center but increase lobe size
       - type: "gaussian_2d"
         params:
           center: [1.0, 1.0]  # Still at goal
-          std: [0.25, 0.25]   # Larger standard deviation
+          std: [0.35, 0.35]   # Larger standard deviation - increased
         description: "Goal-centered wider Gaussian"
+        relative_duration: 1.0  # Relative duration of this stage
       
       # Stage 3: Shift center to middle of env
       - type: "gaussian_2d"
@@ -83,6 +88,7 @@ spawn:
           center: [0.5, 0.5]  # Center of the grid
           std: [0.25, 0.25]   # Same standard deviation as before
         description: "Center-positioned Gaussian"
+        relative_duration: 1.0  # Relative duration of this stage
       
       # Stage 4: Same center but increase lobe size in direction connecting bottom left and top right corner
       - type: "gaussian_2d"
@@ -92,6 +98,7 @@ spawn:
           directional: true         # Use directional Gaussian
           angle: 135                # 135 degrees = bottom-left to top-right diagonal
         description: "Center-positioned directional Gaussian"
+        relative_duration: 1.2  # Slightly longer relative duration
       
       # Stage 5: Stacked gaussians with equal weighting at bottom-left and top-right corners
       - type: "composite"
@@ -108,6 +115,7 @@ spawn:
                 center: [1.0, 0.0]  # Top-right corner
                 std: [0.2, 0.2]
         description: "Bottom-left and top-right corner Gaussians"
+        relative_duration: 1.5  # Longer relative duration for this complex stage
       
       # Stage 6: Revert to something similar to stage 3
       - type: "gaussian_2d"
@@ -115,20 +123,23 @@ spawn:
           center: [0.5, 0.5]  # Back to center
           std: [0.3, 0.3]     # Slightly wider than stage 3
         description: "Center-positioned wider Gaussian"
+        relative_duration: 1.0  # Relative duration of this stage
       
       # Stage 7: Gaussian centered around top left with medium lobe sizes
       - type: "gaussian_2d"
         params:
           center: [0.0, 0.0]  # Top-left corner
-          std: [0.25, 0.25]   # Medium standard deviation
+          std: [0.35, 0.35]   # Medium standard deviation - increased
         description: "Top-left corner medium Gaussian"
+        relative_duration: 1.0  # Relative duration of this stage
       
       # Stage 8: Reduce lobe sizes to increase concentration around that corner
       - type: "gaussian_2d"
         params:
           center: [0.0, 0.0]  # Still at top-left
-          std: [0.1, 0.1]     # Smaller standard deviation (more concentrated)
+          std: [0.15, 0.15]   # Smaller standard deviation (more concentrated) - increased slightly
         description: "Top-left corner tight Gaussian"
+        relative_duration: 1.2  # Slightly longer relative duration for final stage
   
   continuous_transition:
     enabled: false
