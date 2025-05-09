@@ -9,8 +9,8 @@ experiment:
   version: 1.0
   output:
     log_dir: "./logs/dqn_run_2"
-    model_save_path: "dqn_minigrid_agent_empty_test_biglava_100k"
-    total_timesteps: 100000
+    model_save_path: "dqn_minigrid_agent_empty_test_biglava_10m"
+    total_timesteps: 10_000_000
 
 # ===== Environment Configuration =====
 environment:
@@ -41,7 +41,7 @@ diagonal_moves:
 # ===== Spawn Distribution =====
 spawn:
   use_flexible_spawn: true
-  exclude_goal_adjacent: true
+  exclude_goal_adjacent: false
   
   # Fixed distribution (used when stage_training and continuous_transition are disabled)
   distribution_type: "gaussian_2d"  # Options: "uniform", "gaussian_2d", "corners", "border", "composite"
@@ -60,7 +60,7 @@ spawn:
     
     # Transition controls
     smooth_transitions:
-      enabled: true
+      enabled: false          # Disabled for performance improvement
       transition_proportion: 0.2  # Fraction of each stage's duration to use for transition
                                  # (e.g., 0.2 means 20% of stage time is used for transition)
       transition_rate: "linear"  # Options: "linear", "exponential", "sigmoid"
@@ -98,7 +98,7 @@ spawn:
           directional: true         # Use directional Gaussian
           angle: 135                # 135 degrees = bottom-left to top-right diagonal
         description: "Center-positioned directional Gaussian"
-        relative_duration: 1.2  # Slightly longer relative duration
+        relative_duration: 1.0  # Slightly longer relative duration
       
       # Stage 5: Stacked gaussians with equal weighting at bottom-left and top-right corners
       - type: "composite"
@@ -115,7 +115,7 @@ spawn:
                 center: [1.0, 0.0]  # Top-right corner
                 std: [0.2, 0.2]
         description: "Bottom-left and top-right corner Gaussians"
-        relative_duration: 1.5  # Longer relative duration for this complex stage
+        relative_duration: 1.0  # Longer relative duration for this complex stage
       
       # Stage 6: Revert to something similar to stage 3
       - type: "gaussian_2d"
@@ -139,7 +139,7 @@ spawn:
           center: [0.0, 0.0]  # Still at top-left
           std: [0.15, 0.15]   # Smaller standard deviation (more concentrated) - increased slightly
         description: "Top-left corner tight Gaussian"
-        relative_duration: 1.2  # Slightly longer relative duration for final stage
+        relative_duration: 1.0  # Slightly longer relative duration for final stage
   
   continuous_transition:
     enabled: false

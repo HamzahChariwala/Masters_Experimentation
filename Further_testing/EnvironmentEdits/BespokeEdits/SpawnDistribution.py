@@ -645,8 +645,8 @@ class FlexibleSpawnWrapper(gym.Wrapper):
         self.target_distribution = None
         self.valid_cells_mask = None
         
-        # For tracking and visualization
-        self.distribution_history = []
+        # For tracking and visualization (disabled for performance)
+        self.distribution_history = None  # Changed from [] to None to save memory
     
     def reset(self, **kwargs):
         """Reset the environment and potentially respawn the agent."""
@@ -799,9 +799,8 @@ class FlexibleSpawnWrapper(gym.Wrapper):
         # Prepare the distribution for sampling
         self.current_distribution.build_sampling_map()
         
-        # Store initial distribution for visualization
-        initial_dist = self.current_distribution.probabilities.copy()
-        self.distribution_history = [(0, initial_dist)]
+        # Disabled history collection to improve performance
+        # self.distribution_history = [(0, initial_dist)]
     
     def _apply_distribution(self, dist_type, dist_params):
         """Apply a specific distribution type with given parameters."""
@@ -914,9 +913,6 @@ class FlexibleSpawnWrapper(gym.Wrapper):
                     self.current_distribution.mask_cells(self.valid_cells_mask)
                     self.current_distribution.build_sampling_map()
                     
-                    # Store for visualization
-                    self.distribution_history.append((self.timestep, self.current_distribution.probabilities.copy()))
-                    
                     # Mark as post-curriculum by setting stage to -1
                     self.current_stage = -1
                     
@@ -989,10 +985,6 @@ class FlexibleSpawnWrapper(gym.Wrapper):
                         self.current_distribution.from_existing_distribution(current_dist_map.probabilities)
                         self.current_distribution.temporal_interpolation(next_dist_map, progress)
                         self.current_distribution.build_sampling_map()
-                        
-                        # Store transition point for visualization (at midpoint)
-                        if progress >= 0.5 and progress < 0.51:
-                            self.distribution_history.append((self.timestep, self.current_distribution.probabilities.copy()))
                     
                 # If we've completed the transition to the next stage
                 elif self.timestep >= current_stage_end:
@@ -1012,9 +1004,6 @@ class FlexibleSpawnWrapper(gym.Wrapper):
                     self.current_distribution.mask_cells(self.valid_cells_mask)
                     self.current_distribution.build_sampling_map()
                     
-                    # Store for visualization
-                    self.distribution_history.append((self.timestep, self.current_distribution.probabilities.copy()))
-                    
                     if self.verbose > 0:
                         print(f"Transitioned to stage {self.current_stage + 1}/{len(self.stage_based_training['distributions'])}")
                         print(f"Distribution: {next_stage_config['type']}")
@@ -1031,11 +1020,6 @@ class FlexibleSpawnWrapper(gym.Wrapper):
             # Update distribution through interpolation
             self.current_distribution.temporal_interpolation(self.target_distribution, progress)
             self.current_distribution.build_sampling_map()
-            
-            # Periodically store for visualization (every 5% of total)
-            step_interval = max(1, self.total_timesteps // 20)
-            if self.timestep % step_interval == 0:
-                self.distribution_history.append((self.timestep, self.current_distribution.probabilities.copy()))
         
         return obs, reward, terminated, truncated, info
     
@@ -1124,6 +1108,18 @@ class FlexibleSpawnWrapper(gym.Wrapper):
         if self.current_distribution:
             title = title or f"Spawn Distribution (Timestep {self.timestep})"
             self.current_distribution.plot(title=title, save_path=save_path)
+    
+    def get_distribution_history(self):
+        """
+        Get the distribution history (for analysis only).
+        If history collection is disabled, returns None.
+        
+        Returns:
+        -------
+        list or None
+            List of (timestep, distribution) tuples, or None if history is disabled
+        """
+        return self.distribution_history
     
     def reset_timestep(self):
         """Reset the timestep counter and return to initial distribution."""
