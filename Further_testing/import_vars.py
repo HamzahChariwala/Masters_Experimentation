@@ -68,7 +68,7 @@ def load_config(config_path: str) -> Dict[str, Any]:
 
 def setup_directories(config: Dict[str, Any]) -> Tuple[str, str, str]:
     """
-    Set up directories for logging and visualization
+    Set up directories for logs, performance tracking, etc.
     
     Parameters:
     ----------
@@ -80,16 +80,16 @@ def setup_directories(config: Dict[str, Any]) -> Tuple[str, str, str]:
     tuple
         (log_dir, performance_log_dir, spawn_vis_dir)
     """
+    # Create main log directory
     log_dir = config['experiment']['output']['log_dir']
     os.makedirs(log_dir, exist_ok=True)
     
-    # Create directory for performance tracking
+    # Create directory for performance logging
     performance_log_dir = os.path.join(log_dir, "performance")
     os.makedirs(performance_log_dir, exist_ok=True)
     
-    # Create directory for spawn distribution visualization
-    spawn_vis_dir = os.path.join(log_dir, config['spawn']['visualization']['directory'])
-    os.makedirs(spawn_vis_dir, exist_ok=True)
+    # Create a dummy spawn_vis_dir (we don't need it but it's used in function signatures)
+    spawn_vis_dir = ""
     
     return log_dir, performance_log_dir, spawn_vis_dir
 
@@ -140,6 +140,7 @@ def create_observation_params(config: Dict[str, Any], spawn_vis_dir: str) -> Dic
     
     # Build observation parameters dictionary
     observation_params = {
+        # We'll handle env_id separately to avoid duplication in function calls
         "window_size": observation_config['window_size'],
         "cnn_keys": observation_config['cnn_keys'],
         "mlp_keys": observation_config['mlp_keys'],
@@ -158,9 +159,7 @@ def create_observation_params(config: Dict[str, Any], spawn_vis_dir: str) -> Dic
         "use_stage_training": use_stage_training,
         "stage_training_config": stage_training_config,
         "use_continuous_transition": use_continuous_transition,
-        "continuous_transition_config": continuous_transition_config,
-        "spawn_vis_dir": spawn_vis_dir,
-        "spawn_vis_frequency": spawn_config['visualization']['frequency']
+        "continuous_transition_config": continuous_transition_config
     }
     
     return observation_params
@@ -216,7 +215,7 @@ def set_random_seeds(config: Dict[str, Any]):
 
 def print_training_info(config: Dict[str, Any], observation_params: Dict[str, Any]):
     """
-    Print training setup information
+    Print training information
     
     Parameters:
     ----------
@@ -227,10 +226,9 @@ def print_training_info(config: Dict[str, Any], observation_params: Dict[str, An
     """
     env_config = config['environment']
     seed_config = config['seeds']
-    no_death_config = config['no_death']
-    diagonal_config = config['diagonal_moves']
     eval_config = config['evaluation']['training']
     
+    # Print training setup
     print("\n====== TRAINING SETUP ======")
     print(f"Environment: {env_config['id']}")
     print(f"Number of parallel environments: {env_config['num_envs']}")
@@ -238,18 +236,25 @@ def print_training_info(config: Dict[str, Any], observation_params: Dict[str, An
     print(f"Environment seed: {seed_config['environment']}")
     print(f"Evaluation seed: {seed_config['evaluation']}")
     print(f"Evaluation timeout: {eval_config['timeout']} seconds")
-    print(f"Max episode steps: {env_config['max_episode_steps']}")
-    print(f"Diagonal success reward: {diagonal_config['success_reward']}")
-    print(f"Diagonal failure penalty: {diagonal_config['failure_penalty']}")
+    print(f"Max episode steps: {observation_params['max_episode_steps']}")
+    print(f"Diagonal success reward: {observation_params['diagonal_success_reward']}")
+    print(f"Diagonal failure penalty: {observation_params['diagonal_failure_penalty']}")
+    print(f"NoDeath wrapper: {observation_params['use_no_death']}")
     
-    if no_death_config['enabled']:
-        print(f"NoDeath wrapper: {no_death_config['enabled']}")
-        print(f"  - Death types: {no_death_config['types']}")
-        print(f"  - Death cost: {no_death_config['cost']}")
+    if observation_params['use_no_death']:
+        print(f"  - Death types: {list(observation_params['no_death_types'])}")
+        print(f"  - Death cost: {observation_params['death_cost']}")
     
-    # Visualize spawn distribution configuration before training
-    total_timesteps = config['experiment']['output']['total_timesteps']
-    Spawn.print_spawn_distribution_info(observation_params, total_timesteps)
+    # Create a copy of observation parameters with env_id for spawn distribution info
+    spawn_params = observation_params.copy()
+    spawn_params['env_id'] = env_config['id']
+    
+    # Print spawn distribution info
+    if observation_params['use_flexible_spawn']:
+        Spawn.print_spawn_distribution_info(
+            spawn_params, 
+            config['experiment']['output']['total_timesteps']
+        )
 
 
 def create_model(config: Dict[str, Any], env, policy_kwargs: Dict[str, Any], log_dir: str) -> DQN:
@@ -378,7 +383,6 @@ def create_callbacks(config: Dict[str, Any], eval_envs: List[gym.Env],
         List of callbacks
     """
     eval_config = config['evaluation']['training']
-    spawn_config = config['spawn']
     
     # Create termination callback
     termination_callback = CustomTerminationCallback(
@@ -392,13 +396,7 @@ def create_callbacks(config: Dict[str, Any], eval_envs: List[gym.Env],
         verbose=1
     )
     
-    # Create the spawn distribution visualization callback
-    spawn_vis_callback = EnhancedSpawnDistributionCallback(
-        vis_dir=spawn_vis_dir,
-        vis_frequency=spawn_config['visualization']['frequency']
-    )
-    
-    return [termination_callback, spawn_vis_callback]
+    return [termination_callback]
 
 
 def run_training(config: Dict[str, Any], model, callbacks):
@@ -555,39 +553,6 @@ def run_final_evaluation(config: Dict[str, Any], model, observation_params: Dict
     return all_rewards, all_lengths
 
 
-def visualize_agent(config: Dict[str, Any], model, observation_params: Dict[str, Any]):
-    """
-    Visualize agent behavior
-    
-    Parameters:
-    ----------
-    config : dict
-        Configuration dictionary
-    model : stable_baselines3 model
-        Trained model
-    observation_params : dict
-        Observation parameters
-    """
-    env_config = config['environment']
-    seed_config = config['seeds']
-    vis_config = config['evaluation']['agent_visualization']
-    
-    # Create modified observation parameters for evaluation
-    eval_params = observation_params.copy()
-    eval_params["use_flexible_spawn"] = False  # Disable flexible spawn for evaluation
-    
-    # Visualize the agent's behavior
-    print("\n===== DETAILED AGENT BEHAVIOR ANALYSIS =====")
-    visualize_agent_behavior(
-        model=model,
-        env_id=env_config['id'],
-        observation_params=eval_params,
-        seed=seed_config['evaluation'] + 5000,  # Use a different seed than training/evaluation
-        num_episodes=vis_config['num_episodes'],
-        render=vis_config['render']
-    )
-
-
 def main(config_path='config.yaml'):
     """
     Main function
@@ -639,14 +604,6 @@ def main(config_path='config.yaml'):
     # Run final evaluation
     run_final_evaluation(config, model, observation_params)
     
-    # Generate training progression visualizations
-    if config['spawn']['use_flexible_spawn']:
-        generate_final_visualizations(
-            model=model,
-            spawn_vis_dir=spawn_vis_dir,
-            use_stage_based_training=config['spawn']['stage_training']['enabled']
-        )
-    
     # Display final performance comparison if available
     termination_callback = callbacks[0]
     if hasattr(termination_callback, "performance_tracker"):
@@ -656,9 +613,6 @@ def main(config_path='config.yaml'):
         termination_callback.performance_tracker.plot_performance(save=True, show=False)
         print(f"Performance plots saved to: {performance_log_dir}")
         print("===============================================\n")
-    
-    # Visualize agent behavior
-    visualize_agent(config, model, observation_params)
 
 
 if __name__ == "__main__":

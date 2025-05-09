@@ -14,7 +14,7 @@ from minigrid.core.constants import OBJECT_TO_IDX, IDX_TO_OBJECT, COLOR_TO_IDX, 
 from EnvironmentEdits.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper
 
 
-def print_numeric_distribution(grid, goal_pos=None, lava_positions=None, title=None, summary=True):
+def print_numeric_distribution(grid, goal_pos=None, lava_positions=None, wall_positions=None, title=None, summary=True):
     """
     Print the actual numeric probability distribution with formatting.
     
@@ -26,6 +26,8 @@ def print_numeric_distribution(grid, goal_pos=None, lava_positions=None, title=N
         Position of the goal (if known)
     lava_positions : list of tuples (x, y) or None
         Positions of lava cells (if known)
+    wall_positions : list of tuples (x, y) or None
+        Positions of wall cells (if known)
     title : str or None
         Optional title to display 
     summary : bool
@@ -39,45 +41,65 @@ def print_numeric_distribution(grid, goal_pos=None, lava_positions=None, title=N
     if lava_positions is None:
         lava_positions = []
     
+    if wall_positions is None:
+        wall_positions = []
+    
     print("\n  Probability Distribution Array:")
     
-    # Print column headers
-    header = "    "
+    # Define column width and format strings for better alignment
+    cell_width = 8  # Fixed width for all cells
+    col_width = 9   # Total column width including spacing
+    num_format = "{:.2e}"  # Scientific notation for all numbers to save space
+    
+    # Print column headers with better spacing
+    header = "     |"  # Extra space for row numbers
     for x in range(width):
-        header += f"{x:7d} "
+        header += f"{x:^{cell_width}}|"
     print(header)
     
     # Print horizontal line
-    print("    " + "-" * (8 * width))
+    print("-----|" + "-" * (cell_width * width + width))
     
-    # Format the probabilities with special symbols for goal and lava
+    # Format the probabilities with special symbols for goal, lava, and walls
     for y in range(height):
-        row = f"{y:2d} |"
+        row = f"{y:3d}  |"
         for x in range(width):
             if goal_pos and (x, y) == goal_pos:
-                # Goal position
-                row += "  GOAL  "
+                # Goal position - center aligned
+                row += f"{'GOAL':^{cell_width}}|"
             elif (x, y) in lava_positions:
-                # Lava position
-                row += "  LAVA  "
+                # Lava position - center aligned
+                row += f"{'LAVA':^{cell_width}}|"
+            elif (x, y) in wall_positions:
+                # Wall position - center aligned
+                row += f"{'WALL':^{cell_width}}|"
             else:
-                # Regular cell with probability value
+                # Regular cell with probability value - right aligned
                 prob = grid[y, x]
-                row += f" {prob:.5f}"
+                row += f"{num_format.format(prob):>{cell_width}}|"
         print(row)
     
     # Print legend
     print("\n  Legend:")
     print("  - GOAL: Goal position (zero probability)")
     print("  - LAVA: Lava cell (zero probability)")
+    print("  - WALL: Wall cell (zero probability)")
     print("  - Values represent spawn probabilities (sum to 1.0)")
     
     # Print summary statistics
     if summary:
         nonzero_cells = np.count_nonzero(grid)
         total_cells = width * height
+        
+        # Calculate the number of obstacle cells (walls, lava, goal)
+        obstacle_cells = len(wall_positions) + len(lava_positions)
+        if goal_pos:
+            obstacle_cells += 1
+            
         print(f"\n  Summary:")
         print(f"  - Valid spawn cells: {nonzero_cells} of {total_cells} ({nonzero_cells/total_cells:.1%})")
+        print(f"  - Obstacles: {obstacle_cells} cells (goal: 1, lava: {len(lava_positions)}, walls: {len(wall_positions)})")
+        
         if nonzero_cells > 0:
             print(f"  - Highest probability: {np.max(grid):.5f}")
             print(f"  - Average probability (non-zero cells): {np.sum(grid)/nonzero_cells:.5f}")

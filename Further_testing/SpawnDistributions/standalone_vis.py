@@ -89,7 +89,7 @@ CONTINUOUS_CONFIGS = [
     }
 ]
 
-def generate_numeric_distribution(dist_type, favor_near=True, width=7, height=7, env_type="empty"):
+def generate_numeric_distribution(dist_type, favor_near=True, width=7, height=7, env_type="empty", env_id=None):
     """
     Generate a numeric probability distribution.
     
@@ -103,6 +103,8 @@ def generate_numeric_distribution(dist_type, favor_near=True, width=7, height=7,
         Grid dimensions
     env_type : str
         Environment type ("empty", "lava_gap", "lava_crossing")
+    env_id : str or None
+        If provided, use this environment ID to determine the actual layout
     
     Returns:
     -------
@@ -115,19 +117,140 @@ def generate_numeric_distribution(dist_type, favor_near=True, width=7, height=7,
     grid = np.zeros((height, width))
     goal_pos = (width-2, height-2)  # Typical goal position (bottom right)
     lava_positions = []
+    wall_positions = []
     
-    # Configure environment based on type
-    if env_type == "lava_gap":
-        # Create a horizontal lava strip with a gap in the middle
-        mid_y = height // 2
-        for x in range(width):
-            if x != width // 2:  # Gap in the middle
-                lava_positions.append((x, mid_y))
+    # Add walls for the border - all MiniGrid environments have walls around the border
+    for x in range(width):
+        for y in range(height):
+            # Cells on the border are walls
+            if x == 0 or x == width-1 or y == 0 or y == height-1:
+                wall_positions.append((x, y))
     
-    elif env_type == "lava_crossing":
-        # Create a diagonal line of lava cells
-        for i in range(min(width-2, height-2)):
-            lava_positions.append((i+1, i+1))
+    # If an env_id is provided, try to extract the actual layout
+    if env_id:
+        # Parse environment information from the ID
+        import re
+        
+        # For LavaCrossing environments
+        if "LavaCrossing" in env_id:
+            # Extract size and number of crossings from environment ID
+            # Example: MiniGrid-LavaCrossingS11N5-v0 -> Size 11, 5 crossings
+            match = re.search(r"LavaCrossingS(\d+)N(\d+)", env_id)
+            if match:
+                size = int(match.group(1))
+                num_crossings = int(match.group(2))
+                
+                # Check if size matches our width/height
+                if size != width or size != height:
+                    width = size
+                    height = size
+                    grid = np.zeros((height, width))
+                    # Recalculate wall positions for new size
+                    wall_positions = []
+                    for x in range(width):
+                        for y in range(height):
+                            if x == 0 or x == width-1 or y == 0 or y == height-1:
+                                wall_positions.append((x, y))
+                
+                # Different lava patterns based on environment
+                if "LavaCrossingS9N1" in env_id:
+                    # Single diagonal crossing
+                    for i in range(1, width-1):
+                        lava_positions.append((i, i))
+                
+                elif "LavaCrossingS11N5" in env_id:
+                    # 5 vertical crossings at x=2,4,6,8 with row 2 filled
+                    # Row 2 is filled
+                    for x in range(2, width-1):
+                        lava_positions.append((x, 2))
+                    
+                    # Vertical crossings
+                    for x in [2, 4, 6, 8]:
+                        if x < width - 1:
+                            for y in range(1, height-1):
+                                if y != 4 and (x != 8 or y != 7):  # Gaps in columns
+                                    lava_positions.append((x, y))
+                
+                else:
+                    # For other lava crossing environments, create a reasonable pattern
+                    spacing = width // (num_crossings + 1)
+                    for crossing_idx in range(num_crossings):
+                        x = spacing * (crossing_idx + 1)
+                        for y in range(1, height-1):
+                            # Add some gaps in the crossings
+                            if y % 3 != 0 or crossing_idx % 2 == 0:
+                                lava_positions.append((x, y))
+        
+        # For LavaGap environments
+        elif "LavaGap" in env_id:
+            # Extract size from environment ID
+            match = re.search(r"LavaGapS(\d+)", env_id)
+            if match:
+                size = int(match.group(1))
+                
+                # Check if size matches our width/height
+                if size != width or size != height:
+                    width = size
+                    height = size
+                    grid = np.zeros((height, width))
+                    # Recalculate wall positions for new size
+                    wall_positions = []
+                    for x in range(width):
+                        for y in range(height):
+                            if x == 0 or x == width-1 or y == 0 or y == height-1:
+                                wall_positions.append((x, y))
+                
+                # Create a horizontal lava strip with a gap in the middle
+                mid_y = height // 2
+                for x in range(1, width-1):
+                    if x != width // 2:  # Gap in the middle
+                        lava_positions.append((x, mid_y))
+        
+        # For Empty environments, just use the border walls
+        elif "Empty" in env_id:
+            match = re.search(r"Empty-(\d+)x(\d+)", env_id)
+            if match:
+                width = int(match.group(1))
+                height = int(match.group(2))
+                grid = np.zeros((height, width))
+                # Recalculate wall positions for new size
+                wall_positions = []
+                for x in range(width):
+                    for y in range(height):
+                        if x == 0 or x == width-1 or y == 0 or y == height-1:
+                            wall_positions.append((x, y))
+    
+    # If no environment ID or failed to parse, use the simpler env_type logic
+    else:
+        # Configure environment based on type
+        if env_type == "lava_gap":
+            # Create a horizontal lava strip with a gap in the middle
+            mid_y = height // 2
+            for x in range(width):
+                if x != width // 2:  # Gap in the middle
+                    lava_positions.append((x, mid_y))
+        
+        elif env_type == "lava_crossing":
+            # Create multiple diagonal lines of lava cells based on size
+            # For larger environments, add more lava crossings
+            if width >= 11:  # For larger environments like 11x11
+                # We're dealing with a larger environment with multiple lava crossings
+                # In MiniGrid-LavaCrossingS11N5-v0, there are 5 lava lines
+                num_crossings = min(5, width // 2)
+                spacing = width // (num_crossings + 1)
+                
+                for crossing_idx in range(num_crossings):
+                    # Calculate starting position for this crossing
+                    start_x = spacing * (crossing_idx + 1)
+                    
+                    # Create a diagonal line from top to bottom
+                    for i in range(height):
+                        if 0 <= start_x < width and 0 <= i < height:
+                            lava_positions.append((start_x, i))
+            else:
+                # For smaller environments, create a single diagonal line
+                for i in range(min(width-2, height-2)):
+                    lava_positions.append((i+1, i+1))
     
     # Generate initial distribution
     if dist_type == "uniform":
@@ -142,7 +265,7 @@ def generate_numeric_distribution(dist_type, favor_near=True, width=7, height=7,
             for x in range(width):
                 # Calculate Manhattan distance from goal
                 distance = abs(x - goal_x) + abs(y - goal_y)
-                max_distance = abs(0 - width) + abs(0 - height)
+                max_distance = abs(0 - goal_x) + abs(0 - goal_y)
                 
                 # Normalized distance [0, 1]
                 norm_distance = distance / max_distance
@@ -186,6 +309,11 @@ def generate_numeric_distribution(dist_type, favor_near=True, width=7, height=7,
         if 0 <= y < height and 0 <= x < width:
             grid[y, x] = 0.0
     
+    # Zero out wall positions
+    for x, y in wall_positions:
+        if 0 <= y < height and 0 <= x < width:
+            grid[y, x] = 0.0
+    
     # Normalize to make a valid probability distribution
     if np.sum(grid) > 0:
         grid = grid / np.sum(grid)
@@ -194,6 +322,7 @@ def generate_numeric_distribution(dist_type, favor_near=True, width=7, height=7,
     env_info = {
         "goal_pos": goal_pos,
         "lava_positions": lava_positions,
+        "wall_positions": wall_positions,
         "distribution_type": dist_type,
         "favor_near": favor_near
     }

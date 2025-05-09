@@ -9,12 +9,12 @@ experiment:
   version: 1.0
   output:
     log_dir: "./logs/dqn_run_2"
-    model_save_path: "dqn_minigrid_agent_empty_test_100k_exp"
+    model_save_path: "dqn_minigrid_agent_empty_test_biglava_100k"
     total_timesteps: 100000
 
 # ===== Environment Configuration =====
 environment:
-  id: "MiniGrid-LavaGapS7-v0"  # Options: "MiniGrid-Empty-8x8-v0", "MiniGrid-LavaCrossingS9N1-v0"
+  id: "MiniGrid-LavaCrossingS11N5-v0"  # Options: "MiniGrid-Empty-8x8-v0", "MiniGrid-LavaCrossingS9N1-v0"
   num_envs: 15
   max_episode_steps: 150  # Maximum steps per episode (None = use env default)
   use_different_envs: true  # Enable diverse environments
@@ -29,12 +29,12 @@ seeds:
 no_death:
   enabled: true
   types: ["lava"]
-  cost: 0       # Penalty for hitting death elements
+  cost: -0.1       # Penalty for hitting death elements
 
 # ===== Diagonal Movement =====
 diagonal_moves:
   monitor: true
-  success_reward: 0.01
+  success_reward: 0.0
   failure_penalty: 0
 
 # ===== Spawn Distribution =====
@@ -80,11 +80,6 @@ spawn:
     enabled: false
     target_type: "uniform"
     rate: 1.0  # Transition rate (1.0 = linear)
-
-  # Visualization Settings
-  visualization:
-    frequency: 10000
-    directory: "spawn_distributions"  # Relative to log_dir
 
 # ===== Observation Configuration =====
 observation:
@@ -145,9 +140,4 @@ evaluation:
   final:
     num_envs: 10
     episodes_per_env: 3
-    timeout: 3  # seconds
-    
-  # Agent visualization
-  agent_visualization:
-    num_episodes: 3
-    render: false 
+    timeout: 3  # seconds 

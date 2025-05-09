@@ -25,155 +25,181 @@ def print_spawn_distribution_info(env_params, total_timesteps):
         print("===============================\n")
         return
         
-    print("\n====== SPAWN DISTRIBUTION CONFIGURATION ======")
-    print(f"Exclude goal-adjacent spawns: {env_params.get('exclude_goal_adjacent', False)}")
+    print("\n====== SPAWN DISTRIBUTION ======")
+    print(f"Flexible spawn distribution is enabled")
+    print(f"Distribution: {env_params.get('spawn_distribution_type', 'undefined')}")
     
-    # Handle stage-based training
-    if env_params.get("use_stage_training", False) and env_params.get("stage_training_config"):
-        config = env_params["stage_training_config"]
-        num_stages = config["num_stages"]
-        print(f"Using stage-based curriculum with {num_stages} stages:")
+    # Get environment ID if available
+    env_id = env_params.get("env_id", None)
+    
+    # Extract grid size from environment ID
+    width, height = 8, 8  # Default size for most MiniGrid environments
+    
+    if env_id:
+        # Check if it's a sized environment (like S11N5)
+        import re
+        size_match = re.search(r"S(\d+)", env_id)
+        if size_match:
+            size = int(size_match.group(1))
+            width, height = size, size
+        else:
+            # Try to extract size from format like 8x8
+            size_match = re.search(r"(\d+)x(\d+)", env_id)
+            if size_match:
+                width = int(size_match.group(1))
+                height = int(size_match.group(2))
+    
+    # Determine environment type based on environment ID
+    env_type = "empty"  # Default
+    if env_id:
+        if "LavaCrossing" in env_id:
+            env_type = "lava_crossing"
+        elif "LavaGap" in env_id:
+            env_type = "lava_gap"
+    
+    # Check if stage training is enabled 
+    if env_params.get("use_stage_training", False):
+        stage_config = env_params.get("stage_training_config", {})
+        num_stages = stage_config.get("num_stages", 1)
+        distributions = stage_config.get("distributions", [])
         
-        # Calculate approximate timesteps per stage
+        print(f"Using stage-based curriculum with {num_stages} stages")
         timesteps_per_stage = total_timesteps / num_stages
         
-        for i, dist in enumerate(config["distributions"]):
-            dist_type = dist["type"]
+        # Display each stage
+        for i, dist_config in enumerate(distributions):
             start_step = int(i * timesteps_per_stage)
             end_step = int((i+1) * timesteps_per_stage)
             
-            # Format parameters nicely
-            param_str = ""
-            if "params" in dist:
-                param_parts = []
-                for k, v in dist["params"].items():
-                    param_parts.append(f"{k}={v}")
-                if param_parts:
-                    param_str = ", " + ", ".join(param_parts)
+            dist_type = dist_config.get("type", "uniform")
+            params = dist_config.get("params", {})
+            favor_near = params.get("favor_near", True)
             
-            print(f"  Stage {i+1}: {dist_type}{param_str}")
-            print(f"    Timesteps: {start_step:,} to {end_step:,}")
+            print(f"\n  Stage {i+1}: {dist_type}")
+            if params:
+                param_str = ", ".join([f"{k}={v}" for k, v in params.items()])
+                print(f"  Parameters: {param_str}")
+            print(f"  Timesteps: {start_step:,} to {end_step:,}")
             
-            # Use numeric distribution visualization if available
-            if use_numeric_display and dist_type in ["poisson_goal", "gaussian_goal", "distance_goal", "uniform"]:
-                favor_near = dist.get("params", {}).get("favor_near", True)
-                
-                # Generate grid for visualization 
-                grid, info = generate_numeric_distribution(
+            if use_numeric_display:
+                # Generate and display distribution for this stage
+                grid, env_info = generate_numeric_distribution(
                     dist_type, 
                     favor_near=favor_near,
-                    env_type="empty"  # Use empty environment for simplicity
+                    width=width,
+                    height=height,
+                    env_type=env_type,
+                    env_id=env_id
                 )
                 
-                # Print stage number as title
-                title = f"Stage {i+1} Distribution ({dist_type})"
-                print_numeric_distribution(grid, info["goal_pos"], info["lava_positions"], title=title)
+                # Display detailed numeric distribution
+                print_numeric_distribution(
+                    grid, 
+                    env_info["goal_pos"],
+                    env_info["lava_positions"],
+                    env_info["wall_positions"],
+                    title=f"Stage {i+1} Distribution"
+                )
             else:
-                # Use simple ASCII visualization as fallback
-                if dist_type in ["poisson_goal", "gaussian_goal", "distance_goal"]:
-                    favor_near = dist.get("params", {}).get("favor_near", True)
-                    direction = "near goal" if favor_near else "far from goal"
-                    print(f"    Direction: {direction}")
-                    _print_simple_distribution_visual(dist_type, favor_near)
+                # Text-only fallback
+                print(f"  {dist_type} distribution {'near goal' if favor_near else 'far from goal'}")
     
-    # Handle continuous transition
-    elif env_params.get("use_continuous_transition", False) and env_params.get("continuous_transition_config"):
-        config = env_params["continuous_transition_config"]
-        initial_type = env_params["spawn_distribution_type"]
-        target_type = config["target_type"]
-        rate = config.get("rate", 1.0)
+    # Check if continuous transition is enabled
+    elif env_params.get("use_continuous_transition", False):
+        transition_config = env_params.get("continuous_transition_config", {})
+        rate = transition_config.get("rate", 1.0)
         
-        print(f"Using continuous curriculum learning:")
-        print(f"  Initial distribution: {initial_type}")
+        initial_type = transition_config.get("initial_type", "uniform")
+        initial_params = transition_config.get("initial_params", {})
+        initial_favor_near = initial_params.get("favor_near", True)
         
-        # Format parameters nicely
-        if env_params.get("spawn_distribution_params"):
-            param_parts = []
-            for k, v in env_params["spawn_distribution_params"].items():
-                param_parts.append(f"{k}={v}")
-            if param_parts:
-                print(f"    Parameters: {', '.join(param_parts)}")
-                
-        # Use numeric distribution visualization if available
-        if use_numeric_display and initial_type in ["poisson_goal", "gaussian_goal", "distance_goal", "uniform"]:
-            favor_near = env_params.get("spawn_distribution_params", {}).get("favor_near", True)
-            
-            # Generate initial distribution
-            init_grid, init_info = generate_numeric_distribution(
+        target_type = transition_config.get("target_type", "uniform")
+        target_params = transition_config.get("target_params", {})
+        target_favor_near = target_params.get("favor_near", False)
+        
+        print(f"Using continuous curriculum transition")
+        print(f"Initial: {initial_type} {'near goal' if initial_favor_near else 'far from goal'}")
+        print(f"Target: {target_type} {'near goal' if target_favor_near else 'far from goal'}")
+        print(f"Transition rate: {rate}")
+        
+        if use_numeric_display:
+            # Show initial distribution
+            initial_grid, initial_info = generate_numeric_distribution(
                 initial_type, 
-                favor_near=favor_near,
-                env_type="empty"  # Use empty environment for simplicity
+                favor_near=initial_favor_near,
+                width=width,
+                height=height,
+                env_type=env_type,
+                env_id=env_id
             )
             
-            # Print visualization
-            print_numeric_distribution(init_grid, init_info["goal_pos"], init_info["lava_positions"], 
-                                     title="Initial Distribution")
+            print_numeric_distribution(
+                initial_grid, 
+                initial_info["goal_pos"],
+                initial_info["lava_positions"],
+                initial_info["wall_positions"],
+                title="Initial Distribution"
+            )
             
-            # Generate target distribution
+            # Show target distribution
             target_grid, target_info = generate_numeric_distribution(
                 target_type, 
-                favor_near=favor_near,  # Use same favor_near setting
-                env_type="empty"  # Use empty environment for simplicity
+                favor_near=target_favor_near,
+                width=width,
+                height=height,
+                env_type=env_type,
+                env_id=env_id
             )
             
-            # Print visualization
-            print_numeric_distribution(target_grid, target_info["goal_pos"], target_info["lava_positions"], 
-                                     title="Target Distribution")
-        else:
-            # Use simple ASCII visualization as fallback
-            if initial_type in ["poisson_goal", "gaussian_goal", "distance_goal"]:
-                favor_near = env_params.get("spawn_distribution_params", {}).get("favor_near", True)
-                direction = "near goal" if favor_near else "far from goal"
-                print(f"    Direction: {direction}")
-                _print_simple_distribution_visual(initial_type, favor_near)
-            
-        print(f"\n  Target distribution: {target_type}")
-        print(f"  Transition rate: {rate}")
-        
-        # Print a simple transition timeline
-        _print_transition_timeline(rate, total_timesteps)
-        
-    # Handle fixed distribution
+            print_numeric_distribution(
+                target_grid, 
+                target_info["goal_pos"],
+                target_info["lava_positions"],
+                target_info["wall_positions"],
+                title="Target Distribution"
+            )
+    
+    # Regular fixed distribution
     else:
         dist_type = env_params.get("spawn_distribution_type", "uniform")
-        print(f"Using fixed spawn distribution: {dist_type}")
+        dist_params = env_params.get("spawn_distribution_params", {})
+        favor_near = dist_params.get("favor_near", True)
         
-        # Format parameters nicely
-        if env_params.get("spawn_distribution_params"):
-            param_parts = []
-            for k, v in env_params["spawn_distribution_params"].items():
-                param_parts.append(f"{k}={v}")
-            if param_parts:
-                print(f"  Parameters: {', '.join(param_parts)}")
-                
-        # Use numeric distribution visualization if available
-        if use_numeric_display and dist_type in ["poisson_goal", "gaussian_goal", "distance_goal", "uniform"]:
-            favor_near = env_params.get("spawn_distribution_params", {}).get("favor_near", True)
-            
-            # Generate grid for visualization
-            grid, info = generate_numeric_distribution(
+        print(f"Using fixed distribution: {dist_type}")
+        if dist_params:
+            param_str = ", ".join([f"{k}={v}" for k, v in dist_params.items()])
+            print(f"Parameters: {param_str}")
+        
+        if use_numeric_display:
+            # Generate and display the distribution
+            grid, env_info = generate_numeric_distribution(
                 dist_type, 
                 favor_near=favor_near,
-                env_type="empty"  # Use empty environment for simplicity
+                width=width,
+                height=height,
+                env_type=env_type,
+                env_id=env_id
             )
             
-            # Print visualization
-            print_numeric_distribution(grid, info["goal_pos"], info["lava_positions"], 
-                                     title=f"Fixed Distribution ({dist_type})")
+            # Display detailed numeric distribution
+            print_numeric_distribution(
+                grid, 
+                env_info["goal_pos"],
+                env_info["lava_positions"],
+                env_info["wall_positions"],
+                title="Spawn Distribution"
+            )
         else:
-            # Use simple ASCII visualization as fallback
-            if dist_type in ["poisson_goal", "gaussian_goal", "distance_goal"]:
-                favor_near = env_params.get("spawn_distribution_params", {}).get("favor_near", True)
-                direction = "near goal" if favor_near else "far from goal"
-                print(f"  Direction: {direction}")
-                _print_simple_distribution_visual(dist_type, favor_near)
+            # Text-only fallback
+            print(f"{dist_type} distribution {'near goal' if favor_near else 'far from goal'}")
+            
+        # Extra info about valid spawn positions
+        valid_cells = (grid > 0).sum()
+        total_cells = width * height
+        print(f"\nValid spawn positions: {valid_cells} out of {total_cells} cells")
+        print(f"Walls and obstacles: {total_cells - valid_cells} cells (including goal, lava, and walls)")
     
-    # Print additional statistics about visualization
-    if env_params.get("spawn_vis_frequency", 0) > 0:
-        print(f"\nVisualization frequency: Every {env_params.get('spawn_vis_frequency'):,} steps")
-        print(f"Visualization directory: {env_params.get('spawn_vis_dir', './spawn_vis')}")
-    
-    print("===========================================\n")
+    print("===============================\n")
 
 
 def _print_simple_distribution_visual(dist_type, favor_near):

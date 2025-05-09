@@ -263,12 +263,6 @@ if __name__ == "__main__":
         verbose=1
     )
 
-    # Create the spawn distribution visualization callback
-    spawn_vis_callback = EnhancedSpawnDistributionCallback(
-        vis_dir=SPAWN_DISTRIBUTION_VIS_DIR,
-        vis_frequency=VISUALIZE_SPAWN_FREQUENCY
-    )
-
     # Print training start message
     print("\n====== STARTING TRAINING ======")
     print(f"Target timesteps: 1,000,000")
@@ -282,7 +276,7 @@ if __name__ == "__main__":
     model.learn(
         total_timesteps=100_000, 
         tb_log_name="DQN_MiniGrid",
-        callback=[termination_callback, spawn_vis_callback]
+        callback=termination_callback
     )
     model.save("dqn_minigrid_agent_empty_test_100k_exp")
 
@@ -373,22 +367,3 @@ if __name__ == "__main__":
         termination_callback.performance_tracker.plot_performance(save=True, show=False)
         print(f"Performance plots saved to: {performance_log_dir}")
         print("===============================================\n")
-
-    # Generate training progression visualizations
-    if USE_FLEXIBLE_SPAWN:
-        generate_final_visualizations(
-            model=model,
-            spawn_vis_dir=SPAWN_DISTRIBUTION_VIS_DIR,
-            use_stage_based_training=USE_STAGE_TRAINING
-        )
-
-    # Visualize the agent's behavior
-    print("\n===== DETAILED AGENT BEHAVIOR ANALYSIS =====")
-    visualize_agent_behavior(
-        model=model,
-        env_id=ENV_ID,
-        observation_params=eval_params,  # Use evaluation parameters (no flexible spawn)
-        seed=EVAL_SEED + 5000,  # Use a different seed than training/evaluation
-        num_episodes=3,
-        render=False  # Set to True if you have a display available
-    )
