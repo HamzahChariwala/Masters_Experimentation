@@ -1,0 +1,153 @@
+# Model Card for MiniGrid Agent Training
+# Author: Hamzah Chariwala
+# Created: 2023
+
+# ===== General Configuration =====
+experiment:
+  name: "minigrid_agent_training"
+  description: "Training an agent with flexible spawn distribution in MiniGrid"
+  version: 1.0
+  output:
+    log_dir: "./logs/dqn_run_2"
+    model_save_path: "dqn_minigrid_agent_empty_test_100k_exp"
+    total_timesteps: 100000
+
+# ===== Environment Configuration =====
+environment:
+  id: "MiniGrid-Empty-8x8-v0"  # Options: "MiniGrid-Empty-8x8-v0", "MiniGrid-LavaCrossingS9N1-v0"
+  num_envs: 15
+  max_episode_steps: 150  # Maximum steps per episode (None = use env default)
+  use_different_envs: true  # Enable diverse environments
+
+# ===== Randomness Control =====
+seeds:
+  model: 811       # For network initialization
+  environment: 12345     # For environment generation
+  evaluation: 67890     # For evaluation environments
+
+# ===== Agent Safety Features =====
+no_death:
+  enabled: true
+  types: ["lava"]
+  cost: 0       # Penalty for hitting death elements
+
+# ===== Diagonal Movement =====
+diagonal_moves:
+  monitor: true
+  success_reward: 0.01
+  failure_penalty: 0
+
+# ===== Spawn Distribution =====
+spawn:
+  use_flexible_spawn: true
+  exclude_goal_adjacent: true
+  
+  # Fixed distribution (used when stage_training and continuous_transition are disabled)
+  distribution_type: "poisson_goal"  # Options: "uniform", "poisson_goal", "gaussian_goal", "distance_goal"
+  distribution_params:
+    lambda_param: 1.0     # For poisson distribution
+    sigma: 2.0            # For gaussian distribution
+    power: 1              # For distance-based distribution
+    favor_near: false     # Whether to favor positions near the reference point
+  
+  # Curriculum Learning Options
+  stage_training:
+    enabled: true
+    num_stages: 4
+    distributions:
+      - type: "poisson_goal"
+        params: 
+          lambda_param: 1.0
+          favor_near: true
+        description: "Very close to goal (easy learning)"
+      
+      - type: "distance_goal"
+        params:
+          power: 1
+          favor_near: true
+        description: "Medium distance from goal"
+      
+      - type: "gaussian_goal"
+        params:
+          sigma: 2.0
+          favor_near: false
+        description: "Farther from goal (more challenge)"
+      
+      - type: "uniform"
+        description: "Anywhere in the grid (full mastery)"
+  
+  continuous_transition:
+    enabled: false
+    target_type: "uniform"
+    rate: 1.0  # Transition rate (1.0 = linear)
+
+  # Visualization Settings
+  visualization:
+    frequency: 10000
+    directory: "spawn_distributions"  # Relative to log_dir
+
+# ===== Observation Configuration =====
+observation:
+  window_size: 7
+  cnn_keys: []
+  mlp_keys: 
+    - "four_way_goal_direction"
+    - "four_way_angle_alignment"
+    - "barrier_mask"
+    - "lava_mask"
+
+# ===== Model Configuration =====
+model:
+  type: "DQN"
+  policy: "MultiInputPolicy"
+  
+  # Hardware settings
+  use_mps: false
+  
+  # Core parameters
+  buffer_size: 100000
+  learning_starts: 10000
+  batch_size: 64
+  exploration_fraction: 0.05
+  exploration_final_eps: 0.05
+  gamma: 0.6
+  learning_rate: 0.00025
+  train_freq: 8
+  target_update_interval: 1000
+  verbose: 1
+  
+  # Feature extractor configuration
+  features_extractor:
+    class: "CustomCombinedExtractor"
+    features_dim: 256
+    cnn:
+      num_layers: 1
+      channels: [32]
+      kernels: [3]
+      strides: [1]
+      paddings: [1]
+    mlp:
+      num_layers: 1
+      hidden_sizes: [64]
+
+# ===== Evaluation Settings =====
+evaluation:
+  # During training
+  training:
+    num_envs: 15
+    check_freq: 10000
+    target_reward_threshold: 0.99
+    max_runtime: 30000  # seconds (about 8 hours)
+    n_eval_episodes: 1
+    timeout: 15  # seconds
+    
+  # Final evaluation
+  final:
+    num_envs: 10
+    episodes_per_env: 3
+    timeout: 3  # seconds
+    
+  # Agent visualization
+  agent_visualization:
+    num_episodes: 3
+    render: false 
