@@ -334,6 +334,9 @@ def create_eval_environments(config: Dict[str, Any], observation_params: Dict[st
     eval_config = config['evaluation']['training']
     seed_config = config['seeds']
     
+    # Get the seed increment (default to 1 if not specified)
+    seed_increment = seed_config.get('seed_increment', 1)
+    
     # Create modified observation parameters for evaluation
     eval_params = observation_params.copy()
     eval_params["use_flexible_spawn"] = False  # Disable flexible spawn for evaluation
@@ -344,10 +347,11 @@ def create_eval_environments(config: Dict[str, Any], observation_params: Dict[st
     
     print("\n====== CREATING EVALUATION ENVIRONMENTS ======")
     print(f"Creating {num_eval_envs} evaluation environments with different seeds")
+    print(f"Base evaluation seed: {seed_config['evaluation']}, increment: {seed_increment}")
     
     for i in range(num_eval_envs):
         # Use different seeds for each evaluation environment
-        eval_seed = seed_config['evaluation'] + (i * 1000)  # Well-spaced seeds
+        eval_seed = seed_config['evaluation'] + (i * seed_increment)
         eval_env = Env.make_eval_env(
             env_id=env_config['id'], 
             seed=eval_seed,
@@ -467,6 +471,9 @@ def run_final_evaluation(config: Dict[str, Any], model, observation_params: Dict
     eval_config = config['evaluation']['final']
     seed_config = config['seeds']
     
+    # Get the seed increment (default to 1 if not specified)
+    seed_increment = seed_config.get('seed_increment', 1)
+    
     # Create modified observation parameters for evaluation
     eval_params = observation_params.copy()
     eval_params["use_flexible_spawn"] = False  # Disable flexible spawn for evaluation
@@ -483,13 +490,14 @@ def run_final_evaluation(config: Dict[str, Any], model, observation_params: Dict
     
     print(f"Evaluating on {num_final_eval_envs} environments, {episodes_per_env} episodes each")
     print(f"Timeout per environment: {final_eval_timeout} seconds")
+    print(f"Base evaluation seed: {seed_config['evaluation'] + 2000}, increment: {seed_increment}")
     
     all_rewards = []
     all_lengths = []
     
     for i in range(num_final_eval_envs):
         # Create a fresh evaluation environment with a different seed
-        final_eval_seed = seed_config['evaluation'] + 2000 + (i * 1000)
+        final_eval_seed = seed_config['evaluation'] + 2000 + (i * seed_increment)
         final_eval_env = Env.make_eval_env(
             env_id=env_config['id'], 
             seed=final_eval_seed,

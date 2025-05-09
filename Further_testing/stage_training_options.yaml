@@ -1,0 +1,90 @@
+# Stage Training Configuration Options
+# This file shows all possible options for configuring stage-based training
+# in your reinforcement learning environments.
+
+# ===== Stage Training Configuration =====
+stage_training:
+  enabled: true                 # Whether to use stage-based training
+  num_stages: 4                 # Number of training stages (must match number of distributions defined)
+  transitions:
+    method: "steps"             # Options: "steps", "episodes", "rewards", "custom"
+    steps_per_stage: 25000      # Number of timesteps per stage when method is "steps"
+    episodes_per_stage: 100     # Number of episodes per stage when method is "episodes"
+    reward_thresholds: [0.3, 0.6, 0.8]  # Reward thresholds to advance stages when method is "rewards"
+    
+  # Distribution options for different stages
+  distributions:
+    # Stage 1: Very close to goal (easy learning)
+    - type: "poisson_goal"      # Distribution centered around goal
+      params: 
+        lambda_param: 0.5       # Smaller lambda = more concentrated near goal
+        favor_near: true        # Ensure higher probability closer to goal
+      description: "Very close to goal (easy learning)"
+      duration_factor: 1.0      # Relative duration compared to other stages (optional)
+    
+    # Stage 2: Medium distance from goal
+    - type: "distance_goal"     # Distance-based distribution from goal
+      params:
+        power: 1                # Power factor for distance calculation (1=linear, 2=quadratic)
+        favor_near: true        # True = higher probability closer to goal, False = higher probability farther from goal
+        max_distance: null      # Optional limit on maximum distance considered
+      description: "Medium distance from goal"
+      duration_factor: 1.2      # Spend 20% more time in this stage
+    
+    # Stage 3: Gaussian distribution around goal
+    - type: "gaussian_goal"     # Gaussian distribution centered on goal
+      params:
+        sigma: 2.0              # Standard deviation of distribution
+        favor_near: false       # Whether to favor positions near the goal
+        truncate: 3.0           # Optional truncation of distribution (in sigma units)
+      description: "Farther from goal (more challenge)"
+      duration_factor: 0.8      # Spend 20% less time in this stage
+    
+    # Stage 4: Anywhere in the grid (full mastery)
+    - type: "uniform"           # Uniform distribution across all valid locations
+      description: "Anywhere in the grid (full mastery)"
+      duration_factor: 1.5      # Spend 50% more time in this final stage
+    
+    # Additional potential stage examples:
+    
+    # Corner spawning
+    - type: "corners"           # Spawn in corners of the grid
+      params:
+        corner_size: 2          # Size of corner area (in cells)
+      description: "Corner spawning (advanced navigation)"
+      enabled: false            # Example of disabling a specific stage
+
+    # Border spawning
+    - type: "border"            # Spawn along the edges of the grid
+      params:
+        border_width: 1         # Width of border area (in cells)
+      description: "Border spawning (boundary navigation)"
+      enabled: false
+    
+    # Custom grid-based spawning
+    - type: "custom_grid"       # Define a specific pattern of probabilities
+      params:
+        probability_map: [      # 2D array of probabilities (normalized internally)
+          [0.1, 0.2, 0.3],
+          [0.4, 0.5, 0.6],
+          [0.7, 0.8, 0.9]
+        ]
+      description: "Custom probability grid"
+      enabled: false
+    
+    # Farthest from goal (most challenging)
+    - type: "distance_goal"
+      params:
+        power: 2
+        favor_near: false       # Higher probability farther from goal
+      description: "Farthest from goal (most challenging)"
+      enabled: false
+
+  # Advanced options
+  advanced:
+    smooth_transitions: false   # Whether to blend between stages gradually
+    transition_steps: 1000      # Steps to blend between stages if smooth_transitions is true
+    allow_regression: false     # Whether to allow moving back to earlier stages if performance drops
+    performance_metric: "reward_mean"  # Metric to use for stage progression with "rewards" method
+    reset_buffer_on_transition: false  # Whether to clear replay buffer between stages
+    curriculum_annealing: false # Whether to gradually blend toward uniform distribution 

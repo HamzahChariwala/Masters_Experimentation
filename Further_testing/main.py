@@ -234,12 +234,16 @@ if __name__ == "__main__":
     NUM_EVAL_ENVS = 15  # Number of different evaluation environments
     eval_envs = []
     
+    # Seed increment for evaluation environments
+    SEED_INCREMENT = 1  # Use increments of 1 instead of 1000
+    
     print("\n====== CREATING EVALUATION ENVIRONMENTS ======")
     print(f"Creating {NUM_EVAL_ENVS} evaluation environments with different seeds")
+    print(f"Base evaluation seed: {EVAL_SEED}, increment: {SEED_INCREMENT}")
     
     for i in range(NUM_EVAL_ENVS):
         # Use different seeds for each evaluation environment
-        eval_seed = EVAL_SEED + (i * 1000)  # Well-spaced seeds
+        eval_seed = EVAL_SEED + (i * SEED_INCREMENT)  # Sequential seeds
         eval_env = Env.make_eval_env(
             env_id=ENV_ID, 
             seed=eval_seed,
@@ -292,13 +296,14 @@ if __name__ == "__main__":
     
     print(f"Evaluating on {NUM_FINAL_EVAL_ENVS} environments, {EPISODES_PER_ENV} episodes each")
     print(f"Timeout per environment: {FINAL_EVAL_TIMEOUT} seconds")
+    print(f"Base evaluation seed: {EVAL_SEED + 2000}, increment: {SEED_INCREMENT}")
     
     all_rewards = []
     all_lengths = []
     
     for i in range(NUM_FINAL_EVAL_ENVS):
         # Create a fresh evaluation environment with a different seed
-        final_eval_seed = EVAL_SEED + 2000 + (i * 1000)  # Different seeds than those used during training
+        final_eval_seed = EVAL_SEED + 2000 + (i * SEED_INCREMENT)  # Different seeds than those used during training
         final_eval_env = Env.make_eval_env(
             env_id=ENV_ID, 
             seed=final_eval_seed,
