@@ -428,7 +428,7 @@ def run_training(config: Dict[str, Any], model, callbacks):
     print("\n====== STARTING TRAINING ======")
     print(f"Target timesteps: {total_timesteps}")
     print(f"Evaluation frequency: Every {termination_callback.check_freq} steps")
-    print(f"Evaluation environments: {len(eval_config['num_envs'])}")
+    print(f"Evaluation environments: {eval_config['num_envs']}")
     print(f"Evaluation episodes per environment: {eval_config['n_eval_episodes']}")
     print(f"Total evaluation episodes: {eval_config['num_envs'] * eval_config['n_eval_episodes']}")
     print(f"Evaluation timeout: {eval_config['timeout']} seconds")
