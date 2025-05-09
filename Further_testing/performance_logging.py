@@ -140,7 +140,7 @@ def run_agent_and_log(
 
         # Create the environment using the imported function
         print(f"DEBUG: Creating environment {env_id}")
-        env = make_env(
+        env_fn = make_env(
             env_id=env_id,
             rank=0,
             env_seed=12345,
@@ -159,6 +159,8 @@ def run_agent_and_log(
             diagonal_success_reward=diagonal_success_reward,  # Reward for successful diagonal moves
             diagonal_failure_penalty=diagonal_failure_penalty  # Penalty for failed diagonal moves
         )
+        # Actually create the environment by calling the function
+        env = env_fn()
         print(f"DEBUG: Environment created successfully")
         
         # Print the environment structure
@@ -304,9 +306,9 @@ def parse_args():
 
 if __name__ == "__main__":
     # Manual configuration (no command line arguments)
-    agent_path = "dqn_minigrid_agent_empty_test_100k_exp.zip"
-    env_id = "MiniGrid-Empty-8x8-v0"
-    output_json_path = "AgentTesting/agent_run_log_empty_100k_exp.json"
+    agent_path = "dqn_minigrid_agent_empty_test_biglava_10m.zip"
+    env_id = "MiniGrid-LavaCrossingS11N5-v0"
+    output_json_path = "AgentTesting/agent_run_log_empty_biglava_10m.json"
     agent_type = "dqn"
     max_episode_steps = 150
     use_random_spawn = True

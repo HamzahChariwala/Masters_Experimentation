@@ -127,7 +127,7 @@ def main():
     # Determine the correct path to the log file
     # This adjusts the path whether we're running from the project root or the VisualisationTools directory
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    log_path = os.path.join(base_dir, "AgentTesting", "agent_run_log_empty_diagonal_proof.json")
+    log_path = os.path.join(base_dir, "AgentTesting", "agent_run_log_empty_biglava_10m.json")
     
     print(f"Loading log data from: {log_path}")
     
