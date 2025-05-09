@@ -397,7 +397,8 @@ def create_callbacks(config: Dict[str, Any], eval_envs: List[gym.Env],
         n_eval_episodes=eval_config['n_eval_episodes'],
         eval_timeout=eval_config['timeout'],
         log_dir=performance_log_dir,
-        verbose=1
+        verbose=1,
+        disable_early_stopping=eval_config.get('disable_early_stopping', False)
     )
     
     return [termination_callback]

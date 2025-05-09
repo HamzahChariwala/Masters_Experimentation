@@ -38,6 +38,7 @@ class CustomTerminationCallback(BaseCallback):
         eval_timeout: Maximum time in seconds to wait for evaluation to complete (default: 30)
         log_dir: Directory to save performance plots (default: "./logs/performance")
         verbose: Verbosity level (default: 1)
+        disable_early_stopping: If True, disable all early stopping conditions but still run evaluations (default: False)
     """
     
     def __init__(
@@ -54,7 +55,8 @@ class CustomTerminationCallback(BaseCallback):
         n_eval_episodes=10,
         eval_timeout=30,
         log_dir="./logs/performance",
-        verbose=1
+        verbose=1,
+        disable_early_stopping=False
     ):
         super().__init__(verbose)
         # Handle both single environment and list of environments
@@ -64,6 +66,9 @@ class CustomTerminationCallback(BaseCallback):
             self.eval_envs = [eval_envs]
             
         self.check_freq = check_freq
+        
+        # Flag to disable all early stopping conditions
+        self.disable_early_stopping = disable_early_stopping
         
         # Minimum thresholds that must be met before other conditions apply
         self.min_reward_threshold = min_reward_threshold
@@ -159,6 +164,38 @@ class CustomTerminationCallback(BaseCallback):
             self.evaluation_complete = True
         
     def _on_step(self):
+        # If early stopping is disabled, only run evaluations but don't terminate training
+        if self.disable_early_stopping:
+            # Only do evaluations at check_freq
+            if self.num_timesteps % self.check_freq != 0:
+                return True
+                
+            # Skip safety check for deadlocks
+            if self.evaluation_in_progress:
+                current_time = time.time()
+                time_since_last_eval = current_time - self.last_evaluation_time
+                if time_since_last_eval > 120:  # If more than 2 minutes, something is wrong
+                    if self.verbose > 0:
+                        print(f"Warning: Previous evaluation has been running for {time_since_last_eval:.1f} seconds. Resetting state.")
+                    self.evaluation_in_progress = False
+                else:
+                    if self.verbose > 0:
+                        print("Previous evaluation still in progress, skipping this one")
+                    return True
+            
+            # Run evaluation for tracking progress but don't terminate
+            try:
+                self._run_evaluation()
+            except Exception as e:
+                if self.verbose > 0:
+                    print(f"Error during evaluation: {e}")
+            finally:
+                self.evaluation_in_progress = False
+            
+            # Always continue training when disable_early_stopping is True
+            return True
+        
+        # Normal behavior when early stopping is enabled
         # Check for time-based termination immediately without expensive evaluation
         if self.max_runtime is not None:
             elapsed_time = time.time() - self.start_time
@@ -203,43 +240,16 @@ class CustomTerminationCallback(BaseCallback):
                 if self.verbose > 0:
                     print("Previous evaluation still in progress, skipping this one")
                 return True
-            
+        
         try:
             self.evaluation_in_progress = True
             self.last_evaluation_time = current_time
-            self.evaluation_count += 1
             
-            if self.verbose > 0:
-                print(f"\n===== Starting evaluation #{self.evaluation_count} at timestep {self.num_timesteps} =====")
-                print(f"Evaluating on {len(self.eval_envs)} environments, {self.n_eval_episodes} episodes per environment")
-                print(f"Total episodes: {len(self.eval_envs) * self.n_eval_episodes}, timeout: {self.eval_timeout}s")
+            # Run the evaluation
+            result = self._run_evaluation()
             
-            # Reset evaluation state
-            self.evaluation_complete = False
-            self.evaluation_error = None
-            self.evaluation_results = None
-            
-            # Create and start evaluation thread
-            eval_thread = threading.Thread(target=self._evaluate_agent)
-            eval_thread.daemon = True  # Daemon thread will be killed if main thread exits
-            eval_thread.start()
-            
-            # Wait for evaluation to complete with timeout
-            start_wait = time.time()
-            while not self.evaluation_complete and (time.time() - start_wait) < self.eval_timeout:
-                time.sleep(0.1)  # Small sleep to avoid busy waiting
-            
-            # Check if evaluation completed or timed out
-            if not self.evaluation_complete:
-                if self.verbose > 0:
-                    print(f"Evaluation timed out after {self.eval_timeout} seconds")
-                self.evaluation_in_progress = False
-                return True
-            
-            # Check if evaluation had an error
-            if self.evaluation_error is not None:
-                if self.verbose > 0:
-                    print(f"Evaluation failed with error: {self.evaluation_error}")
+            # If evaluation failed, continue training
+            if not result:
                 self.evaluation_in_progress = False
                 return True
             
@@ -247,23 +257,6 @@ class CustomTerminationCallback(BaseCallback):
             episode_rewards, episode_lengths = self.evaluation_results
             mean_reward = np.mean(episode_rewards)
             mean_length = np.mean(episode_lengths)
-            
-            # Update the performance tracker with evaluation results
-            self.performance_tracker.update_eval_metrics(
-                self.num_timesteps,
-                episode_rewards,
-                episode_lengths
-            )
-            
-            # Generate performance plots
-            self.performance_tracker.plot_performance(save=True, show=False)
-            
-            if self.verbose > 0:
-                print(f"Aggregated results across all environments:")
-                print(f"  Mean reward = {mean_reward:.2f}, Std = {np.std(episode_rewards):.2f}")
-                print(f"  Mean length = {mean_length:.1f}, Std = {np.std(episode_lengths):.1f}")
-                print(f"  Min reward = {np.min(episode_rewards):.2f}, Max reward = {np.max(episode_rewards):.2f}")
-                print(f"  Performance plots saved to {self.log_dir}")
             
             # Check minimum thresholds
             if self.min_reward_threshold is not None and mean_reward >= self.min_reward_threshold:
@@ -325,13 +318,71 @@ class CustomTerminationCallback(BaseCallback):
                         print(f"Stopping training as no improvement in episode length for {self.length_steps_without_improvement} steps")
                     return False
             
-            if self.verbose > 0:
-                print(f"===== Evaluation #{self.evaluation_count} completed =====\n")
-                
         except Exception as e:
             if self.verbose > 0:
                 print(f"Error during callback logic: {e}")
         finally:
             self.evaluation_in_progress = False
                 
+        return True
+        
+    def _run_evaluation(self):
+        """Run the evaluation and update performance metrics"""
+        self.evaluation_count += 1
+        
+        if self.verbose > 0:
+            print(f"\n===== Starting evaluation #{self.evaluation_count} at timestep {self.num_timesteps} =====")
+            print(f"Evaluating on {len(self.eval_envs)} environments, {self.n_eval_episodes} episodes per environment")
+            print(f"Total episodes: {len(self.eval_envs) * self.n_eval_episodes}, timeout: {self.eval_timeout}s")
+        
+        # Reset evaluation state
+        self.evaluation_complete = False
+        self.evaluation_error = None
+        self.evaluation_results = None
+        
+        # Create and start evaluation thread
+        eval_thread = threading.Thread(target=self._evaluate_agent)
+        eval_thread.daemon = True  # Daemon thread will be killed if main thread exits
+        eval_thread.start()
+        
+        # Wait for evaluation to complete with timeout
+        start_wait = time.time()
+        while not self.evaluation_complete and (time.time() - start_wait) < self.eval_timeout:
+            time.sleep(0.1)  # Small sleep to avoid busy waiting
+        
+        # Check if evaluation completed or timed out
+        if not self.evaluation_complete:
+            if self.verbose > 0:
+                print(f"Evaluation timed out after {self.eval_timeout} seconds")
+            return False
+        
+        # Check if evaluation had an error
+        if self.evaluation_error is not None:
+            if self.verbose > 0:
+                print(f"Evaluation failed with error: {self.evaluation_error}")
+            return False
+        
+        # Get evaluation results
+        episode_rewards, episode_lengths = self.evaluation_results
+        mean_reward = np.mean(episode_rewards)
+        mean_length = np.mean(episode_lengths)
+        
+        # Update the performance tracker with evaluation results
+        self.performance_tracker.update_eval_metrics(
+            self.num_timesteps,
+            episode_rewards,
+            episode_lengths
+        )
+        
+        # Generate performance plots
+        self.performance_tracker.plot_performance(save=True, show=False)
+        
+        if self.verbose > 0:
+            print(f"Aggregated results across all environments:")
+            print(f"  Mean reward = {mean_reward:.2f}, Std = {np.std(episode_rewards):.2f}")
+            print(f"  Mean length = {mean_length:.1f}, Std = {np.std(episode_lengths):.1f}")
+            print(f"  Min reward = {np.min(episode_rewards):.2f}, Max reward = {np.max(episode_rewards):.2f}")
+            print(f"  Performance plots saved to {self.log_dir}")
+            print(f"===== Evaluation #{self.evaluation_count} completed =====\n")
+        
         return True

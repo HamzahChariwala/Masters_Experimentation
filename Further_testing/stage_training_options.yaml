@@ -14,30 +14,43 @@ stage_training:
     
   # Distribution options for different stages
   distributions:
-    # Stage 1: Very close to goal (easy learning)
-    - type: "poisson_goal"      # Distribution centered around goal
+    # Stage 1: Near the goal (using 2D Gaussian)
+    - type: "gaussian_2d"       # 2D Gaussian distribution with custom center and std
       params: 
-        lambda_param: 0.5       # Smaller lambda = more concentrated near goal
-        favor_near: true        # Ensure higher probability closer to goal
-      description: "Very close to goal (easy learning)"
-      duration_factor: 1.0      # Relative duration compared to other stages (optional)
+        center: [1.0, 1.0]      # Normalized center coordinates [x, y] where (1,1) is bottom-right (goal)
+        std: [0.2, 0.2]         # Normalized standard deviations [σx, σy] in grid units
+        directional: false      # Whether to use directional gaussian (false = standard x,y directions)
+      description: "Near the goal (easy learning)"
+      duration_factor: 1.0      # Relative duration compared to other stages
     
-    # Stage 2: Medium distance from goal
-    - type: "distance_goal"     # Distance-based distribution from goal
+    # Stage 2: Mix of corner and center spawning
+    - type: "composite"         # Multiple distributions combined
       params:
-        power: 1                # Power factor for distance calculation (1=linear, 2=quadratic)
-        favor_near: true        # True = higher probability closer to goal, False = higher probability farther from goal
-        max_distance: null      # Optional limit on maximum distance considered
-      description: "Medium distance from goal"
+        distributions: [        # List of distribution components
+          {
+            "type": "gaussian_2d",
+            "weight": 0.7,      # Weight of this component (70%)
+            "params": {
+              "center": [0.5, 0.5],  # Center of the grid
+              "std": [0.3, 0.3]
+            }
+          },
+          {
+            "type": "corners",
+            "weight": 0.3,      # Weight of this component (30%)
+            "params": {
+              "corner_size": 2
+            }
+          }
+        ]
+      description: "Mix of center and corners (medium challenge)"
       duration_factor: 1.2      # Spend 20% more time in this stage
     
-    # Stage 3: Gaussian distribution around goal
-    - type: "gaussian_goal"     # Gaussian distribution centered on goal
+    # Stage 3: Border spawning (challenging navigation)
+    - type: "border"            # Spawn along the edges of the grid
       params:
-        sigma: 2.0              # Standard deviation of distribution
-        favor_near: false       # Whether to favor positions near the goal
-        truncate: 3.0           # Optional truncation of distribution (in sigma units)
-      description: "Farther from goal (more challenge)"
+        border_width: 1         # Width of border area (in cells)
+      description: "Border spawning (boundary navigation)"
       duration_factor: 0.8      # Spend 20% less time in this stage
     
     # Stage 4: Anywhere in the grid (full mastery)
@@ -45,39 +58,23 @@ stage_training:
       description: "Anywhere in the grid (full mastery)"
       duration_factor: 1.5      # Spend 50% more time in this final stage
     
-    # Additional potential stage examples:
+    # Additional distribution examples:
+    
+    # Diagonal-aligned Gaussian (top-left to bottom-right)
+    - type: "gaussian_2d"
+      params:
+        center: [0.25, 0.25]    # Near top-left
+        std: [0.4, 0.2]         # Elongated along diagonal
+        directional: true       # Use diagonal directions for std
+        angle: 45               # 45 degrees = top-left to bottom-right diagonal
+      description: "Diagonal-aligned distribution"
+      enabled: false
     
     # Corner spawning
     - type: "corners"           # Spawn in corners of the grid
       params:
         corner_size: 2          # Size of corner area (in cells)
       description: "Corner spawning (advanced navigation)"
-      enabled: false            # Example of disabling a specific stage
-
-    # Border spawning
-    - type: "border"            # Spawn along the edges of the grid
-      params:
-        border_width: 1         # Width of border area (in cells)
-      description: "Border spawning (boundary navigation)"
-      enabled: false
-    
-    # Custom grid-based spawning
-    - type: "custom_grid"       # Define a specific pattern of probabilities
-      params:
-        probability_map: [      # 2D array of probabilities (normalized internally)
-          [0.1, 0.2, 0.3],
-          [0.4, 0.5, 0.6],
-          [0.7, 0.8, 0.9]
-        ]
-      description: "Custom probability grid"
-      enabled: false
-    
-    # Farthest from goal (most challenging)
-    - type: "distance_goal"
-      params:
-        power: 2
-        favor_near: false       # Higher probability farther from goal
-      description: "Farthest from goal (most challenging)"
       enabled: false
 
   # Advanced options

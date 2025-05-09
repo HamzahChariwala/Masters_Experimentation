@@ -338,6 +338,198 @@ class DistributionMap:
         
         return self
 
+    def gaussian_2d(self, center, std, directional=False, angle=0):
+        """
+        Create a 2D Gaussian distribution with configurable center and standard deviations.
+        
+        Parameters:
+        ----------
+        center : list or tuple [x, y]
+            Normalized center coordinates where (0,0) is top-left and (1,1) is bottom-right
+        std : list or tuple [σx, σy]
+            Normalized standard deviations in x and y directions or in the rotated directions
+        directional : bool
+            If True, the standard deviations are applied along rotated axes based on the angle
+        angle : float
+            Rotation angle in degrees (only used if directional=True)
+            0 = standard x,y axes, 45 = top-left to bottom-right diagonal
+        """
+        # Initialize the probability map
+        self.probabilities = np.zeros((self.height, self.width))
+        
+        # Convert normalized coordinates to grid coordinates
+        center_x = center[0] * (self.width - 1)
+        center_y = center[1] * (self.height - 1)
+        
+        # Convert normalized standard deviations to grid units
+        # Use the larger dimension for scaling to maintain aspect ratio
+        scale_factor = max(self.width, self.height)
+        sigma_x = std[0] * scale_factor
+        sigma_y = std[1] * scale_factor
+        
+        # Convert angle to radians if using directional Gaussian
+        if directional:
+            theta = np.radians(angle)
+            cos_theta = np.cos(theta)
+            sin_theta = np.sin(theta)
+        
+        # Compute the Gaussian distribution
+        for y in range(self.height):
+            for x in range(self.width):
+                if directional:
+                    # Rotate coordinates for directional Gaussian
+                    # Shift by center, rotate, then compute distances along the rotated axes
+                    x_shifted = x - center_x
+                    y_shifted = y - center_y
+                    
+                    # Rotate coordinates
+                    x_rot = x_shifted * cos_theta + y_shifted * sin_theta
+                    y_rot = -x_shifted * sin_theta + y_shifted * cos_theta
+                    
+                    # Normalized distances in the rotated coordinate system
+                    x_term = (x_rot / sigma_x) ** 2
+                    y_term = (y_rot / sigma_y) ** 2
+                else:
+                    # Standard Gaussian - use regular x,y distances
+                    x_term = ((x - center_x) / sigma_x) ** 2
+                    y_term = ((y - center_y) / sigma_y) ** 2
+                
+                # Calculate probability using the 2D Gaussian formula
+                exponent = -0.5 * (x_term + y_term)
+                prob = np.exp(exponent)
+                self.probabilities[y, x] = prob
+        
+        # Normalize to make it a proper probability distribution
+        if np.sum(self.probabilities) > 0:
+            self.probabilities /= np.sum(self.probabilities)
+        return self
+
+    def corners_distribution(self, corner_size=2):
+        """
+        Create a distribution focused on the corners of the grid.
+        
+        Parameters:
+        ----------
+        corner_size : int
+            Size of each corner area in grid cells
+        """
+        # Initialize the probability map
+        self.probabilities = np.zeros((self.height, self.width))
+        
+        # Define the corner regions
+        corners = [
+            # Top-left
+            (0, 0, corner_size, corner_size),
+            # Top-right
+            (self.width - corner_size, 0, self.width, corner_size),
+            # Bottom-left
+            (0, self.height - corner_size, corner_size, self.height),
+            # Bottom-right
+            (self.width - corner_size, self.height - corner_size, self.width, self.height)
+        ]
+        
+        # Set equal probability in each corner
+        corner_prob = 1.0 / (4 * corner_size * corner_size)
+        
+        for x1, y1, x2, y2 in corners:
+            for y in range(y1, y2):
+                for x in range(x1, x2):
+                    if 0 <= y < self.height and 0 <= x < self.width:
+                        self.probabilities[y, x] = corner_prob
+        
+        # Normalize to make it a proper probability distribution
+        if np.sum(self.probabilities) > 0:
+            self.probabilities /= np.sum(self.probabilities)
+        return self
+
+    def border_distribution(self, border_width=1):
+        """
+        Create a distribution focused on the border of the grid.
+        
+        Parameters:
+        ----------
+        border_width : int
+            Width of the border in grid cells
+        """
+        # Initialize the probability map
+        self.probabilities = np.zeros((self.height, self.width))
+        
+        # Calculate total border cells
+        total_border_cells = (2 * self.width * border_width + 
+                              2 * (self.height - 2 * border_width) * border_width)
+        
+        # Set equal probability for all border cells
+        border_prob = 1.0 / total_border_cells if total_border_cells > 0 else 0
+        
+        # Set border probabilities
+        for y in range(self.height):
+            for x in range(self.width):
+                if (x < border_width or x >= self.width - border_width or 
+                    y < border_width or y >= self.height - border_width):
+                    self.probabilities[y, x] = border_prob
+        
+        # Normalize to make it a proper probability distribution
+        if np.sum(self.probabilities) > 0:
+            self.probabilities /= np.sum(self.probabilities)
+        return self
+
+    def composite_distribution(self, distributions):
+        """
+        Create a composite distribution by combining multiple weighted distributions.
+        
+        Parameters:
+        ----------
+        distributions : list of dicts
+            Each dict contains:
+              - type: Distribution type name
+              - weight: Relative weight of this distribution (default: 1.0)
+              - params: Parameters for this distribution
+        """
+        # Initialize zero probability map
+        self.probabilities = np.zeros((self.height, self.width))
+        
+        total_weight = 0.0
+        
+        # Create a temporary distribution map for each component
+        for dist_config in distributions:
+            dist_type = dist_config["type"]
+            dist_weight = dist_config.get("weight", 1.0)
+            dist_params = dist_config.get("params", {})
+            
+            temp_map = DistributionMap(self.width, self.height)
+            
+            # Apply the appropriate distribution type
+            if dist_type == "uniform":
+                temp_map.uniform_distribution()
+            elif dist_type == "gaussian_2d":
+                center = dist_params.get("center", [0.5, 0.5])
+                std = dist_params.get("std", [0.2, 0.2])
+                directional = dist_params.get("directional", False)
+                angle = dist_params.get("angle", 0)
+                temp_map.gaussian_2d(center, std, directional, angle)
+            elif dist_type == "corners":
+                corner_size = dist_params.get("corner_size", 2)
+                temp_map.corners_distribution(corner_size)
+            elif dist_type == "border":
+                border_width = dist_params.get("border_width", 1)
+                temp_map.border_distribution(border_width)
+            else:
+                # Skip unknown distribution types
+                continue
+            
+            # Add weighted contribution to the composite distribution
+            self.probabilities += dist_weight * temp_map.probabilities
+            total_weight += dist_weight
+        
+        # Normalize by total weight
+        if total_weight > 0:
+            self.probabilities /= total_weight
+            
+        # Ensure it's a valid probability distribution
+        if np.sum(self.probabilities) > 0:
+            self.probabilities /= np.sum(self.probabilities)
+        return self
+
 
 class FlexibleSpawnWrapper(gym.Wrapper):
     """
@@ -574,6 +766,27 @@ class FlexibleSpawnWrapper(gym.Wrapper):
         if dist_type == "uniform":
             self.current_distribution.uniform_distribution()
         
+        elif dist_type == "gaussian_2d":
+            center = params.get("center", [1.0, 1.0])  # Default to goal position (bottom-right)
+            std = params.get("std", [0.2, 0.2])
+            directional = params.get("directional", False)
+            angle = params.get("angle", 0)
+            
+            # Use the new 2D Gaussian distribution
+            self.current_distribution.gaussian_2d(center, std, directional, angle)
+        
+        elif dist_type == "corners":
+            corner_size = params.get("corner_size", 2)
+            self.current_distribution.corners_distribution(corner_size)
+        
+        elif dist_type == "border":
+            border_width = params.get("border_width", 1)
+            self.current_distribution.border_distribution(border_width)
+        
+        elif dist_type == "composite":
+            distributions = params.get("distributions", [])
+            self.current_distribution.composite_distribution(distributions)
+        
         elif dist_type == "poisson_goal" and self.goal_pos:
             lambda_param = params.get("lambda_param", 2.0)
             favor_near = params.get("favor_near", True)
@@ -641,13 +854,109 @@ class FlexibleSpawnWrapper(gym.Wrapper):
         
         # Handle distribution updates based on timesteps
         if self.stage_based_training and self.total_timesteps:
+            # Get smooth transition settings if available
+            smooth_transitions = self.stage_based_training.get('smooth_transitions', {'enabled': False})
+            smooth_enabled = smooth_transitions.get('enabled', False)
+            transition_duration = smooth_transitions.get('transition_duration', 1000)
+            transition_rate = smooth_transitions.get('transition_rate', 'linear')
+            
+            # Get stage duration (can be specified directly or calculated from num_stages)
+            stage_duration = self.stage_based_training.get('stage_duration')
+            if stage_duration is None and 'num_stages' in self.stage_based_training:
+                stage_duration = self.total_timesteps / self.stage_based_training['num_stages']
+            
+            # If stage_duration is defined, use it instead of stage_timesteps
+            if stage_duration is not None:
+                self.stage_timesteps = stage_duration
+            
+            # Calculate next stage transition point
+            current_stage_end = (self.current_stage + 1) * self.stage_timesteps
+            
             # Check if we've reached the time for a stage transition
-            if self.timestep >= self.next_stage_transition and self.current_stage < len(self.stage_based_training['distributions']) - 1:
+            if smooth_enabled and self.current_stage < len(self.stage_based_training['distributions']) - 1:
+                # Calculate transition start and end times
+                transition_start = current_stage_end - transition_duration
+                
+                # If we're in the transition period between stages
+                if self.timestep >= transition_start and self.timestep < current_stage_end:
+                    # Calculate progress through the transition (0.0 to 1.0)
+                    progress = (self.timestep - transition_start) / transition_duration
+                    
+                    # Apply different transition rates
+                    if transition_rate == 'exponential':
+                        progress = progress ** 2  # Exponential transition
+                    elif transition_rate == 'sigmoid':
+                        # Sigmoid function to create an S-shaped transition
+                        progress = 1 / (1 + np.exp(-10 * (progress - 0.5)))
+                    # 'linear' is the default, so we don't modify progress in that case
+                    
+                    # Get current and next stage configurations
+                    current_stage_config = self.stage_based_training['distributions'][self.current_stage]
+                    next_stage_config = self.stage_based_training['distributions'][self.current_stage + 1]
+                    
+                    # Create temporary distribution maps for interpolation
+                    current_dist_map = DistributionMap(self.current_distribution.width, self.current_distribution.height)
+                    next_dist_map = DistributionMap(self.current_distribution.width, self.current_distribution.height)
+                    
+                    # Apply distributions
+                    self._apply_distribution_to_map(current_stage_config['type'], 
+                                                  current_stage_config.get('params', {}),
+                                                  current_dist_map)
+                    
+                    self._apply_distribution_to_map(next_stage_config['type'],
+                                                  next_stage_config.get('params', {}),
+                                                  next_dist_map)
+                    
+                    # Apply masks to both distributions
+                    if self.goal_pos:
+                        goal_mask = np.ones_like(self.valid_cells_mask)
+                        goal_mask[self.goal_pos[1], self.goal_pos[0]] = 0
+                        current_dist_map.mask_cells(goal_mask)
+                        next_dist_map.mask_cells(goal_mask)
+                    
+                    current_dist_map.mask_cells(self.valid_cells_mask)
+                    next_dist_map.mask_cells(self.valid_cells_mask)
+                    
+                    # Interpolate between the two distributions
+                    self.current_distribution.from_existing_distribution(current_dist_map.probabilities)
+                    self.current_distribution.temporal_interpolation(next_dist_map, progress)
+                    self.current_distribution.build_sampling_map()
+                    
+                    # Store transition point for visualization (at midpoint)
+                    if progress >= 0.5 and progress < 0.51:
+                        self.distribution_history.append((self.timestep, self.current_distribution.probabilities.copy()))
+                    
+                # If we've completed the transition to the next stage
+                elif self.timestep >= current_stage_end and self.current_stage < len(self.stage_based_training['distributions']) - 1:
+                    # Move to next stage
+                    self.current_stage += 1
+                    
+                    # Apply the distribution for the new stage
+                    next_stage_config = self.stage_based_training['distributions'][self.current_stage]
+                    self._apply_distribution(next_stage_config['type'], next_stage_config.get('params', {}))
+                    
+                    # Apply masks to ensure goal and invalid cells have zero probability
+                    if self.goal_pos:
+                        goal_mask = np.ones_like(self.valid_cells_mask)
+                        goal_mask[self.goal_pos[1], self.goal_pos[0]] = 0
+                        self.current_distribution.mask_cells(goal_mask)
+                    
+                    self.current_distribution.mask_cells(self.valid_cells_mask)
+                    self.current_distribution.build_sampling_map()
+                    
+                    # Store for visualization
+                    self.distribution_history.append((self.timestep, self.current_distribution.probabilities.copy()))
+                    
+                    if self.verbose > 0:
+                        print(f"Transitioned to stage {self.current_stage + 1}/{len(self.stage_based_training['distributions'])}")
+                        print(f"Distribution: {next_stage_config['type']}")
+                        if 'description' in next_stage_config:
+                            print(f"Description: {next_stage_config['description']}")
+            
+            elif not smooth_enabled and self.timestep >= current_stage_end and self.current_stage < len(self.stage_based_training['distributions']) - 1:
+                # Non-smooth transition - just switch immediately to the next stage
                 # Move to next stage
                 self.current_stage += 1
-                
-                # Calculate next transition point
-                self.next_stage_transition += self.stage_timesteps
                 
                 # Apply the distribution for the new stage
                 next_stage_config = self.stage_based_training['distributions'][self.current_stage]
@@ -681,6 +990,73 @@ class FlexibleSpawnWrapper(gym.Wrapper):
                 self.distribution_history.append((self.timestep, self.current_distribution.probabilities.copy()))
         
         return obs, reward, terminated, truncated, info
+    
+    def _apply_distribution_to_map(self, dist_type, dist_params, dist_map):
+        """Apply a specific distribution type with given parameters to a provided distribution map."""
+        params = dist_params or {}
+        
+        if dist_type == "uniform":
+            dist_map.uniform_distribution()
+        
+        elif dist_type == "gaussian_2d":
+            center = params.get("center", [1.0, 1.0])  # Default to goal position (bottom-right)
+            std = params.get("std", [0.2, 0.2])
+            directional = params.get("directional", False)
+            angle = params.get("angle", 0)
+            
+            # Use the new 2D Gaussian distribution
+            dist_map.gaussian_2d(center, std, directional, angle)
+        
+        elif dist_type == "corners":
+            corner_size = params.get("corner_size", 2)
+            dist_map.corners_distribution(corner_size)
+        
+        elif dist_type == "border":
+            border_width = params.get("border_width", 1)
+            dist_map.border_distribution(border_width)
+        
+        elif dist_type == "composite":
+            distributions = params.get("distributions", [])
+            dist_map.composite_distribution(distributions)
+        
+        elif dist_type == "poisson_goal" and self.goal_pos:
+            lambda_param = params.get("lambda_param", 2.0)
+            favor_near = params.get("favor_near", True)
+            
+            # Create distribution centered on goal
+            dist_map.poisson_from_point(
+                self.goal_pos[0], self.goal_pos[1], lambda_param
+            )
+            
+            # Invert if we want to favor positions far from goal
+            if not favor_near:
+                dist_map.invert()
+        
+        elif dist_type == "gaussian_goal" and self.goal_pos:
+            sigma = params.get("sigma", 1.0)
+            favor_near = params.get("favor_near", True)
+            
+            # Create Gaussian distribution centered on goal
+            dist_map.gaussian_from_point(
+                self.goal_pos[0], self.goal_pos[1], sigma
+            )
+            
+            # Invert if we want to favor positions far from goal
+            if not favor_near:
+                dist_map.invert()
+        
+        elif dist_type == "distance_goal" and self.goal_pos:
+            favor_near = params.get("favor_near", True)
+            power = params.get("power", 2)
+            
+            # Create distance-based distribution centered on goal
+            dist_map.distance_based_from_point(
+                self.goal_pos[0], self.goal_pos[1], favor_near, power
+            )
+        
+        else:
+            # Default to uniform distribution
+            dist_map.uniform_distribution()
     
     def get_current_distribution_probabilities(self):
         """

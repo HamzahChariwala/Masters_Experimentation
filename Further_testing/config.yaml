@@ -44,38 +44,91 @@ spawn:
   exclude_goal_adjacent: true
   
   # Fixed distribution (used when stage_training and continuous_transition are disabled)
-  distribution_type: "poisson_goal"  # Options: "uniform", "poisson_goal", "gaussian_goal", "distance_goal"
+  distribution_type: "gaussian_2d"  # Options: "uniform", "gaussian_2d", "corners", "border", "composite"
   distribution_params:
-    lambda_param: 1.0     # For poisson distribution
-    sigma: 2.0            # For gaussian distribution
-    power: 1              # For distance-based distribution
-    favor_near: false     # Whether to favor positions near the reference point
+    center: [1.0, 1.0]  # Normalized coordinates [x, y] where (1,1) is bottom-right (goal)
+    std: [0.2, 0.2]     # Normalized standard deviations [σx, σy] in grid units
   
   # Curriculum Learning Options
   stage_training:
     enabled: true
-    num_stages: 4
+    num_stages: 8
+    # Equal time for each stage by default (can be adjusted)
+    stage_duration: 12500  # Each stage lasts for 12,500 steps (100k total / 8 stages)
+    
+    # Smooth transitions between stages
+    smooth_transitions:
+      enabled: true
+      transition_duration: 2000  # Number of steps to spend transitioning between stages
+      transition_rate: "linear"  # Options: "linear", "exponential", "sigmoid"
+    
     distributions:
-      - type: "poisson_goal"
+      # Stage 1: Gaussian centered around goal with high concentration
+      - type: "gaussian_2d"
         params: 
-          lambda_param: 1.0
-          favor_near: true
-        description: "Very close to goal (easy learning)"
+          center: [1.0, 1.0]  # Goal position (bottom-right)
+          std: [0.1, 0.1]     # Small standard deviation (tight concentration)
+        description: "Goal-centered tight Gaussian"
       
-      - type: "distance_goal"
+      # Stage 2: Same center but increase lobe size
+      - type: "gaussian_2d"
         params:
-          power: 1
-          favor_near: true
-        description: "Medium distance from goal"
+          center: [1.0, 1.0]  # Still at goal
+          std: [0.25, 0.25]   # Larger standard deviation
+        description: "Goal-centered wider Gaussian"
       
-      - type: "gaussian_goal"
+      # Stage 3: Shift center to middle of env
+      - type: "gaussian_2d"
         params:
-          sigma: 2.0
-          favor_near: false
-        description: "Farther from goal (more challenge)"
+          center: [0.5, 0.5]  # Center of the grid
+          std: [0.25, 0.25]   # Same standard deviation as before
+        description: "Center-positioned Gaussian"
       
-      - type: "uniform"
-        description: "Anywhere in the grid (full mastery)"
+      # Stage 4: Same center but increase lobe size in direction connecting bottom left and top right corner
+      - type: "gaussian_2d"
+        params:
+          center: [0.5, 0.5]        # Still at center
+          std: [0.4, 0.2]           # Elongated std
+          directional: true         # Use directional Gaussian
+          angle: 135                # 135 degrees = bottom-left to top-right diagonal
+        description: "Center-positioned directional Gaussian"
+      
+      # Stage 5: Stacked gaussians with equal weighting at bottom-left and top-right corners
+      - type: "composite"
+        params:
+          distributions:
+            - type: "gaussian_2d"
+              weight: 0.5
+              params:
+                center: [0.0, 1.0]  # Bottom-left corner
+                std: [0.2, 0.2]
+            - type: "gaussian_2d"
+              weight: 0.5
+              params:
+                center: [1.0, 0.0]  # Top-right corner
+                std: [0.2, 0.2]
+        description: "Bottom-left and top-right corner Gaussians"
+      
+      # Stage 6: Revert to something similar to stage 3
+      - type: "gaussian_2d"
+        params:
+          center: [0.5, 0.5]  # Back to center
+          std: [0.3, 0.3]     # Slightly wider than stage 3
+        description: "Center-positioned wider Gaussian"
+      
+      # Stage 7: Gaussian centered around top left with medium lobe sizes
+      - type: "gaussian_2d"
+        params:
+          center: [0.0, 0.0]  # Top-left corner
+          std: [0.25, 0.25]   # Medium standard deviation
+        description: "Top-left corner medium Gaussian"
+      
+      # Stage 8: Reduce lobe sizes to increase concentration around that corner
+      - type: "gaussian_2d"
+        params:
+          center: [0.0, 0.0]  # Still at top-left
+          std: [0.1, 0.1]     # Smaller standard deviation (more concentrated)
+        description: "Top-left corner tight Gaussian"
   
   continuous_transition:
     enabled: false
@@ -132,10 +185,12 @@ evaluation:
   training:
     num_envs: 15
     check_freq: 10000
-    target_reward_threshold: 0.99
-    max_runtime: 30000  # seconds (about 8 hours)
-    n_eval_episodes: 1
-    timeout: 15  # seconds
+    target_reward_threshold: 2.0     # Unreachable target to disable early termination
+    min_reward_threshold: -1.0       # Set to a very low value to disable early termination
+    max_runtime: 0                   # 0 = no time limit (disable time-based termination)
+    n_eval_episodes: 1               # Keep running evaluations
+    timeout: 15                      # seconds
+    disable_early_stopping: true     # New flag to explicitly disable early stopping
     
   # Final evaluation
   final:

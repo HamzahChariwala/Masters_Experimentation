@@ -258,14 +258,42 @@ if __name__ == "__main__":
     termination_callback = CustomTerminationCallback(
         eval_envs=eval_envs,  # Pass list of environments instead of single environment
         check_freq=10_000,                # Check every 50k steps
-        # min_reward_threshold=0.96,        # Minimum reward to meet before applying termination conditions
-        target_reward_threshold=0.99,    # Target reward to achieve
-        max_runtime=30000,               # Maximum runtime in seconds (about 8 hours)
-        n_eval_episodes=1,               # Only evaluate on a single episode per environment
-        eval_timeout=EVAL_TIMEOUT,       # Use the configurable timeout parameter
-        log_dir=performance_log_dir,     # Directory for performance tracking
-        verbose=1
+        target_reward_threshold=2.0,      # Unreachable target (effectively disable by reward)
+        max_runtime=0,                    # No time limit (disable time-based termination)
+        n_eval_episodes=1,                # Only evaluate on a single episode per environment
+        eval_timeout=EVAL_TIMEOUT,        # Use the configurable timeout parameter
+        log_dir=performance_log_dir,      # Directory for performance tracking
+        verbose=1,
+        disable_early_stopping=True       # Explicitly disable early stopping
     )
+
+    # Setup smooth transitions for stage training if enabled
+    if USE_STAGE_TRAINING and isinstance(observation_params["stage_training_config"], dict):
+        # Add smooth transition parameters if defined
+        smooth_transitions = {
+            "enabled": True,
+            "transition_duration": 2000,  # Number of steps to spend transitioning
+            "transition_rate": "linear"   # Linear transition between stages
+        }
+        
+        # Update the stage training config with smooth transitions
+        observation_params["stage_training_config"]["smooth_transitions"] = smooth_transitions
+        
+        # Calculate stage duration based on total timesteps and number of stages
+        num_stages = observation_params["stage_training_config"]["num_stages"]
+        total_steps = 100_000  # Hardcoded for this example
+        stage_duration = total_steps // num_stages
+        
+        # Add stage duration to config
+        observation_params["stage_training_config"]["stage_duration"] = stage_duration
+        
+        print(f"\n===== STAGE TRAINING CONFIGURATION =====")
+        print(f"Number of stages: {num_stages}")
+        print(f"Stage duration: {stage_duration} steps")
+        print(f"Smooth transitions: {smooth_transitions['enabled']}")
+        print(f"Transition duration: {smooth_transitions['transition_duration']} steps")
+        print(f"Transition rate: {smooth_transitions['transition_rate']}")
+        print("==========================================\n")
 
     # Print training start message
     print("\n====== STARTING TRAINING ======")
