@@ -74,6 +74,9 @@ def extract_environment_vars(config):
         'reward_y_intercept': reward_config.get('y_intercept', 1.0),
         'reward_transition_width': reward_config.get('transition_width', 10),
         'reward_verbose': reward_config.get('verbose', True),
+        'debug_logging': reward_config.get('debug_logging', False),
+        'count_lava_steps': reward_config.get('count_lava_steps', False),
+        'lava_step_multiplier': reward_config.get('lava_step_multiplier', 2.0),
     }
     
     return {**env_vars, **reward_vars}
@@ -254,6 +257,9 @@ def create_observation_params(config: Dict[str, Any], spawn_vis_dir: str) -> Dic
         "reward_y_intercept": reward_config['y_intercept'],
         "reward_transition_width": reward_config['transition_width'],
         "reward_verbose": reward_config['verbose'],
+        "debug_logging": reward_config.get('debug_logging', False),
+        "count_lava_steps": reward_config.get('count_lava_steps', False),
+        "lava_step_multiplier": reward_config.get('lava_step_multiplier', 2.0),
         # Keep the spawn visualization directory
         "spawn_vis_dir": spawn_vis_dir,
         "spawn_vis_frequency": 10000  # Default value if not specified elsewhere
@@ -350,6 +356,9 @@ def print_training_info(config: Dict[str, Any], observation_params: Dict[str, An
         print(f"  - Y-intercept: {observation_params['reward_y_intercept']}")
         print(f"  - Transition width: {observation_params['reward_transition_width']}")
         print(f"  - Verbose: {observation_params['reward_verbose']}")
+        print(f"  - Count lava steps: {observation_params['count_lava_steps']}")
+        if observation_params['count_lava_steps']:
+            print(f"  - Lava step multiplier: {observation_params['lava_step_multiplier']}")
     
     # Create a copy of observation parameters with env_id for spawn distribution info
     spawn_params = observation_params.copy()

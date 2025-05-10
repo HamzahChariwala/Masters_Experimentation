@@ -16,7 +16,7 @@ from EnvironmentEdits.BespokeEdits.CustomWrappers import (GoalAngleDistanceWrapp
                                              ForceFloat32,
                                              RandomSpawnWrapper,
                                              DiagonalMoveMonitor)
-from EnvironmentEdits.BespokeEdits.RewardModifications import EpisodeCompletionRewardWrapper
+from EnvironmentEdits.BespokeEdits.RewardModifications import EpisodeCompletionRewardWrapper, LavaStepCounterWrapper
 from EnvironmentEdits.BespokeEdits.FeatureExtractor import CustomCombinedExtractor, SelectiveObservationWrapper
 from EnvironmentEdits.BespokeEdits.ActionSpace import CustomActionWrapper
 from EnvironmentEdits.BespokeEdits.GymCompatibility import OldGymCompatibility
@@ -53,6 +53,9 @@ def _make_env(env_id,
              reward_y_intercept=1.0,
              reward_transition_width=10,
              reward_verbose=True,
+             debug_logging=False,
+             count_lava_steps=False,
+             lava_step_multiplier=2.0,
              **kwargs):
     """
     Create and configure a MiniGrid environment with specified wrappers.
@@ -119,6 +122,12 @@ def _make_env(env_id,
         For sigmoid function, controls transition speed
     reward_verbose : bool, optional
         Whether to include verbose reward information
+    debug_logging : bool, optional
+        Whether to print detailed step-by-step debugging logs
+    count_lava_steps : bool, optional
+        Whether to count lava steps
+    lava_step_multiplier : float, optional
+        Multiplier for lava step count
     **kwargs : dict
         Additional arguments passed to environment creation
     """
@@ -158,12 +167,23 @@ def _make_env(env_id,
     
     # Apply reward function wrapper if enabled
     if use_reward_function:
+        # First apply lava step counter if count_lava_steps is enabled
+        if count_lava_steps:
+            env = LavaStepCounterWrapper(
+                env,
+                lava_step_multiplier=lava_step_multiplier,
+                verbose=reward_verbose,
+                debug_logging=debug_logging
+            )
+        
+        # Then apply the reward wrapper
         env = EpisodeCompletionRewardWrapper(
             env,
             reward_type=reward_type,
             x_intercept=reward_x_intercept,
             y_intercept=reward_y_intercept,
             transition_width=reward_transition_width,
+            count_lava_steps=count_lava_steps,
             verbose=reward_verbose
         )
     
