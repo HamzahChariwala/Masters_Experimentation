@@ -16,6 +16,7 @@ from EnvironmentEdits.BespokeEdits.CustomWrappers import (GoalAngleDistanceWrapp
                                              ForceFloat32,
                                              RandomSpawnWrapper,
                                              DiagonalMoveMonitor)
+from EnvironmentEdits.BespokeEdits.RewardModifications import EpisodeCompletionRewardWrapper
 from EnvironmentEdits.BespokeEdits.FeatureExtractor import CustomCombinedExtractor, SelectiveObservationWrapper
 from EnvironmentEdits.BespokeEdits.ActionSpace import CustomActionWrapper
 from EnvironmentEdits.BespokeEdits.GymCompatibility import OldGymCompatibility
@@ -46,68 +47,107 @@ def _make_env(env_id,
              continuous_transition_config=None,
              spawn_vis_dir=None,
              spawn_vis_frequency=10000,
+             use_reward_function=False,
+             reward_type="linear",
+             reward_x_intercept=100,
+             reward_y_intercept=1.0,
+             reward_transition_width=10,
+             reward_verbose=True,
              **kwargs):
     """
-    Make a single environment with the given parameters.
+    Create and configure a MiniGrid environment with specified wrappers.
+    
+    Parameters:
+    -----------
+    env_id : str
+        The environment ID to create
+    seed : int, optional
+        Random seed for environment
+    render_mode : str, optional
+        Rendering mode ('human', 'rgb_array', etc.)
+    window_size : int, optional
+        Size of observation window
+    cnn_keys : list, optional
+        List of observation keys to use for CNN
+    mlp_keys : list, optional
+        List of observation keys to use for MLP
+    use_random_spawn : bool, optional
+        Whether to use random spawn positions
+    exclude_goal_adjacent : bool, optional
+        Whether to exclude positions adjacent to goal
+    use_no_death : bool, optional
+        Whether to prevent death
+    no_death_types : list, optional
+        List of death types to prevent
+    death_cost : float, optional
+        Cost for hitting death elements
+    max_episode_steps : int, optional
+        Maximum steps per episode
+    monitor_diagonal_moves : bool, optional
+        Whether to monitor diagonal moves
+    diagonal_success_reward : float, optional
+        Reward for successful diagonal moves
+    diagonal_failure_penalty : float, optional
+        Penalty for failed diagonal moves
+    use_flexible_spawn : bool, optional
+        Whether to use flexible spawn distribution
+    spawn_distribution_type : str, optional
+        Type of spawn distribution
+    spawn_distribution_params : dict, optional
+        Parameters for spawn distribution
+    use_stage_training : bool, optional
+        Whether to use stage-based training
+    stage_training_config : dict, optional
+        Configuration for stage-based training
+    use_continuous_transition : bool, optional
+        Whether to use continuous transition
+    continuous_transition_config : dict, optional
+        Configuration for continuous transition
+    spawn_vis_dir : str, optional
+        Directory for spawn visualization
+    spawn_vis_frequency : int, optional
+        Frequency of spawn visualization
+    use_reward_function : bool, optional
+        Whether to use custom reward function
+    reward_type : str, optional
+        Type of reward function ('linear', 'exponential', 'sigmoid')
+    reward_x_intercept : float, optional
+        Number of steps at which reward becomes approximately 0
+    reward_y_intercept : float, optional
+        Initial reward value at step 0
+    reward_transition_width : float, optional
+        For sigmoid function, controls transition speed
+    reward_verbose : bool, optional
+        Whether to include verbose reward information
+    **kwargs : dict
+        Additional arguments passed to environment creation
     """
-    # Create the environment
-    env = gym.make(env_id, render_mode=render_mode)
-
-    # Apply maximum episode steps if specified
+    # Create base environment
+    env = gym.make(env_id, render_mode=render_mode, **kwargs)
+    
+    # Apply max episode steps wrapper if specified
     if max_episode_steps is not None:
         env = gym.wrappers.TimeLimit(env, max_episode_steps)
-
-    # Apply No Death wrapper if specified
+    
+    # Apply no death wrapper if enabled
     if use_no_death:
-        no_death_types = no_death_types or ("lava",)
         env = NoDeath(env, no_death_types=no_death_types, death_cost=death_cost)
-
-    # Apply random spawning if specified
-    if use_random_spawn and not use_flexible_spawn:  # Only use random spawn if flexible spawn is not enabled
+    
+    # Apply random spawn wrapper if enabled
+    if use_random_spawn:
         env = RandomSpawnWrapper(env, exclude_goal_adjacent=exclude_goal_adjacent)
     
-    # Apply flexible spawn distribution if specified
+    # Apply flexible spawn wrapper if enabled
     if use_flexible_spawn:
-        # Determine total timesteps (if not provided, use a reasonable default)
-        total_timesteps = kwargs.get("total_timesteps", 100000)
-        
-        # Prepare the distribution parameters
-        if spawn_distribution_params is None:
-            spawn_distribution_params = {}
-        
-        # Handle different curriculum learning approaches
-        if use_stage_training and stage_training_config:
-            # Use stage-based training
-            env = FlexibleSpawnWrapper(
-                env,
-                distribution_type=spawn_distribution_type,  # This will be overridden by stages
-                distribution_params=spawn_distribution_params,
-                total_timesteps=total_timesteps,
-                exclude_occupied=True,
-                exclude_goal_adjacent=exclude_goal_adjacent,
-                stage_based_training=stage_training_config
-            )
-        elif use_continuous_transition and continuous_transition_config:
-            # Use continuous transition
-            env = FlexibleSpawnWrapper(
-                env,
-                distribution_type=spawn_distribution_type,
-                distribution_params=spawn_distribution_params,
-                total_timesteps=total_timesteps,
-                exclude_occupied=True,
-                exclude_goal_adjacent=exclude_goal_adjacent,
-                temporal_transition=continuous_transition_config
-            )
-        else:
-            # Use fixed distribution
-            env = FlexibleSpawnWrapper(
-                env,
-                distribution_type=spawn_distribution_type,
-                distribution_params=spawn_distribution_params,
-                exclude_occupied=True,
-                exclude_goal_adjacent=exclude_goal_adjacent
-            )
-
+        env = FlexibleSpawnWrapper(
+            env,
+            distribution_type=spawn_distribution_type,
+            distribution_params=spawn_distribution_params,
+            stage_based_training=stage_training_config if use_stage_training else None,
+            temporal_transition=continuous_transition_config if use_continuous_transition else None,
+            exclude_goal_adjacent=exclude_goal_adjacent
+        )
+    
     # Apply custom action wrapper if using diagonal moves
     if monitor_diagonal_moves:
         env = CustomActionWrapper(
@@ -115,7 +155,18 @@ def _make_env(env_id,
             diagonal_success_reward=diagonal_success_reward,
             diagonal_failure_penalty=diagonal_failure_penalty
         )
-
+    
+    # Apply reward function wrapper if enabled
+    if use_reward_function:
+        env = EpisodeCompletionRewardWrapper(
+            env,
+            reward_type=reward_type,
+            x_intercept=reward_x_intercept,
+            y_intercept=reward_y_intercept,
+            transition_width=reward_transition_width,
+            verbose=reward_verbose
+        )
+    
     # Apply necessary observation wrappers
     env = FullyObsWrapper(env)
     env = GoalAngleDistanceWrapper(env)
@@ -137,10 +188,10 @@ def _make_env(env_id,
     
     # Apply wrapper to ensure float32 type for observations
     env = ForceFloat32(env)
-
+    
     # Apply action wrapper to ensure compatibility with old gym action space
     env = OldGymCompatibility(env)
-
+    
     # If seed is provided, seed the environment
     if seed is not None:
         env.reset(seed=seed)

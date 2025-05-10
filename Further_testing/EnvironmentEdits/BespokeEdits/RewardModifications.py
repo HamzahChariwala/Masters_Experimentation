@@ -23,15 +23,25 @@ class EpisodeCompletionRewardWrapper(gym.Wrapper):
         Initial reward value at step 0
     transition_width : float
         For sigmoid function, controls how quickly the reward transitions from y_intercept to 0
+    verbose : bool
+        If True, prints debug information to the terminal
     """
     
-    def __init__(self, env, reward_type='linear', x_intercept=100, y_intercept=1.0, transition_width=10):
+    def __init__(self, env, reward_type='linear', x_intercept=100, y_intercept=1.0, transition_width=10, verbose=True):
         super().__init__(env)
         self.reward_type = reward_type
         self.x_intercept = x_intercept
         self.y_intercept = y_intercept
         self.transition_width = transition_width
         self.step_count = 0
+        self.verbose = verbose
+        
+        if self.verbose:
+            print(f"\nInitialized reward wrapper with:")
+            print(f"  Type: {reward_type}")
+            print(f"  X-intercept: {x_intercept}")
+            print(f"  Y-intercept: {y_intercept}")
+            print(f"  Transition width: {transition_width}\n")
         
     def reset(self, **kwargs):
         self.step_count = 0
@@ -43,6 +53,7 @@ class EpisodeCompletionRewardWrapper(gym.Wrapper):
         
         # Modify reward only when episode ends successfully
         if terminated and reward > 0:
+            original_reward = reward
             if self.reward_type == 'linear':
                 # Linear: reward = max(0, y_intercept - (y_intercept/x_intercept) * num_steps)
                 slope = self.y_intercept / self.x_intercept
@@ -58,6 +69,13 @@ class EpisodeCompletionRewardWrapper(gym.Wrapper):
                 modified_reward = self.y_intercept / (1 + np.exp(slope * (self.step_count - shift)))
             else:
                 raise ValueError(f"Invalid reward type: {self.reward_type}")
+            
+            if self.verbose:
+                print(f"\nReward modification at step {self.step_count}:")
+                print(f"  Original reward: {original_reward}")
+                print(f"  Modified reward: {modified_reward}")
+                print(f"  Steps taken: {self.step_count}")
+                print(f"  Reward type: {self.reward_type}\n")
             
             return obs, modified_reward, terminated, truncated, info
         

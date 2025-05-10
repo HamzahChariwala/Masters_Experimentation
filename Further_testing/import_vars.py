@@ -47,23 +47,91 @@ from EnvironmentEdits.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper
 import AgentTraining.SpawnTooling as Spawn
 
 
-def load_config(config_path: str) -> Dict[str, Any]:
-    """
-    Load configuration from a YAML file
-    
-    Parameters:
-    ----------
-    config_path : str
-        Path to the YAML configuration file
-        
-    Returns:
-    -------
-    dict
-        Configuration dictionary
-    """
+def load_config(config_path="config.yaml"):
+    """Load configuration from YAML file."""
     with open(config_path, 'r') as f:
-        config = yaml.safe_load(f)
-    return config
+        return yaml.safe_load(f)
+
+
+def extract_environment_vars(config):
+    """Extract environment-related variables from config."""
+    env_config = config.get('environment', {})
+    reward_config = config.get('reward_function', {})
+    
+    # Environment variables
+    env_vars = {
+        'env_id': env_config.get('id', 'MiniGrid-Empty-8x8-v0'),
+        'num_envs': env_config.get('num_envs', 1),
+        'max_episode_steps': env_config.get('max_episode_steps'),
+        'use_different_envs': env_config.get('use_different_envs', False),
+    }
+    
+    # Reward function variables
+    reward_vars = {
+        'use_reward_function': reward_config.get('enabled', False),
+        'reward_type': reward_config.get('type', 'linear'),
+        'reward_x_intercept': reward_config.get('x_intercept', 100),
+        'reward_y_intercept': reward_config.get('y_intercept', 1.0),
+        'reward_transition_width': reward_config.get('transition_width', 10),
+        'reward_verbose': reward_config.get('verbose', True),
+    }
+    
+    return {**env_vars, **reward_vars}
+
+
+def extract_model_vars(config):
+    """Extract model-related variables from config."""
+    model_config = config.get('model', {})
+    return {
+        'model_type': model_config.get('type', 'DQN'),
+        'policy': model_config.get('policy', 'MultiInputPolicy'),
+        'use_mps': model_config.get('use_mps', False),
+        'buffer_size': model_config.get('buffer_size', 100000),
+        'learning_starts': model_config.get('learning_starts', 10000),
+        'batch_size': model_config.get('batch_size', 64),
+        'exploration_fraction': model_config.get('exploration_fraction', 0.05),
+        'exploration_final_eps': model_config.get('exploration_final_eps', 0.05),
+        'gamma': model_config.get('gamma', 0.6),
+        'learning_rate': model_config.get('learning_rate', 0.00025),
+        'train_freq': model_config.get('train_freq', 8),
+        'target_update_interval': model_config.get('target_update_interval', 1000),
+        'verbose': model_config.get('verbose', 1),
+    }
+
+
+def extract_experiment_vars(config):
+    """Extract experiment-related variables from config."""
+    exp_config = config.get('experiment', {})
+    return {
+        'experiment_name': exp_config.get('name', 'minigrid_agent_training'),
+        'description': exp_config.get('description', ''),
+        'version': exp_config.get('version', '1.0'),
+        'log_dir': exp_config.get('output', {}).get('log_dir', './logs'),
+        'model_save_path': exp_config.get('output', {}).get('model_save_path', 'model'),
+        'total_timesteps': exp_config.get('output', {}).get('total_timesteps', 1000000),
+    }
+
+
+def extract_seed_vars(config):
+    """Extract seed-related variables from config."""
+    seed_config = config.get('seeds', {})
+    return {
+        'model_seed': seed_config.get('model', 42),
+        'env_seed': seed_config.get('environment', 42),
+        'eval_seed': seed_config.get('evaluation', 42),
+        'seed_increment': seed_config.get('seed_increment', 1),
+    }
+
+
+def extract_all_vars(config_path="config.yaml"):
+    """Extract all variables from config file."""
+    config = load_config(config_path)
+    return {
+        **extract_environment_vars(config),
+        **extract_model_vars(config),
+        **extract_experiment_vars(config),
+        **extract_seed_vars(config),
+    }
 
 
 def setup_directories(config: Dict[str, Any]) -> Tuple[str, str, str]:
@@ -116,6 +184,7 @@ def create_observation_params(config: Dict[str, Any], spawn_vis_dir: str) -> Dic
     environment_config = config['environment']
     no_death_config = config['no_death']
     diagonal_config = config['diagonal_moves']
+    reward_config = config['reward_function']  # Extract reward function config
     
     # Check if stage training or continuous transition is enabled
     if spawn_config['stage_training']['enabled']:
@@ -177,7 +246,17 @@ def create_observation_params(config: Dict[str, Any], spawn_vis_dir: str) -> Dic
         "use_stage_training": use_stage_training,
         "stage_training_config": stage_training_config,
         "use_continuous_transition": use_continuous_transition,
-        "continuous_transition_config": continuous_transition_config
+        "continuous_transition_config": continuous_transition_config,
+        # Add reward function parameters
+        "use_reward_function": reward_config['enabled'],
+        "reward_type": reward_config['type'],
+        "reward_x_intercept": reward_config['x_intercept'],
+        "reward_y_intercept": reward_config['y_intercept'],
+        "reward_transition_width": reward_config['transition_width'],
+        "reward_verbose": reward_config['verbose'],
+        # Keep the spawn visualization directory
+        "spawn_vis_dir": spawn_vis_dir,
+        "spawn_vis_frequency": 10000  # Default value if not specified elsewhere
     }
     
     return observation_params
@@ -262,6 +341,15 @@ def print_training_info(config: Dict[str, Any], observation_params: Dict[str, An
     if observation_params['use_no_death']:
         print(f"  - Death types: {list(observation_params['no_death_types'])}")
         print(f"  - Death cost: {observation_params['death_cost']}")
+    
+    # Print reward function information
+    print(f"Reward function wrapper: {observation_params['use_reward_function']}")
+    if observation_params['use_reward_function']:
+        print(f"  - Type: {observation_params['reward_type']}")
+        print(f"  - X-intercept: {observation_params['reward_x_intercept']}")
+        print(f"  - Y-intercept: {observation_params['reward_y_intercept']}")
+        print(f"  - Transition width: {observation_params['reward_transition_width']}")
+        print(f"  - Verbose: {observation_params['reward_verbose']}")
     
     # Create a copy of observation parameters with env_id for spawn distribution info
     spawn_params = observation_params.copy()

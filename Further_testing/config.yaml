@@ -19,6 +19,15 @@ environment:
   max_episode_steps: 150  # Maximum steps per episode (None = use env default)
   use_different_envs: true  # Enable diverse environments
 
+# ===== Reward Function Configuration =====
+reward_function:
+  enabled: true
+  type: "linear"  # Options: "linear", "exponential", "sigmoid"
+  x_intercept: 100  # Number of steps at which reward becomes approximately 0
+  y_intercept: 50  # Initial reward value at step 0
+  transition_width: 10  # Only used for sigmoid function
+  verbose: false  # Controls whether debug messages are printed to terminal
+
 # ===== Randomness Control =====
 seeds:
   model: 811       # For network initialization
