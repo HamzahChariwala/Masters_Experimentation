@@ -7,9 +7,9 @@ class EpisodeCompletionRewardWrapper(gym.Wrapper):
     """
     A wrapper that modifies the reward when an episode ends successfully.
     The reward is based on the number of steps taken, with three possible functions:
-    1. Linear: 1 - m * num_steps
-    2. Exponential: 1 / exp(m * num_steps)
-    3. Sigmoid: 1 / (1 + exp(m * (num_steps - shift)))
+    1. Linear: reward = max(0, y_intercept - (y_intercept/x_intercept) * num_steps)
+    2. Exponential: reward = y_intercept / exp((-ln(0.01)/x_intercept) * num_steps)
+    3. Sigmoid: reward = y_intercept / (1 + exp((4/transition_width) * (num_steps - x_intercept/2)))
     
     Parameters:
     -----------
@@ -17,17 +17,20 @@ class EpisodeCompletionRewardWrapper(gym.Wrapper):
         The environment to wrap
     reward_type : str
         The type of reward function ('linear', 'exponential', or 'sigmoid')
-    slope : float
-        The slope (m) parameter that controls how quickly the reward decreases
-    shift : float
-        For sigmoid function, the shift parameter that controls the midpoint
+    x_intercept : float
+        Number of steps at which reward becomes approximately 0
+    y_intercept : float
+        Initial reward value at step 0
+    transition_width : float
+        For sigmoid function, controls how quickly the reward transitions from y_intercept to 0
     """
     
-    def __init__(self, env, reward_type='linear', slope=0.01, shift=50):
+    def __init__(self, env, reward_type='linear', x_intercept=100, y_intercept=1.0, transition_width=10):
         super().__init__(env)
         self.reward_type = reward_type
-        self.slope = slope
-        self.shift = shift
+        self.x_intercept = x_intercept
+        self.y_intercept = y_intercept
+        self.transition_width = transition_width
         self.step_count = 0
         
     def reset(self, **kwargs):
@@ -41,14 +44,18 @@ class EpisodeCompletionRewardWrapper(gym.Wrapper):
         # Modify reward only when episode ends successfully
         if terminated and reward > 0:
             if self.reward_type == 'linear':
-                # Linear: 1 - m * num_steps (clipped at 0)
-                modified_reward = max(0, 1 - self.slope * self.step_count)
+                # Linear: reward = max(0, y_intercept - (y_intercept/x_intercept) * num_steps)
+                slope = self.y_intercept / self.x_intercept
+                modified_reward = max(0, self.y_intercept - slope * self.step_count)
             elif self.reward_type == 'exponential':
-                # Exponential: 1 / exp(m * num_steps)
-                modified_reward = 1 / np.exp(self.slope * self.step_count)
+                # Exponential: reward = y_intercept / exp((-ln(0.01)/x_intercept) * num_steps)
+                slope = -np.log(0.01) / self.x_intercept
+                modified_reward = self.y_intercept / np.exp(slope * self.step_count)
             elif self.reward_type == 'sigmoid':
-                # Sigmoid: 1 / (1 + exp(m * (num_steps - shift)))
-                modified_reward = 1 / (1 + np.exp(self.slope * (self.step_count - self.shift)))
+                # Sigmoid: reward = y_intercept / (1 + exp((4/transition_width) * (num_steps - x_intercept/2)))
+                slope = 4 / self.transition_width
+                shift = self.x_intercept / 2
+                modified_reward = self.y_intercept / (1 + np.exp(slope * (self.step_count - shift)))
             else:
                 raise ValueError(f"Invalid reward type: {self.reward_type}")
             
