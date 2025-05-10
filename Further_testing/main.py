@@ -40,8 +40,8 @@ from EnvironmentEdits.BespokeEdits.GymCompatibility import OldGymCompatibility
 import EnvironmentEdits.EnvironmentGeneration as Env
 
 # Import our flexible spawn distribution wrapper
-from SpawnDistributions.visualization import SpawnDistributionCallback, EnhancedSpawnDistributionCallback, generate_final_visualizations
 from EnvironmentEdits.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper, DistributionMap
+from EnvironmentEdits.BespokeEdits.SpawnDistribution import SpawnDistributionCallback, EnhancedSpawnDistributionCallback, generate_final_visualizations
 
 import AgentTraining.SpawnTooling as Spawn
 

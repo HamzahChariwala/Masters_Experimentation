@@ -9,10 +9,10 @@ def print_spawn_distribution_info(env_params, total_timesteps):
     total_timesteps : int
         Total training timesteps
     """
-    # Import visualization functions from SpawnDistributions
+    # Import visualization functions from SpawnDistribution
     try:
-        from SpawnDistributions.distribution_inspector import print_numeric_distribution
-        from SpawnDistributions.standalone_vis import generate_numeric_distribution
+        from EnvironmentEdits.BespokeEdits.SpawnDistribution import print_numeric_distribution
+        from MiscPrototyping.SpawnDistributions.standalone_vis import generate_numeric_distribution
         use_numeric_display = True
     except ImportError:
         use_numeric_display = False

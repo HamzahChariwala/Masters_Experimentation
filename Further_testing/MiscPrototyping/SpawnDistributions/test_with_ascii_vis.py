@@ -34,9 +34,8 @@ from SpawnDistributions.test_distributions_standalone import (
     plot_distribution
 )
 
-# Import the visualization callback
-from SpawnDistributions.visualization import EnhancedSpawnDistributionCallback, generate_final_visualizations
-from EnvironmentEdits.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper
+# Import everything from SpawnDistribution
+from EnvironmentEdits.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper, EnhancedSpawnDistributionCallback, generate_final_visualizations
 
 def debug_env_hierarchy(env, prefix=""):
     """

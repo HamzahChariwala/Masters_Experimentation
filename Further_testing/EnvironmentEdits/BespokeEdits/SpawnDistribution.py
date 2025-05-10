@@ -4,6 +4,9 @@ from gymnasium import spaces
 import random
 import matplotlib.pyplot as plt
 import os
+from stable_baselines3.common.callbacks import BaseCallback
+import time
+from pprint import pprint
 
 
 class DistributionMap:
@@ -1133,3 +1136,509 @@ class FlexibleSpawnWrapper(gym.Wrapper):
             self._apply_distribution(first_stage['type'], first_stage.get('params', {}))
             self.current_distribution.mask_cells(self.valid_cells_mask)
             self.current_distribution.build_sampling_map()
+
+
+class SpawnDistributionCallback(BaseCallback):
+    def __init__(self, env, save_dir=None, freq=10000, verbose=0):
+        super(SpawnDistributionCallback, self).__init__(verbose)
+        self.env = env
+        self.save_dir = save_dir
+        self.freq = freq
+        
+        # Create the save directory if it doesn't exist
+        if save_dir:
+            os.makedirs(save_dir, exist_ok=True)
+    
+    def _on_step(self) -> bool:
+        # Record distribution at specific frequencies
+        if self.num_timesteps % self.freq == 0:
+            # Get the unwrapped environment
+            if hasattr(self.env, 'venv'):
+                # For vectorized environments, we need to get to a single env
+                if hasattr(self.env.venv, 'envs'):
+                    # DummyVecEnv case
+                    env = self.env.venv.envs[0]
+                else:
+                    # Abstract VecEnv case - may need to be adapted
+                    env = self.env.venv
+            else:
+                env = self.env
+            
+            # Try to find the FlexibleSpawnWrapper
+            while env and not isinstance(env, FlexibleSpawnWrapper):
+                if hasattr(env, 'env'):
+                    env = env.env
+                else:
+                    # Couldn't find the wrapper
+                    return True
+            
+            # If we found the wrapper, visualize the distribution
+            if isinstance(env, FlexibleSpawnWrapper):
+                if self.save_dir:
+                    # Save the visualization to file
+                    filename = f"spawn_dist_{self.num_timesteps}.png"
+                    save_path = os.path.join(self.save_dir, filename)
+                    env.visualize_distribution(
+                        title=f"Spawn Distribution at Timestep {self.num_timesteps}",
+                        save_path=save_path
+                    )
+                else:
+                    # Just display the visualization (not ideal for headless operation)
+                    env.visualize_distribution(
+                        title=f"Spawn Distribution at Timestep {self.num_timesteps}"
+                    )
+        
+        return True
+
+
+class EnhancedSpawnDistributionCallback(BaseCallback):
+    def __init__(self, env, save_dir=None, freq=10000, verbose=0):
+        super(EnhancedSpawnDistributionCallback, self).__init__(verbose)
+        self.env = env
+        self.save_dir = save_dir
+        self.freq = freq
+        
+        # Create the save directory if it doesn't exist
+        if save_dir:
+            os.makedirs(save_dir, exist_ok=True)
+        
+        self.last_visualization = 0
+    
+    def _on_step(self) -> bool:
+        # Only check at the specified frequency to save computation
+        if self.num_timesteps - self.last_visualization >= self.freq:
+            self.last_visualization = self.num_timesteps
+            
+            # Find all FlexibleSpawnWrapper instances in vectorized environments
+            if hasattr(self.env, 'venv'):
+                # For vectorized environments
+                spawn_wrappers = []
+                
+                if hasattr(self.env.venv, 'envs'):
+                    # DummyVecEnv case
+                    for env in self.env.venv.envs:
+                        wrapper = self._find_spawn_wrapper(env)
+                        if wrapper:
+                            spawn_wrappers.append(wrapper)
+                else:
+                    # Abstract VecEnv case
+                    wrapper = self._find_spawn_wrapper(self.env.venv)
+                    if wrapper:
+                        spawn_wrappers.append(wrapper)
+            else:
+                # Non-vectorized environment
+                wrapper = self._find_spawn_wrapper(self.env)
+                spawn_wrappers = [wrapper] if wrapper else []
+            
+            # Visualize distributions for all found wrappers
+            for i, wrapper in enumerate(spawn_wrappers):
+                if self.save_dir:
+                    # Save the visualization to file
+                    filename = f"spawn_dist_{self.num_timesteps}_env{i}.png"
+                    save_path = os.path.join(self.save_dir, filename)
+                    wrapper.visualize_distribution(
+                        title=f"Env {i} Spawn Distribution at Timestep {self.num_timesteps}",
+                        save_path=save_path
+                    )
+                else:
+                    # Just display the visualization
+                    wrapper.visualize_distribution(
+                        title=f"Env {i} Spawn Distribution at Timestep {self.num_timesteps}"
+                    )
+        
+        return True
+    
+    def _find_spawn_wrapper(self, env):
+        """Recursively find the FlexibleSpawnWrapper in a nested environment."""
+        if isinstance(env, FlexibleSpawnWrapper):
+            return env
+        
+        if hasattr(env, 'env'):
+            return self._find_spawn_wrapper(env.env)
+        
+        return None
+
+
+def generate_final_visualizations(env, save_dir=None):
+    """
+    Generate summary visualizations of spawn distribution evolution.
+    
+    Parameters:
+    ----------
+    env : gym.Env
+        The environment containing FlexibleSpawnWrapper
+    save_dir : str
+        Directory to save visualizations
+    """
+    # Create the save directory if it doesn't exist
+    if save_dir:
+        os.makedirs(save_dir, exist_ok=True)
+    
+    # Find the FlexibleSpawnWrapper
+    wrapper = None
+    while env and not isinstance(env, FlexibleSpawnWrapper):
+        if hasattr(env, 'env'):
+            env = env.env
+        else:
+            # Couldn't find the wrapper
+            if wrapper is None:
+                print("Warning: Could not find FlexibleSpawnWrapper")
+            return
+    
+    if not isinstance(env, FlexibleSpawnWrapper):
+        print("Warning: Could not find FlexibleSpawnWrapper")
+        return
+    
+    wrapper = env
+    
+    # Check if history is available (may be disabled for performance)
+    history = wrapper.get_distribution_history()
+    if history is None or not history:
+        print("Warning: Distribution history is not available (disabled for performance)")
+        
+        # Just visualize the current distribution
+        if save_dir:
+            save_path = os.path.join(save_dir, "final_distribution.png")
+            wrapper.visualize_distribution(
+                title="Final Spawn Distribution",
+                save_path=save_path
+            )
+        else:
+            wrapper.visualize_distribution(title="Final Spawn Distribution")
+        return
+    
+    # Create a figure for the visualization timeline
+    fig, axes = plt.subplots(1, len(history), figsize=(15, 5))
+    if len(history) == 1:
+        axes = [axes]  # Make it indexable if only one subplot
+    
+    # Plot each distribution
+    for i, (timestep, dist) in enumerate(history):
+        ax = axes[i]
+        im = ax.imshow(dist, cmap='hot', interpolation='nearest')
+        ax.set_title(f"t={timestep}")
+        ax.axis('off')
+    
+    # Add a colorbar
+    fig.colorbar(im, ax=axes, shrink=0.8, label='Probability')
+    
+    # Set the main title
+    fig.suptitle("Spawn Distribution Evolution", fontsize=16)
+    
+    # Save the figure if a directory is provided
+    if save_dir:
+        save_path = os.path.join(save_dir, "distribution_evolution.png")
+        plt.savefig(save_path)
+        print(f"Saved distribution evolution visualization to {save_path}")
+    
+    # Show the figure
+    plt.tight_layout()
+    plt.show()
+
+
+def print_numeric_distribution(grid, goal_pos=None, lava_positions=None, wall_positions=None, title=None, summary=True):
+    """
+    Print the actual numeric probability distribution with formatting.
+    
+    Parameters:
+    ----------
+    grid : numpy.ndarray
+        Probability distribution array
+    goal_pos : tuple (x, y) or None
+        Position of the goal (if known)
+    lava_positions : list of tuples (x, y) or None
+        Positions of lava cells (if known)
+    wall_positions : list of tuples (x, y) or None
+        Positions of wall cells (if known)
+    title : str or None
+        Optional title to display 
+    summary : bool
+        Whether to print summary statistics
+    """
+    if title:
+        print(f"\n=== {title} ===")
+    
+    height, width = grid.shape
+    
+    if lava_positions is None:
+        lava_positions = []
+    
+    if wall_positions is None:
+        wall_positions = []
+    
+    print("\n  Probability Distribution Array:")
+    
+    # Define column width and format strings for better alignment
+    cell_width = 8  # Fixed width for all cells
+    col_width = 9   # Total column width including spacing
+    num_format = "{:.2e}"  # Scientific notation for all numbers to save space
+    
+    # Print column headers with better spacing
+    header = "     |"  # Extra space for row numbers
+    for x in range(width):
+        header += f"{x:^{cell_width}}|"
+    print(header)
+    
+    # Print horizontal line
+    print("-----|" + "-" * (cell_width * width + width))
+    
+    # Format the probabilities with special symbols for goal, lava, and walls
+    for y in range(height):
+        row = f"{y:3d}  |"
+        for x in range(width):
+            if goal_pos and (x, y) == goal_pos:
+                # Goal position - center aligned
+                row += f"{'GOAL':^{cell_width}}|"
+            elif (x, y) in lava_positions:
+                # Lava position - center aligned
+                row += f"{'LAVA':^{cell_width}}|"
+            elif (x, y) in wall_positions:
+                # Wall position - center aligned
+                row += f"{'WALL':^{cell_width}}|"
+            else:
+                # Regular cell with probability value - right aligned
+                prob = grid[y, x]
+                row += f"{num_format.format(prob):>{cell_width}}|"
+        print(row)
+    
+    # Print legend
+    print("\n  Legend:")
+    print("  - GOAL: Goal position (zero probability)")
+    print("  - LAVA: Lava cell (zero probability)")
+    print("  - WALL: Wall cell (zero probability)")
+    print("  - Values represent spawn probabilities (sum to 1.0)")
+    
+    # Print summary statistics
+    if summary:
+        nonzero_cells = np.count_nonzero(grid)
+        total_cells = width * height
+        
+        # Calculate the number of obstacle cells (walls, lava, goal)
+        obstacle_cells = len(wall_positions) + len(lava_positions)
+        if goal_pos:
+            obstacle_cells += 1
+            
+        print(f"\n  Summary:")
+        print(f"  - Valid spawn cells: {nonzero_cells} of {total_cells} ({nonzero_cells/total_cells:.1%})")
+        print(f"  - Obstacles: {obstacle_cells} cells (goal: 1, lava: {len(lava_positions)}, walls: {len(wall_positions)})")
+        
+        if nonzero_cells > 0:
+            print(f"  - Highest probability: {np.max(grid):.5f}")
+            print(f"  - Average probability (non-zero cells): {np.sum(grid)/nonzero_cells:.5f}")
+        else:
+            print("  - No valid spawn cells found!")
+
+
+def plot_distribution(grid, goal_pos=None, lava_positions=None, title="Spawn Distribution", 
+                      save_path=None, show=True):
+    """
+    Create a visual plot of the probability distribution.
+    
+    Parameters:
+    ----------
+    grid : numpy.ndarray
+        Probability distribution array
+    goal_pos : tuple (x, y) or None
+        Position of the goal (if known)
+    lava_positions : list of tuples (x, y) or None
+        Positions of lava cells (if known)
+    title : str
+        Plot title
+    save_path : str or None
+        Path to save the visualization
+    show : bool
+        Whether to display the plot
+    """
+    height, width = grid.shape
+    
+    # Create a copy for plotting
+    plot_grid = grid.copy()
+    
+    fig, ax = plt.subplots(figsize=(10, 8))
+    
+    # Create heatmap
+    im = ax.imshow(plot_grid, origin='upper', cmap='viridis')
+    plt.colorbar(im, ax=ax, label='Probability')
+    
+    # Add grid lines
+    ax.set_xticks(np.arange(-.5, width, 1), minor=True)
+    ax.set_yticks(np.arange(-.5, height, 1), minor=True)
+    ax.grid(which='minor', color='w', linestyle='-', linewidth=0.5, alpha=0.3)
+    
+    # Show coordinates
+    ax.set_xticks(np.arange(0, width, 1))
+    ax.set_yticks(np.arange(0, height, 1))
+    
+    # Add markers for goal and lava
+    if goal_pos:
+        ax.plot(goal_pos[0], goal_pos[1], 'r*', markersize=15, label='Goal')
+    
+    if lava_positions and len(lava_positions) > 0:
+        lava_x, lava_y = zip(*lava_positions)
+        ax.scatter(lava_x, lava_y, c='red', marker='x', s=100, label='Lava')
+    
+    # Annotate cells with probability values
+    for y in range(height):
+        for x in range(width):
+            # Skip cells with zero probability
+            if plot_grid[y, x] > 0:
+                text = ax.text(x, y, f"{plot_grid[y, x]:.4f}",
+                            ha="center", va="center", color="w", fontsize=8)
+    
+    # Set title and labels
+    ax.set_title(title)
+    ax.set_xlabel('X Coordinate')
+    ax.set_ylabel('Y Coordinate')
+    
+    # Add legend if we have special markers
+    if goal_pos or (lava_positions and len(lava_positions) > 0):
+        ax.legend(loc='upper right')
+    
+    # Save plot if path provided
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    
+    # Show or close
+    if show:
+        plt.show()
+    else:
+        plt.close()
+
+
+def generate_ascii_visualization(grid, goal_pos=None, lava_positions=None, title=None):
+    """
+    Generate an ASCII visualization of the probability distribution.
+    
+    Parameters:
+    ----------
+    grid : numpy.ndarray
+        Probability distribution array
+    goal_pos : tuple (x, y) or None
+        Position of the goal (if known)
+    lava_positions : list of tuples (x, y) or None
+        Positions of lava cells (if known)
+    title : str or None
+        Optional title to display
+        
+    Returns:
+    -------
+    str
+        ASCII visualization string
+    """
+    if title:
+        result = f"\n=== {title} ===\n"
+    else:
+        result = "\n"
+    
+    height, width = grid.shape
+    
+    if lava_positions is None:
+        lava_positions = []
+    
+    # Map probability to symbols:
+    # ' ' (0), '.' (>0-0.01), ':' (0.01-0.05), '•' (0.05-0.1), 'o' (0.1-0.2), 'O' (0.2-0.3), '@' (>0.3)
+    symbols = [' ', '.', ':', '•', 'o', 'O', '@']
+    thresholds = [0, 0.01, 0.05, 0.1, 0.2, 0.3]
+    
+    # Find maximum probability value for scaling
+    max_prob = np.max(grid) if np.max(grid) > 0 else 1.0
+    
+    # Draw the grid with symbols
+    for y in range(height):
+        line = ""
+        for x in range(width):
+            if goal_pos and (x, y) == goal_pos:
+                line += "G"  # Goal
+            elif (x, y) in lava_positions:
+                line += "L"  # Lava
+            else:
+                # Get normalized probability and map to symbol
+                prob = grid[y, x]
+                idx = 0
+                for t in thresholds:
+                    if prob > t:
+                        idx += 1
+                
+                line += symbols[idx]
+        
+        result += line + "\n"
+    
+    # Add legend
+    result += "\nLegend:\n"
+    result += "G = Goal, L = Lava\n"
+    result += f"Probability symbols: {' '.join(symbols)}\n"
+    result += f"From 0 (space) to >0.3 (@)\n"
+    
+    return result
+
+
+def visualize_wrapper_distribution(wrapper, title="Current Spawn Distribution", 
+                                   save_path=None, show=True, print_values=True):
+    """
+    Visualize the distribution from a FlexibleSpawnWrapper.
+    
+    Parameters:
+    ----------
+    wrapper : FlexibleSpawnWrapper
+        The wrapper instance to visualize
+    title : str
+        Plot title
+    save_path : str or None
+        Path to save the visualization
+    show : bool
+        Whether to display the plot
+    print_values : bool
+        Whether to also print the numeric values
+    """
+    if not hasattr(wrapper, 'current_distribution') or wrapper.current_distribution is None:
+        print("Error: Wrapper has no current_distribution")
+        return
+    
+    # Get distribution grid
+    grid = wrapper.current_distribution.probabilities
+    
+    # Get environment information
+    goal_pos = getattr(wrapper, 'goal_pos', None)
+    
+    # Find lava positions by scanning the grid
+    lava_positions = []
+    if hasattr(wrapper, 'unwrapped') and hasattr(wrapper.unwrapped, 'grid'):
+        grid_obj = wrapper.unwrapped.grid
+        for i in range(grid_obj.width):
+            for j in range(grid_obj.height):
+                cell = grid_obj.get(i, j)
+                if cell and cell.type == 'lava':
+                    lava_positions.append((i, j))
+    
+    # Print numeric distribution if requested
+    if print_values:
+        print_numeric_distribution(grid, goal_pos, lava_positions, title=title)
+    
+    # Plot the distribution
+    plot_distribution(grid, goal_pos, lava_positions, title=title, 
+                     save_path=save_path, show=show)
+
+
+def inspect_env_for_spawn_wrapper(env):
+    """
+    Recursively search for FlexibleSpawnWrapper in environment.
+    
+    Parameters:
+    ----------
+    env : gym.Env
+        Environment to inspect
+    
+    Returns:
+    -------
+    wrapper : FlexibleSpawnWrapper or None
+        Found wrapper or None if not found
+    """
+    from EnvironmentEdits.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper
+    
+    if isinstance(env, FlexibleSpawnWrapper):
+        return env
+    
+    if hasattr(env, 'env'):
+        return inspect_env_for_spawn_wrapper(env.env)
+    
+    return None
