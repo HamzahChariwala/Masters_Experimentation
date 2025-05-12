@@ -9,7 +9,7 @@ experiment:
   version: 1.0
   output:
     log_dir: "./logs/dqn_run_2"
-    model_save_path: "dqn_minigrid_agent_empty_test_biglava_10m_fasts"
+    model_save_path: "dqn_minigrid_agent_empty_test_biglava_10m_exp"
     total_timesteps: 10_000_000
 
 # ===== Environment Configuration =====
@@ -22,9 +22,9 @@ environment:
 # ===== Reward Function Configuration =====
 reward_function:
   enabled: true
-  type: "linear"  # Options: "linear", "exponential", "sigmoid"
-  x_intercept: 100  # Number of steps at which reward becomes approximately 0
-  y_intercept: 50  # Initial reward value at step 0
+  type: "exponential"  # Options: "linear", "exponential", "sigmoid"
+  x_intercept: 75  # Number of steps at which reward becomes approximately 0
+  y_intercept: 10  # Initial reward value at step 0
   transition_width: 10  # Only used for sigmoid function
   verbose: true  # Controls whether basic information is printed to terminal
   debug_logging: false  # Controls whether detailed step-by-step logs are printed
@@ -178,9 +178,9 @@ model:
   
   # Core parameters
   buffer_size: 100000
-  learning_starts: 10000
+  learning_starts: 100_000
   batch_size: 64
-  exploration_fraction: 0.05
+  exploration_fraction: 0.5
   exploration_final_eps: 0.05
   gamma: 0.6
   learning_rate: 0.00025
