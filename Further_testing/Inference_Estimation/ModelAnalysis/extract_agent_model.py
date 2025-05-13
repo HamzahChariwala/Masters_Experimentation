@@ -129,8 +129,8 @@ def main():
     Extract neural network model from a specified DQN agent.
     """
     parser = argparse.ArgumentParser(description='Extract neural network models from DRL agents')
-    parser.add_argument('agent_name', type=str, 
-                        help='Name of the agent in Agent_Storage or path to the agent file')
+    parser.add_argument('--path', type=str, required=True,
+                        help='Path to the agent folder in Agent_Storage or path to the agent file')
     parser.add_argument('output_dir', type=str, nargs='?', default=None, 
                         help='Directory to save extracted models (defaults to Agent_Storage/<agent_name>/extracted_model)')
     parser.add_argument('--verbose', '-v', action='count', default=1,
@@ -138,8 +138,14 @@ def main():
     
     args = parser.parse_args()
     
+    # Require path parameter
+    if not args.path:
+        print("Error: No agent path specified. Please use --path parameter.")
+        parser.print_help()
+        sys.exit(1)
+    
     # Find the agent file
-    agent_path = find_agent_file(args.agent_name)
+    agent_path = find_agent_file(args.path)
     
     # Determine the agent name from the path
     agent_name = os.path.basename(agent_path)
@@ -152,7 +158,7 @@ def main():
         output_dir = get_output_path(agent_path)
     
     if not os.path.exists(agent_path):
-        print(f"Error: Agent file not found: {args.agent_name}")
+        print(f"Error: Agent file not found: {args.path}")
         print(f"Expected location: {agent_path}")
         print(f"Please ensure the agent exists in the Agent_Storage directory structure.")
         sys.exit(1)

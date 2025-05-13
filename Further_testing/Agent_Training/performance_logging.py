@@ -292,43 +292,39 @@ if __name__ == "__main__":
     parser.add_argument("--diagonal-failure-penalty", type=float, default=0, help="Penalty for failed diagonal moves")
     parser.add_argument("--timeout", type=int, default=30, help="Timeout in seconds")
     parser.add_argument("--debug", action="store_true", help="Print debug information")
-    parser.add_argument("--agent-folder", type=str, help="Agent folder name in Agent_Storage (alternative to --agent-path)")
+    parser.add_argument("--path", type=str, required=True, help="Agent folder name in Agent_Storage")
     args = parser.parse_args()
     
-    # Handle agent folder in Agent_Storage, if specified
-    if args.agent_folder:
-        agent_dir = os.path.join("Agent_Storage", args.agent_folder)
-        
-        # Check if agent folder exists
-        if not os.path.exists(agent_dir):
-            print(f"Error: Agent folder '{args.agent_folder}' not found in Agent_Storage")
-            sys.exit(1)
-            
-        # Look for agent.zip in the folder
-        agent_path = os.path.join(agent_dir, "agent.zip")
-        if not os.path.exists(agent_path):
-            print(f"Error: agent.zip not found in Agent_Storage/{args.agent_folder}")
-            sys.exit(1)
-            
-        # Determine output JSON path if not specified
-        if not args.output_json:
-            output_dir = os.path.join(agent_dir, "evaluations")
-            os.makedirs(output_dir, exist_ok=True)
-            args.output_json = os.path.join(output_dir, "performance_log.json")
-            print(f"Output will be saved to: {args.output_json}")
-    else:
-        # Use agent_path if specified directly
-        agent_path = args.agent_path
-        
-    # Check if we have an agent path from either source
-    if not args.agent_folder and not args.agent_path:
-        print("Error: Either --agent-path or --agent-folder must be specified")
+    # Require path parameter
+    if not args.path:
+        print("Error: No agent folder specified. Please use --path parameter.")
         parser.print_help()
         sys.exit(1)
     
+    # Handle agent folder in Agent_Storage
+    agent_dir = os.path.join("Agent_Storage", args.path)
+    
+    # Check if agent folder exists
+    if not os.path.exists(agent_dir):
+        print(f"Error: Agent folder '{args.path}' not found in Agent_Storage")
+        sys.exit(1)
+        
+    # Look for agent.zip in the folder
+    agent_path = os.path.join(agent_dir, "agent.zip")
+    if not os.path.exists(agent_path):
+        print(f"Error: agent.zip not found in Agent_Storage/{args.path}")
+        sys.exit(1)
+        
+    # Determine output JSON path if not specified
+    if not args.output_json:
+        output_dir = os.path.join(agent_dir, "evaluations")
+        os.makedirs(output_dir, exist_ok=True)
+        args.output_json = os.path.join(output_dir, "performance_log.json")
+        print(f"Output will be saved to: {args.output_json}")
+    
     # Run the agent and log performance
     success = run_agent_and_log(
-        agent_path=agent_path if args.agent_folder else args.agent_path,
+        agent_path=agent_path,
         env_id=args.env_id,
         output_json_path=args.output_json,
         agent_type=args.agent_type,

@@ -6,6 +6,7 @@ from typing import Tuple
 import time
 import argparse
 from pathlib import Path
+import sys
 
 import gymnasium as gym
 from gymnasium.wrappers import RecordEpisodeStatistics
@@ -52,37 +53,30 @@ import AgentTraining.SpawnTooling as Spawn
 if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Run DRL training')
-    parser.add_argument('--agent-folder', type=str, default=None, help='Agent folder name in Agent_Storage')
+    parser.add_argument('--path', type=str, required=True, help='Agent folder name in Agent_Storage')
     args = parser.parse_args()
     
+    # Require a path parameter
+    if not args.path:
+        print("Error: No agent folder specified. Please use --path parameter.")
+        sys.exit(1)
+    
     # Determine config path based on agent folder
-    if args.agent_folder:
-        agent_path = os.path.join("Agent_Storage", args.agent_folder)
-        config_path = os.path.join(agent_path, "config.yaml")
-        
-        # Check if path exists
-        if not os.path.exists(config_path):
-            print(f"Warning: Agent folder '{args.agent_folder}' not found in Agent_Storage or missing config.yaml")
-            print("Using default configuration")
-            config_path = None
-        else:
-            print(f"Using configuration from Agent_Storage/{args.agent_folder}/config.yaml")
-            
-            # Update log directory to be inside the agent folder
-            log_dir = os.path.join(agent_path, "logs")
-            os.makedirs(log_dir, exist_ok=True)
-            
-            # Load YAML config here if needed
-            # This example continues with hardcoded values
-    else:
-        # Default log directory if no agent folder specified
-        log_dir = "./logs/dqn_run_2"
-        os.makedirs(log_dir, exist_ok=True)
+    agent_path = os.path.join("Agent_Storage", args.path)
+    config_path = os.path.join(agent_path, "config.yaml")
+    
+    # Check if path exists
+    if not os.path.exists(config_path):
+        print(f"Error: Agent folder '{args.path}' not found in Agent_Storage or missing config.yaml")
+        sys.exit(1)
+    
+    print(f"Using configuration from Agent_Storage/{args.path}/config.yaml")
+    
+    # Set log directory to be inside the agent folder
+    log_dir = os.path.join(agent_path, "logs")
+    os.makedirs(log_dir, exist_ok=True)
 
     torch.set_default_dtype(torch.float32)
-
-    log_dir = "./logs/dqn_run_2"
-    os.makedirs(log_dir, exist_ok=True)
     
     # Create directory for performance tracking
     performance_log_dir = os.path.join(log_dir, "performance")

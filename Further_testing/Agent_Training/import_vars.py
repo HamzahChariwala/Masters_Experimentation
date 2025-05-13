@@ -5,6 +5,7 @@ import torch
 import yaml
 import time
 import argparse
+import sys
 from pathlib import Path
 from typing import Tuple, Dict, Any, List
 
@@ -70,7 +71,7 @@ def load_config(config_path=None, agent_folder=None):
         config_path = os.path.join(agent_path, "config.yaml")
     elif config_path is None:
         # Default fallback
-        config_path = "DRL_Training/config.yaml"
+        config_path = "Agent_Training/config.yaml"
     
     # Check if file exists
     if not os.path.exists(config_path):
@@ -733,11 +734,16 @@ def main(config_path=None, agent_folder=None):
     if config_path is None and agent_folder is None:
         parser = argparse.ArgumentParser(description='Run training with configuration')
         parser.add_argument('--config', type=str, help='Path to config file')
-        parser.add_argument('--agent-folder', type=str, help='Agent folder name in Agent_Storage')
+        parser.add_argument('--path', type=str, required=True, help='Agent folder name in Agent_Storage')
         args = parser.parse_args()
         
         config_path = args.config
-        agent_folder = args.agent_folder
+        agent_folder = args.path
+    
+    # Ensure we have an agent folder
+    if agent_folder is None:
+        print("Error: No agent folder specified. Please use --path parameter.")
+        sys.exit(1)
     
     # Load config
     config = load_config(config_path, agent_folder)
