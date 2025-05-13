@@ -1,25 +1,40 @@
 
------- INTRODUCTION ---------------
+Mission-Critical Control Systems
+- High-stakes domains
+- Cost of failure
+- Unsolved control problems
 
-Deep Learning
+DRL vs Classical Control
+- Classical control
+- Model Predictive Control
+- Reinforcement learning
+- Deep reinforcement learning
+- The major successes
+- Significant bottlnecks
 
-Deep Reinforcement Learning
+Safety, Reliability, & Assurance
+- Priorities of regulation
+- Current regulation standards
+- Forecasted regulatory environment
+- Trust-building technologies
 
-Mission-Critical Systems
+Interpretability & Interventions
+- Taxonomy of interpretability
+- Neuron semanticity & circuits
+- Existing intervention techniques
 
-AI Assurance
+Direct Model Editing
+- Network patching techniques
+- Desirable characteristics
+- Reviewing existing work
 
-DNN Anatomy
+Scalability & Efficiency Challenges
+- Lacking progress
+- Scalability always wins
+- Resource efficiency in AI
 
-Exploiting Semanticity
+Practicality of Search-Based Methods
+- 
 
-Direct Behaviour Modulation
-
-Resource Efficiency
-
------------------------------------
-
------- OBJECTIVES -----------------
-
-Contextual Setting
+Fast Forward-Pass Estimation
 
