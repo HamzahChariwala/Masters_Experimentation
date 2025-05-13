@@ -21,7 +21,7 @@ sys.path.insert(0, project_root)
 
 try:
     # Now we should be able to import correctly
-    from EnvironmentEdits.BespokeEdits.FeatureExtractor import CustomCombinedExtractor
+    from DRL_Training.EnvironmentEdits.BespokeEdits.FeatureExtractor import CustomCombinedExtractor
     print("Successfully imported CustomCombinedExtractor")
     FEATURE_EXTRACTOR_IMPORTED = True
 except ImportError as e:

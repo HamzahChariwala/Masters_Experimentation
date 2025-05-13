@@ -47,7 +47,7 @@ from EnvironmentEdits.BespokeEdits.SpawnDistribution import SpawnDistributionCal
 import AgentTraining.SpawnTooling as Spawn
 
 
-def load_config(config_path="config.yaml"):
+def load_config(config_path="DRL_Training/config.yaml"):
     """Load configuration from YAML file."""
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
@@ -743,7 +743,7 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description='Train an agent using a YAML configuration file')
-    parser.add_argument('--config', type=str, default='config.yaml', help='Path to the configuration file')
+    parser.add_argument('--config', type=str, default='DRL_Training/config.yaml', help='Path to the configuration file')
     args = parser.parse_args()
     
     main(args.config) 
