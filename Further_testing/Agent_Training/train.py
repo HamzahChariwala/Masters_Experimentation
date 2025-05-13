@@ -63,7 +63,7 @@ def load_config(config_path=None, agent_folder=None):
     config_path : str, optional
         Path to the config file. If None, will use agent_folder path.
     agent_folder : str, optional
-        Name of the agent folder in Agent_Storage. If provided, config will be loaded from there.
+        Path to the agent folder relative to Agent_Storage. Can include subdirectories.
         
     Returns:
     -------
@@ -72,6 +72,7 @@ def load_config(config_path=None, agent_folder=None):
     """
     if agent_folder is not None:
         # Construct path to the agent's config file in Agent_Storage
+        # Preserve the full path structure
         agent_path = os.path.join("Agent_Storage", agent_folder)
         config_path = os.path.join(agent_path, "config.yaml")
     elif config_path is None:
@@ -184,7 +185,7 @@ def extract_all_vars(config_path=None, agent_folder=None):
     }
 
 
-def setup_directories(config: Dict[str, Any]) -> Tuple[str, str, str]:
+def setup_directories(config: Dict[str, Any], agent_folder: str = None) -> Tuple[str, str, str]:
     """
     Set up directories for logs, performance tracking, etc.
     
@@ -192,14 +193,25 @@ def setup_directories(config: Dict[str, Any]) -> Tuple[str, str, str]:
     ----------
     config : dict
         Configuration dictionary
+    agent_folder : str, optional
+        Path to the agent folder relative to Agent_Storage
         
     Returns:
     -------
     tuple
         (log_dir, performance_log_dir, spawn_vis_dir)
     """
+    # Determine the log directory
+    if agent_folder:
+        # Store logs in the agent's folder path in Agent_Storage
+        # Preserve the full path structure
+        agent_path = os.path.join("Agent_Storage", agent_folder)
+        log_dir = os.path.join(agent_path, "logs")
+    else:
+        # Use the log directory from config as fallback
+        log_dir = config['experiment']['output']['log_dir']
+    
     # Create main log directory
-    log_dir = config['experiment']['output']['log_dir']
     os.makedirs(log_dir, exist_ok=True)
     
     # Create directory for performance logging
@@ -566,7 +578,7 @@ def create_callbacks(config: Dict[str, Any], eval_envs: List[gym.Env],
     return [termination_callback]
 
 
-def run_training(config: Dict[str, Any], model, callbacks):
+def run_training(config: Dict[str, Any], model, callbacks, agent_folder=None):
     """
     Run model training
     
@@ -578,6 +590,8 @@ def run_training(config: Dict[str, Any], model, callbacks):
         Model to train
     callbacks : list
         List of callbacks
+    agent_folder : str, optional
+        Path to the agent folder relative to Agent_Storage
         
     Returns:
     -------
@@ -585,9 +599,16 @@ def run_training(config: Dict[str, Any], model, callbacks):
         Trained model
     """
     total_timesteps = config['experiment']['output']['total_timesteps']
-    model_save_path = config['experiment']['output']['model_save_path']
     eval_config = config['evaluation']['training']
     termination_callback = callbacks[0]
+    
+    # Determine where to save the model - prioritize agent_folder if provided
+    if agent_folder:
+        agent_path = os.path.join("Agent_Storage", agent_folder)
+        model_save_path = os.path.join(agent_path, "agent")
+    else:
+        # Fallback to config path if no agent_folder
+        model_save_path = config['experiment']['output']['model_save_path']
     
     # Print training start message
     print("\n====== STARTING TRAINING ======")
@@ -597,6 +618,7 @@ def run_training(config: Dict[str, Any], model, callbacks):
     print(f"Evaluation episodes per environment: {eval_config['n_eval_episodes']}")
     print(f"Total evaluation episodes: {eval_config['num_envs'] * eval_config['n_eval_episodes']}")
     print(f"Evaluation timeout: {eval_config['timeout']} seconds")
+    print(f"Model will be saved to: {model_save_path}")
     print("==============================\n")
     
     # Train the model
@@ -753,8 +775,8 @@ def main(config_path=None, agent_folder=None):
     # Load config
     config = load_config(config_path, agent_folder)
     
-    # Setup directories
-    log_dir, performance_log_dir, spawn_vis_dir = setup_directories(config)
+    # Setup directories - pass agent_folder to use for logs
+    log_dir, performance_log_dir, spawn_vis_dir = setup_directories(config, agent_folder)
     
     # Create observation parameters
     observation_params = create_observation_params(config, spawn_vis_dir)
@@ -787,7 +809,7 @@ def main(config_path=None, agent_folder=None):
     callbacks = create_callbacks(config, eval_envs, performance_log_dir, spawn_vis_dir)
     
     # Run training
-    model = run_training(config, model, callbacks)
+    model = run_training(config, model, callbacks, agent_folder)
     
     # Run final evaluation
     run_final_evaluation(config, model, observation_params)

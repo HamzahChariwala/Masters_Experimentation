@@ -8,8 +8,15 @@ experiment:
   description: "Training an agent with flexible spawn distribution in MiniGrid"
   version: 1.0
   output:
-    log_dir: "./logs/dqn_run_2"
-    model_save_path: "dqn_minigrid_agent_empty_test_biglava_10m_exp"
+    # The log_dir and model_save_path are now optional in our updated code
+    # If --path is provided, logs will be stored in Agent_Storage/<path>/logs
+    # and model will be saved to Agent_Storage/<path>/agent.zip
+    
+    # These can be left as fallbacks if --path is not provided
+    log_dir: "./logs/default_logs"
+    model_save_path: "default_agent"
+    
+    # Total timesteps remains important
     total_timesteps: 10_000_000
 
 # ===== Environment Configuration =====
@@ -160,13 +167,10 @@ spawn:
 
 # ===== Observation Configuration =====
 observation:
-  window_size: 7
+  window_size: 7  # Size of the observation window
+  # Choose which observation features to use
   cnn_keys: []
-  mlp_keys: 
-    - "four_way_goal_direction"
-    - "four_way_angle_alignment"
-    - "barrier_mask"
-    - "lava_mask"
+  mlp_keys: ["four_way_goal_direction", "four_way_angle_alignment", "barrier_mask", "lava_mask"]
 
 # ===== Model Configuration =====
 model:
