@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import yaml
 import time
+import argparse
 from pathlib import Path
 from typing import Tuple, Dict, Any, List
 
@@ -47,8 +48,34 @@ from EnvironmentEdits.BespokeEdits.SpawnDistribution import SpawnDistributionCal
 import AgentTraining.SpawnTooling as Spawn
 
 
-def load_config(config_path="DRL_Training/config.yaml"):
-    """Load configuration from YAML file."""
+def load_config(config_path=None, agent_folder=None):
+    """
+    Load configuration from YAML file.
+    
+    Parameters:
+    ----------
+    config_path : str, optional
+        Path to the config file. If None, will use agent_folder path.
+    agent_folder : str, optional
+        Name of the agent folder in Agent_Storage. If provided, config will be loaded from there.
+        
+    Returns:
+    -------
+    dict
+        Configuration dictionary
+    """
+    if agent_folder is not None:
+        # Construct path to the agent's config file in Agent_Storage
+        agent_path = os.path.join("Agent_Storage", agent_folder)
+        config_path = os.path.join(agent_path, "config.yaml")
+    elif config_path is None:
+        # Default fallback
+        config_path = "DRL_Training/config.yaml"
+    
+    # Check if file exists
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Config file not found at {config_path}")
+        
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
@@ -126,9 +153,23 @@ def extract_seed_vars(config):
     }
 
 
-def extract_all_vars(config_path="config.yaml"):
-    """Extract all variables from config file."""
-    config = load_config(config_path)
+def extract_all_vars(config_path=None, agent_folder=None):
+    """
+    Extract all variables from config file.
+    
+    Parameters:
+    ----------
+    config_path : str, optional
+        Path to the config file.
+    agent_folder : str, optional
+        Name of the agent folder in Agent_Storage.
+        
+    Returns:
+    -------
+    dict
+        Dictionary containing all configuration variables
+    """
+    config = load_config(config_path, agent_folder)
     return {
         **extract_environment_vars(config),
         **extract_model_vars(config),
@@ -677,23 +718,38 @@ def run_final_evaluation(config: Dict[str, Any], model, observation_params: Dict
     return all_rewards, all_lengths
 
 
-def main(config_path='config.yaml'):
+def main(config_path=None, agent_folder=None):
     """
-    Main function
+    Main function for running the training process from a config file.
     
     Parameters:
     ----------
-    config_path : str
-        Path to the configuration file
+    config_path : str, optional
+        Path to the config file.
+    agent_folder : str, optional
+        Name of the agent folder in Agent_Storage.
     """
-    # Load configuration
-    config = load_config(config_path)
+    # Parse command line arguments if not provided directly
+    if config_path is None and agent_folder is None:
+        parser = argparse.ArgumentParser(description='Run training with configuration')
+        parser.add_argument('--config', type=str, help='Path to config file')
+        parser.add_argument('--agent-folder', type=str, help='Agent folder name in Agent_Storage')
+        args = parser.parse_args()
+        
+        config_path = args.config
+        agent_folder = args.agent_folder
     
-    # Set up directories
+    # Load config
+    config = load_config(config_path, agent_folder)
+    
+    # Setup directories
     log_dir, performance_log_dir, spawn_vis_dir = setup_directories(config)
     
     # Create observation parameters
     observation_params = create_observation_params(config, spawn_vis_dir)
+    
+    # Create policy kwargs
+    policy_kwargs = create_policy_kwargs(config)
     
     # Set random seeds
     set_random_seeds(config)
@@ -701,17 +757,14 @@ def main(config_path='config.yaml'):
     # Print training information
     print_training_info(config, observation_params)
     
-    # Create training environment
+    # Create environment
     env = Env.make_parallel_env(
         env_id=config['environment']['id'],
         num_envs=config['environment']['num_envs'],
         env_seed=config['seeds']['environment'],
-        use_different_envs=config['environment']['use_different_envs'],
+        use_different_envs=config['environment'].get('use_different_envs', False),
         **observation_params
     )
-    
-    # Create policy kwargs
-    policy_kwargs = create_policy_kwargs(config)
     
     # Create model
     model = create_model(config, env, policy_kwargs, log_dir)
@@ -740,10 +793,4 @@ def main(config_path='config.yaml'):
 
 
 if __name__ == "__main__":
-    import argparse
-    
-    parser = argparse.ArgumentParser(description='Train an agent using a YAML configuration file')
-    parser.add_argument('--config', type=str, default='DRL_Training/config.yaml', help='Path to the configuration file')
-    args = parser.parse_args()
-    
-    main(args.config) 
+    main() 

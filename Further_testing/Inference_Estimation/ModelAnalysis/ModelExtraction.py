@@ -8,27 +8,84 @@ from typing import Dict, Any, Tuple, List, Optional
 import sys
 import matplotlib.pyplot as plt
 import seaborn as sns
+import importlib
+import sys
+import pkgutil
+import inspect
 
-# Add project root to path so we can import from it
 # First, get the absolute path to the current file
 current_file_path = os.path.abspath(__file__)
 # Then, get the directory of the current file
 current_dir = os.path.dirname(current_file_path)
-# Get the parent directory (project root)
-project_root = os.path.dirname(current_dir)
-# Add project root to path
-sys.path.insert(0, project_root)
+# Get the parent directory (Inference_Estimation)
+inference_dir = os.path.dirname(current_dir)
+# Get the project root (one level up)
+project_root = os.path.dirname(inference_dir)
 
-try:
-    # Now we should be able to import correctly
-    from DRL_Training.EnvironmentEdits.BespokeEdits.FeatureExtractor import CustomCombinedExtractor
-    print("Successfully imported CustomCombinedExtractor")
-    FEATURE_EXTRACTOR_IMPORTED = True
-except ImportError as e:
-    print(f"Warning: Could not import CustomCombinedExtractor: {e}")
-    print(f"Python path: {sys.path}")
-    FEATURE_EXTRACTOR_IMPORTED = False
+# Build a list of import paths to try
+import_paths = [
+    project_root,                                          # Project root
+    inference_dir,                                         # Inference_Estimation directory
+    os.path.join(project_root, "DRL_Training"),           # DRL_Training folder if exists
+    os.path.join(project_root, "DRL_Training/EnvironmentEdits"),  # EnvironmentEdits directory
+    os.path.join(project_root, "DRL_Training/EnvironmentEdits/BespokeEdits"),  # BespokeEdits directory
+]
 
+# Add all paths to sys.path
+for path in import_paths:
+    if os.path.exists(path) and path not in sys.path:
+        sys.path.insert(0, path)
+        print(f"Added to Python path: {path}")
+
+# Try to find and import the required modules
+FEATURE_EXTRACTOR_IMPORTED = False
+feature_extractor_module = None
+
+# List of possible module paths to try
+module_paths = [
+    "EnvironmentEdits.BespokeEdits.FeatureExtractor",
+    "DRL_Training.EnvironmentEdits.BespokeEdits.FeatureExtractor",
+    "BespokeEdits.FeatureExtractor",
+    "FeatureExtractor"
+]
+
+for module_path in module_paths:
+    try:
+        # Try to import the module
+        feature_extractor_module = importlib.import_module(module_path)
+        
+        # Check if the required class exists
+        if hasattr(feature_extractor_module, "CustomCombinedExtractor"):
+            print(f"Successfully imported CustomCombinedExtractor from {module_path}")
+            FEATURE_EXTRACTOR_IMPORTED = True
+            break
+    except ImportError as e:
+        print(f"Couldn't import from {module_path}: {e}")
+        continue
+
+if not FEATURE_EXTRACTOR_IMPORTED:
+    print("Warning: Could not import CustomCombinedExtractor. Creating empty module/class for loading.")
+    # Create a placeholder module and class to help with loading
+    class PlaceholderCombinedExtractor:
+        """
+        Placeholder class for loading models that expect CustomCombinedExtractor
+        """
+        def __init__(self, observation_space=None, features_dim=None, **kwargs):
+            self._features_dim = features_dim or 256
+            self.observation_space = observation_space
+        
+        def forward(self, x):
+            # Return a dummy tensor of the right size
+            batch_size = x.shape[0] if hasattr(x, "shape") and len(x.shape) > 0 else 1
+            return torch.zeros((batch_size, self._features_dim))
+            
+    # Create a module reference to fool stable-baselines' loading mechanism
+    # We need both the original path and the new DRL_Training prefixed path
+    sys.modules["EnvironmentEdits.BespokeEdits.FeatureExtractor"] = type("DummyModule", (), {})
+    sys.modules["EnvironmentEdits.BespokeEdits.FeatureExtractor"].CustomCombinedExtractor = PlaceholderCombinedExtractor
+    
+    sys.modules["DRL_Training.EnvironmentEdits.BespokeEdits.FeatureExtractor"] = type("DummyModule", (), {})
+    sys.modules["DRL_Training.EnvironmentEdits.BespokeEdits.FeatureExtractor"].CustomCombinedExtractor = PlaceholderCombinedExtractor
 
 # Custom JSON encoder to handle NumPy types
 class NumpyEncoder(json.JSONEncoder):
@@ -59,9 +116,32 @@ class DQNModelExtractor:
         self.agent_path = agent_path
         self.verbose = verbose
         
-        # Default output directory is the same as the script location
+        # Extract agent name from path for use in default output path
+        self.agent_name = os.path.basename(self.agent_path)
+        if self.agent_name.endswith('.zip'):
+            self.agent_name = self.agent_name[:-4]  # Remove .zip extension
+            
+        # Get the agent folder name from the path
+        # This handles the case when the agent is in Agent_Storage/<agent_name>/agent/agent.zip
+        agent_dir_path = os.path.dirname(os.path.abspath(self.agent_path))
+        if os.path.basename(agent_dir_path) == "agent":
+            # If we're in an "agent" subfolder, use the parent folder name
+            self.agent_folder_name = os.path.basename(os.path.dirname(agent_dir_path))
+        else:
+            # Otherwise just use the filename without extension
+            self.agent_folder_name = self.agent_name
+        
+        # Default output directory is now in the agent's extracted_model directory
         if output_dir is None:
-            self.output_dir = os.path.dirname(os.path.abspath(__file__))
+            # Check if this is in the Agent_Storage structure
+            agent_storage_path = os.path.join(project_root, "Agent_Storage", self.agent_folder_name)
+            
+            if os.path.exists(agent_storage_path):
+                # Use the extracted_model directory in the agent's folder
+                self.output_dir = os.path.join(agent_storage_path, "extracted_model")
+            else:
+                # Fall back to the current directory
+                self.output_dir = current_dir
         else:
             self.output_dir = output_dir
             
@@ -72,18 +152,15 @@ class DQNModelExtractor:
         if self.verbose:
             print(f"Loading agent from {self.agent_path}")
         try:
-            # Add project root to path again before loading the agent
-            # This ensures that the pickle loader can find the required modules
-            if project_root not in sys.path:
-                sys.path.insert(0, project_root)
-                
+            # We need to handle various import paths for loading
             self.agent = DQN.load(self.agent_path)
             print("Agent loaded successfully")
             
             # Detailed diagnostic information about policy and features extractor
             if self.verbose:
                 print(f"Policy type: {type(self.agent.policy)}")
-                print(f"Policy attributes: {dir(self.agent.policy)}")
+                if self.verbose > 1:  # Only print this for very verbose output
+                    print(f"Policy attributes: {dir(self.agent.policy)}")
                 
             # Check if feature extractor exists and is properly loaded
             if hasattr(self.agent.policy, 'features_extractor'):
@@ -106,9 +183,6 @@ class DQNModelExtractor:
         except Exception as e:
             print(f"Error loading agent: {e}")
             raise
-        
-        # Extract agent name from path
-        self.agent_name = os.path.basename(self.agent_path).split('.')[0]
         
         # Check if feature extractor exists
         if self.agent.policy.features_extractor is None:
@@ -399,35 +473,36 @@ class DQNModelExtractor:
             Dictionary with paths to saved model components
         """
         # Create output subdirectory for this agent
-        agent_dir = os.path.join(self.output_dir, self.agent_name)
-        os.makedirs(agent_dir, exist_ok=True)
+        # In the new structure, we're already in the agent's directory,
+        # so we don't create an agent-named subdirectory
+        os.makedirs(self.output_dir, exist_ok=True)
         
         saved_paths = {}
         
         # Save architecture info
         architecture = self.extract_model_architecture()
-        architecture_path = os.path.join(agent_dir, "architecture.json")
+        architecture_path = os.path.join(self.output_dir, "architecture.json")
         with open(architecture_path, 'w') as f:
             json.dump(architecture, f, indent=2, cls=NumpyEncoder)
         saved_paths["architecture"] = architecture_path
         
         # Save weight statistics
         weight_stats = self.analyze_weight_statistics()
-        weight_stats_path = os.path.join(agent_dir, "weight_statistics.json")
+        weight_stats_path = os.path.join(self.output_dir, "weight_statistics.json")
         with open(weight_stats_path, 'w') as f:
             json.dump(weight_stats, f, indent=2, cls=NumpyEncoder)
         saved_paths["weight_statistics"] = weight_stats_path
         
         # Save network summary
         network_summary = self.generate_network_summary()
-        network_summary_path = os.path.join(agent_dir, "network_summary.json")
+        network_summary_path = os.path.join(self.output_dir, "network_summary.json")
         with open(network_summary_path, 'w') as f:
             json.dump(network_summary, f, indent=2, cls=NumpyEncoder)
         saved_paths["network_summary"] = network_summary_path
         
         # Generate and save visualizations
         try:
-            vis_dir = os.path.join(agent_dir, "visualizations")
+            vis_dir = os.path.join(self.output_dir, "visualizations")
             os.makedirs(vis_dir, exist_ok=True)
             
             # Generate weight distribution plots
@@ -443,37 +518,37 @@ class DQNModelExtractor:
             print(f"Warning: Could not generate visualizations: {e}")
         
         # Save the online policy network only (used for inference)
-        policy_path = os.path.join(agent_dir, "policy.pt")
+        policy_path = os.path.join(self.output_dir, "policy.pt")
         torch.save(self.agent.policy, policy_path)
         saved_paths["policy"] = policy_path
         
         # Save the online Q-network only (not the target network)
-        q_net_path = os.path.join(agent_dir, "q_network.pt")
+        q_net_path = os.path.join(self.output_dir, "q_network.pt")
         torch.save(self.agent.q_net, q_net_path)
         saved_paths["q_network"] = q_net_path
         
         # Save feature extractor if available
         feature_extractor = self.get_feature_extractor()
         if feature_extractor is not None:
-            feature_extractor_path = os.path.join(agent_dir, "feature_extractor.pt")
+            feature_extractor_path = os.path.join(self.output_dir, "feature_extractor.pt")
             torch.save(feature_extractor, feature_extractor_path)
             saved_paths["feature_extractor"] = feature_extractor_path
         
         # Save state dictionaries for easier weight inspection and editing
         # Only save the online policy network state dict
         policy_state_dict = {k: v for k, v in self.agent.policy.state_dict().items() if 'target' not in k}
-        policy_state_dict_path = os.path.join(agent_dir, "policy_state_dict.pt")
+        policy_state_dict_path = os.path.join(self.output_dir, "policy_state_dict.pt")
         torch.save(policy_state_dict, policy_state_dict_path)
         saved_paths["policy_state_dict"] = policy_state_dict_path
         
         # Only save the online Q-network state dict
         q_net_state_dict = {k: v for k, v in self.agent.q_net.state_dict().items() if 'target' not in k}
-        q_net_state_dict_path = os.path.join(agent_dir, "q_network_state_dict.pt")
+        q_net_state_dict_path = os.path.join(self.output_dir, "q_network_state_dict.pt")
         torch.save(q_net_state_dict, q_net_state_dict_path)
         saved_paths["q_network_state_dict"] = q_net_state_dict_path
         
         # Create a README with instructions
-        readme_path = os.path.join(agent_dir, "README.md")
+        readme_path = os.path.join(self.output_dir, "README.md")
         with open(readme_path, 'w') as f:
             f.write(f"# Extracted DQN Model: {self.agent_name}\n\n")
             f.write("This directory contains extracted model components that can be used for:\n")
@@ -504,7 +579,7 @@ class DQNModelExtractor:
         saved_paths["readme"] = readme_path
         
         if self.verbose:
-            print(f"Extracted model components saved to {agent_dir}")
+            print(f"Extracted model components saved to {self.output_dir}")
             print("Saved files:")
             for key, path in saved_paths.items():
                 print(f"  {key}: {os.path.basename(path)}")

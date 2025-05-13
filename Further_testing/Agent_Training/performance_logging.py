@@ -8,6 +8,7 @@ import signal
 import platform
 import argparse
 from stable_baselines3 import DQN, PPO, A2C
+from pathlib import Path
 
 # Import environment generation function
 from EnvironmentEdits.EnvironmentGeneration import make_env
@@ -277,96 +278,75 @@ def run_agent_and_log(
         if timeout > 0 and HAS_ALARM:
             signal.alarm(0)
 
-# Commented out parse_args function for reference
-"""
-def parse_args():
-    \"\"\"Parse command line arguments.\"\"\"
-    parser = argparse.ArgumentParser(description='Run agent and log results')
-    
-    # Required arguments
-    parser.add_argument('--agent', required=True, help='Path to the agent model file')
-    parser.add_argument('--env', required=True, help='Environment ID (e.g., MiniGrid-Empty-8x8-v0)')
-    parser.add_argument('--output', required=True, help='Path to save the output JSON log')
-    
-    # Optional arguments
-    parser.add_argument('--agent-type', default='dqn', choices=['dqn', 'ppo', 'a2c'], help='Type of agent (default: dqn)')
-    parser.add_argument('--max-steps', type=int, default=150, help='Maximum episode steps (default: 150)')
-    parser.add_argument('--random-spawn', action='store_true', help='Use random spawn positions')
-    parser.add_argument('--no-death', action='store_true', default=True, help='Use NoDeath wrapper')
-    parser.add_argument('--no-death-types', default='lava', help='Types that don\'t cause death (comma-separated)')
-    parser.add_argument('--death-cost', type=float, default=0, help='Penalty for death (default: 0)')
-    parser.add_argument('--monitor-diag', action='store_true', default=True, help='Monitor diagonal moves')
-    parser.add_argument('--diag-reward', type=float, default=0.01, help='Reward for successful diagonal moves (default: 0.01)')
-    parser.add_argument('--diag-penalty', type=float, default=0, help='Penalty for failed diagonal moves (default: 0)')
-    parser.add_argument('--debug', action='store_true', help='Enable debug output')
-    parser.add_argument('--timeout', type=int, default=60, help='Timeout in seconds (default: 60, 0 to disable)')
-    
-    return parser.parse_args()
-"""
-
 if __name__ == "__main__":
-    # Manual configuration (no command line arguments)
-    agent_path = "dqn_minigrid_agent_empty_test_biglava_10m.zip"
-    env_id = "MiniGrid-LavaCrossingS11N5-v0"
-    output_json_path = "AgentTesting/agent_run_log_empty_biglava_10m.json"
-    agent_type = "dqn"
-    max_episode_steps = 150
-    use_random_spawn = True
-    use_no_death = True
-    no_death_types = ("lava",)
-    death_cost = 0
-    monitor_diagonal_moves = True
-    diagonal_success_reward = 0.01
-    diagonal_failure_penalty = 0
-    debug_mode = True
-    timeout_seconds = 60
-
-    # Print configuration
-    print("\n====== AGENT EVALUATION SETTINGS ======")
-    print(f"Agent path: {agent_path}")
-    print(f"Agent type: {agent_type}")
-    print(f"Environment: {env_id}")
-    print(f"Output path: {output_json_path}")
-    print(f"Max episode steps: {max_episode_steps}")
-    print(f"Random agent spawning: {use_random_spawn}")
-    print(f"NoDeath wrapper: {use_no_death}")
-    if use_no_death:
-        print(f"  - Death types: {no_death_types}")
-        print(f"  - Death cost: {death_cost}")
-    print(f"Monitor diagonal moves: {monitor_diagonal_moves}")
-    print(f"Diagonal success reward: {diagonal_success_reward}")
-    print(f"Diagonal failure penalty: {diagonal_failure_penalty}")
-    print(f"Debug mode: {debug_mode}")
-    print(f"Timeout: {timeout_seconds} seconds")
-    print("=====================================\n")
-
-    # Ensure the output directory exists
-    os.makedirs(os.path.dirname(os.path.abspath(output_json_path)), exist_ok=True)
-
-    try:
-        success = run_agent_and_log(
-            agent_path, 
-            env_id, 
-            output_json_path,
-            agent_type=agent_type,
-            max_episode_steps=max_episode_steps,
-            use_random_spawn=use_random_spawn,
-            use_no_death=use_no_death,
-            no_death_types=no_death_types,
-            death_cost=death_cost,
-            monitor_diagonal_moves=monitor_diagonal_moves,
-            diagonal_success_reward=diagonal_success_reward,
-            diagonal_failure_penalty=diagonal_failure_penalty,
-            debug=debug_mode,
-            timeout=timeout_seconds
-        )
+    parser = argparse.ArgumentParser(description="Run trained agent and log performance metrics")
+    parser.add_argument("--agent-path", type=str, help="Path to the trained agent file (agent.zip)")
+    parser.add_argument("--env-id", type=str, default="MiniGrid-LavaCrossingS9N1-v0", help="Environment ID")
+    parser.add_argument("--output-json", type=str, help="Path to save the output JSON log")
+    parser.add_argument("--agent-type", type=str, default="dqn", choices=["dqn", "ppo", "a2c"], help="Type of agent")
+    parser.add_argument("--max-steps", type=int, default=150, help="Maximum steps per episode")
+    parser.add_argument("--random-spawn", action="store_true", help="Use random spawn positions")
+    parser.add_argument("--disable-no-death", action="store_true", help="Disable the NoDeath wrapper")
+    parser.add_argument("--death-cost", type=float, default=0, help="Penalty for death")
+    parser.add_argument("--diagonal-success-reward", type=float, default=0.01, help="Reward for successful diagonal moves")
+    parser.add_argument("--diagonal-failure-penalty", type=float, default=0, help="Penalty for failed diagonal moves")
+    parser.add_argument("--timeout", type=int, default=30, help="Timeout in seconds")
+    parser.add_argument("--debug", action="store_true", help="Print debug information")
+    parser.add_argument("--agent-folder", type=str, help="Agent folder name in Agent_Storage (alternative to --agent-path)")
+    args = parser.parse_args()
+    
+    # Handle agent folder in Agent_Storage, if specified
+    if args.agent_folder:
+        agent_dir = os.path.join("Agent_Storage", args.agent_folder)
         
-        if success:
-            print(f"Agent run log saved to {output_json_path}")
-        else:
-            print(f"Failed to complete agent run")
+        # Check if agent folder exists
+        if not os.path.exists(agent_dir):
+            print(f"Error: Agent folder '{args.agent_folder}' not found in Agent_Storage")
+            sys.exit(1)
             
-    except Exception as e:
-        print(f"Error running agent: {e}")
-        import traceback
-        traceback.print_exc()
+        # Look for agent.zip in the folder
+        agent_path = os.path.join(agent_dir, "agent.zip")
+        if not os.path.exists(agent_path):
+            print(f"Error: agent.zip not found in Agent_Storage/{args.agent_folder}")
+            sys.exit(1)
+            
+        # Determine output JSON path if not specified
+        if not args.output_json:
+            output_dir = os.path.join(agent_dir, "evaluations")
+            os.makedirs(output_dir, exist_ok=True)
+            args.output_json = os.path.join(output_dir, "performance_log.json")
+            print(f"Output will be saved to: {args.output_json}")
+    else:
+        # Use agent_path if specified directly
+        agent_path = args.agent_path
+        
+    # Check if we have an agent path from either source
+    if not args.agent_folder and not args.agent_path:
+        print("Error: Either --agent-path or --agent-folder must be specified")
+        parser.print_help()
+        sys.exit(1)
+    
+    # Run the agent and log performance
+    success = run_agent_and_log(
+        agent_path=agent_path if args.agent_folder else args.agent_path,
+        env_id=args.env_id,
+        output_json_path=args.output_json,
+        agent_type=args.agent_type,
+        max_episode_steps=args.max_steps,
+        use_random_spawn=args.random_spawn,
+        use_no_death=not args.disable_no_death,
+        no_death_types=("lava",),  # Always use lava as no_death_type
+        death_cost=args.death_cost,
+        monitor_diagonal_moves=True,  # Always monitor diagonal moves
+        diagonal_success_reward=args.diagonal_success_reward,
+        diagonal_failure_penalty=args.diagonal_failure_penalty,
+        debug=args.debug,
+        timeout=args.timeout
+    )
+    
+    if success:
+        print(f"Successfully completed performance logging. Results saved to {args.output_json}")
+        sys.exit(0)
+    else:
+        print("Failed to complete performance logging")
+        sys.exit(1)

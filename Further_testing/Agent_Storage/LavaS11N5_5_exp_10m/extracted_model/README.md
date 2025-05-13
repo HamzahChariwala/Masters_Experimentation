@@ -1,4 +1,4 @@
-# Extracted DQN Model: LavaS11N5_5_exp_10m
+# Extracted DQN Model: agent
 
 This directory contains extracted model components that can be used for:
 1. Model analysis and visualization

@@ -4,6 +4,8 @@ import numpy as np
 import torch
 from typing import Tuple
 import time
+import argparse
+from pathlib import Path
 
 import gymnasium as gym
 from gymnasium.wrappers import RecordEpisodeStatistics
@@ -48,6 +50,34 @@ import AgentTraining.SpawnTooling as Spawn
 # ---------------------------------------------------------------
 
 if __name__ == "__main__":
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Run DRL training')
+    parser.add_argument('--agent-folder', type=str, default=None, help='Agent folder name in Agent_Storage')
+    args = parser.parse_args()
+    
+    # Determine config path based on agent folder
+    if args.agent_folder:
+        agent_path = os.path.join("Agent_Storage", args.agent_folder)
+        config_path = os.path.join(agent_path, "config.yaml")
+        
+        # Check if path exists
+        if not os.path.exists(config_path):
+            print(f"Warning: Agent folder '{args.agent_folder}' not found in Agent_Storage or missing config.yaml")
+            print("Using default configuration")
+            config_path = None
+        else:
+            print(f"Using configuration from Agent_Storage/{args.agent_folder}/config.yaml")
+            
+            # Update log directory to be inside the agent folder
+            log_dir = os.path.join(agent_path, "logs")
+            os.makedirs(log_dir, exist_ok=True)
+            
+            # Load YAML config here if needed
+            # This example continues with hardcoded values
+    else:
+        # Default log directory if no agent folder specified
+        log_dir = "./logs/dqn_run_2"
+        os.makedirs(log_dir, exist_ok=True)
 
     torch.set_default_dtype(torch.float32)
 

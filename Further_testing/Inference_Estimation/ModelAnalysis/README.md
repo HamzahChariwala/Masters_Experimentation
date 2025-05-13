@@ -20,32 +20,70 @@ DQN agents have two networks:
 
 This tool deliberately excludes the target network from extraction since it's not needed for inference or analysis. Only the online network is extracted and saved.
 
+## Agent_Storage Directory Structure
+
+The project now uses a centralized Agent_Storage system that organizes all agent-related data in a standardized structure:
+
+```
+Agent_Storage/
+├── README.md
+├── <agent_name_1>/
+│   ├── config.yaml (model card with training parameters)
+│   ├── agent/ (saved agent files)
+│   │   └── agent.zip
+│   ├── logs/ (training logs)
+│   ├── evaluations/ (evaluation metrics)
+│   ├── visualizations/ (plots and visualizations)
+│   └── extracted_model/ (neural network components)
+└── <agent_name_2>/
+    └── ...
+```
+
+This extractor tool automatically places extracted model components in the `extracted_model` directory of the corresponding agent folder.
+
+## Directory Structure
+
+The project has the following structure:
+- `Further_testing/` - Project root
+  - `Agent_Storage/` - Centralized agent storage
+    - `<agent_name>/` - Individual agent folders
+  - `DRL_Training/` - Original training code
+    - `EnvironmentEdits/` - Environment customizations
+  - `Inference_Estimation/` - Code for inference and analysis
+    - `ModelAnalysis/` - Model extraction tools
+
 ## Usage
 
 ### Basic Model Extraction
 
+To extract a model, simply provide the agent name (no need for full path):
+
 ```bash
-python extract_agent_model.py <path_to_agent.zip> [output_directory]
+python Inference_Estimation/ModelAnalysis/extract_agent_model.py LavaS11N5_5_exp_10m
 ```
 
-Example:
+The tool will automatically:
+1. Find the agent in the Agent_Storage directory
+2. Extract the model components
+3. Save them to the agent's extracted_model directory
+
+You can also specify a custom output directory:
 ```bash
-python extract_agent_model.py ../DebuggingAgents/my_dqn_agent.zip
+python Inference_Estimation/ModelAnalysis/extract_agent_model.py LavaS11N5_5_exp_10m custom_output_directory
 ```
 
 ### Programmatic API
 
 ```python
-from ModelAnalysis.ModelExtraction import DQNModelExtractor
+from Inference_Estimation.ModelAnalysis.ModelExtraction import DQNModelExtractor
 
-# Create the extractor
+# Create the extractor (it will automatically use the Agent_Storage directory)
 extractor = DQNModelExtractor(
-    agent_path="path/to/agent.zip",
-    output_dir="output_directory",
+    agent_path="Agent_Storage/LavaS11N5_5_exp_10m/agent/agent.zip",
     verbose=True
 )
 
-# Save model components
+# Save model components to the default location (Agent_Storage/<agent_name>/extracted_model)
 saved_paths = extractor.save_model_components()
 
 # Get specific components
@@ -77,6 +115,10 @@ The extractor generates the following files for each agent:
 
 The tool can extract and analyze custom feature extractors if they are available in the agent. For proper loading, ensure that your custom feature extractor classes (like `CustomCombinedExtractor`) are in the Python path before extraction.
 
+After refactoring, the tool will automatically look in multiple locations for the FeatureExtractor module, including:
+- `EnvironmentEdits.BespokeEdits.FeatureExtractor`  
+- `DRL_Training.EnvironmentEdits.BespokeEdits.FeatureExtractor`
+
 ## Requirements
 
 - PyTorch
@@ -89,7 +131,7 @@ The tool can extract and analyze custom feature extractors if they are available
 
 If you encounter errors related to importing the feature extractor, ensure that:
 
-1. The Python path includes the project root directory
+1. The Python path includes the project root directory and DRL_Training directory
 2. The feature extractor class is in the same location it was during training
 3. Dependencies for the feature extractor are installed
 
