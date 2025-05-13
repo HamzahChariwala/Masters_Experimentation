@@ -24,29 +24,29 @@ from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-from AgentTraining.TerminalCondition import CustomTerminationCallback
-from AgentTraining.Tooling import visualize_agent_behavior, evaluate_with_timeout
+from TrainingTooling.TerminalCondition import CustomTerminationCallback
+from TrainingTooling.Tooling import visualize_agent_behavior, evaluate_with_timeout
 
 # ---------------------------------------------------------------
 
-from EnvironmentEdits.BespokeEdits.CustomWrappers import (GoalAngleDistanceWrapper, 
+from Environment_Tooling.BespokeEdits.CustomWrappers import (GoalAngleDistanceWrapper, 
                                              PartialObsWrapper, 
                                              ExtractAbstractGrid, 
                                              PartialRGBObsWrapper, 
                                              PartialGrayObsWrapper, 
                                              ForceFloat32)
-from EnvironmentEdits.BespokeEdits.FeatureExtractor import CustomCombinedExtractor, SelectiveObservationWrapper
-from EnvironmentEdits.BespokeEdits.ActionSpace import CustomActionWrapper
-from EnvironmentEdits.BespokeEdits.GymCompatibility import OldGymCompatibility
+from Environment_Tooling.BespokeEdits.FeatureExtractor import CustomCombinedExtractor, SelectiveObservationWrapper
+from Environment_Tooling.BespokeEdits.ActionSpace import CustomActionWrapper
+from Environment_Tooling.BespokeEdits.GymCompatibility import OldGymCompatibility
 
 # Import environment generation functions
-import EnvironmentEdits.EnvironmentGeneration as Env
+import Environment_Tooling.EnvironmentGeneration as Env
 
 # Import our flexible spawn distribution wrapper
-from EnvironmentEdits.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper, DistributionMap
-from EnvironmentEdits.BespokeEdits.SpawnDistribution import SpawnDistributionCallback, EnhancedSpawnDistributionCallback, generate_final_visualizations
+from Environment_Tooling.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper, DistributionMap
+from Environment_Tooling.BespokeEdits.SpawnDistribution import SpawnDistributionCallback, EnhancedSpawnDistributionCallback, generate_final_visualizations
 
-import AgentTraining.SpawnTooling as Spawn
+import TrainingTooling.SpawnTooling as Spawn
 
 # ---------------------------------------------------------------
 

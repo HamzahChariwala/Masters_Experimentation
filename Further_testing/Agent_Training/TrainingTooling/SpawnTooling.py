@@ -15,7 +15,7 @@ def print_spawn_distribution_info(env_params, total_timesteps):
     """
     # Import visualization functions from SpawnDistribution
     try:
-        from EnvironmentEdits.BespokeEdits.SpawnDistribution import print_numeric_distribution
+        from Environment_Tooling.BespokeEdits.SpawnDistribution import print_numeric_distribution
         use_numeric_display = True
     except ImportError:
         use_numeric_display = False

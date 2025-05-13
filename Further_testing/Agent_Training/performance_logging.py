@@ -11,8 +11,8 @@ from stable_baselines3 import DQN, PPO, A2C
 from pathlib import Path
 
 # Import environment generation function
-from EnvironmentEdits.EnvironmentGeneration import make_env
-from EnvironmentEdits.BespokeEdits.FeatureExtractor import CustomCombinedExtractor
+from Environment_Tooling.EnvironmentGeneration import make_env
+from Environment_Tooling.BespokeEdits.FeatureExtractor import CustomCombinedExtractor
 
 # Add the root directory of the project to the Python path
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))

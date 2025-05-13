@@ -1,16 +1,22 @@
-import gymnasium as gym
+import os
+import sys
 import numpy as np
 import time
+import gymnasium as gym
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from typing import Dict, Any, List, Tuple, Optional, Union, Callable
+import torch
+import traceback
 import threading
 from collections import Counter
-import matplotlib.pyplot as plt
 from gymnasium.wrappers import RecordEpisodeStatistics, TimeLimit
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.evaluation import evaluate_policy
 
 from minigrid.wrappers import FullyObsWrapper, NoDeath
 
-from EnvironmentEdits.BespokeEdits.CustomWrappers import (
+from Environment_Tooling.BespokeEdits.CustomWrappers import (
     GoalAngleDistanceWrapper, 
     PartialObsWrapper, 
     ExtractAbstractGrid, 
@@ -19,9 +25,9 @@ from EnvironmentEdits.BespokeEdits.CustomWrappers import (
     ForceFloat32,
     DiagonalMoveMonitor
 )
-from EnvironmentEdits.BespokeEdits.FeatureExtractor import SelectiveObservationWrapper
-from EnvironmentEdits.BespokeEdits.ActionSpace import CustomActionWrapper
-from EnvironmentEdits.BespokeEdits.GymCompatibility import OldGymCompatibility
+from Environment_Tooling.BespokeEdits.FeatureExtractor import SelectiveObservationWrapper
+from Environment_Tooling.BespokeEdits.ActionSpace import CustomActionWrapper
+from Environment_Tooling.BespokeEdits.GymCompatibility import OldGymCompatibility
 
 class PerformanceTracker:
     """
@@ -36,8 +42,6 @@ class PerformanceTracker:
         log_dir : str
             Directory to save plots
         """
-        import os
-        self.log_dir = log_dir
         os.makedirs(log_dir, exist_ok=True)
         
         # Track metrics

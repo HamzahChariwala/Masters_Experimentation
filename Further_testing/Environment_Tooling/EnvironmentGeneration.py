@@ -1,14 +1,18 @@
 import gymnasium as gym
 from gymnasium.wrappers import RecordEpisodeStatistics, TimeLimit
-from gymnasium.vector import AsyncVectorEnv
+from gymnasium.vector import AsyncVectorEnv, VecMonitor
 from gymnasium.spaces import MultiDiscrete
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.monitor import Monitor
 import numpy as np
+from typing import Dict, Any, List, Callable, Union, Tuple, Optional
+import random
+import torch
+import os
 
 from minigrid.wrappers import RGBImgPartialObsWrapper, ImgObsWrapper, FullyObsWrapper, RGBImgObsWrapper, OneHotPartialObsWrapper, NoDeath, DirectionObsWrapper
 
-from EnvironmentEdits.BespokeEdits.CustomWrappers import (GoalAngleDistanceWrapper, 
+from Environment_Tooling.BespokeEdits.CustomWrappers import (GoalAngleDistanceWrapper, 
                                              PartialObsWrapper, 
                                              ExtractAbstractGrid, 
                                              PartialRGBObsWrapper, 
@@ -16,11 +20,11 @@ from EnvironmentEdits.BespokeEdits.CustomWrappers import (GoalAngleDistanceWrapp
                                              ForceFloat32,
                                              RandomSpawnWrapper,
                                              DiagonalMoveMonitor)
-from EnvironmentEdits.BespokeEdits.RewardModifications import EpisodeCompletionRewardWrapper, LavaStepCounterWrapper
-from EnvironmentEdits.BespokeEdits.FeatureExtractor import CustomCombinedExtractor, SelectiveObservationWrapper
-from EnvironmentEdits.BespokeEdits.ActionSpace import CustomActionWrapper
-from EnvironmentEdits.BespokeEdits.GymCompatibility import OldGymCompatibility
-from EnvironmentEdits.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper
+from Environment_Tooling.BespokeEdits.RewardModifications import EpisodeCompletionRewardWrapper, LavaStepCounterWrapper
+from Environment_Tooling.BespokeEdits.FeatureExtractor import CustomCombinedExtractor, SelectiveObservationWrapper
+from Environment_Tooling.BespokeEdits.ActionSpace import CustomActionWrapper
+from Environment_Tooling.BespokeEdits.GymCompatibility import OldGymCompatibility
+from Environment_Tooling.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper
 
 
 def _make_env(env_id, 

@@ -7,6 +7,7 @@ import os
 from stable_baselines3.common.callbacks import BaseCallback
 import time
 from pprint import pprint
+from Environment_Tooling.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper
 
 
 class DistributionMap:
@@ -1633,8 +1634,6 @@ def inspect_env_for_spawn_wrapper(env):
     wrapper : FlexibleSpawnWrapper or None
         Found wrapper or None if not found
     """
-    from EnvironmentEdits.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper
-    
     if isinstance(env, FlexibleSpawnWrapper):
         return env
     
