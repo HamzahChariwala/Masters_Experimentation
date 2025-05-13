@@ -170,6 +170,20 @@ class CustomTerminationCallback(BaseCallback):
             if self.num_timesteps % self.check_freq != 0:
                 return True
                 
+            # Track episode count from infos for performance tracker
+            if len(self.model.ep_info_buffer) > 0:
+                self.episode_count = len(self.model.ep_info_buffer)
+                
+                # Update training metrics in the performance tracker
+                train_rewards = [ep_info["r"] for ep_info in self.model.ep_info_buffer]
+                train_lengths = [ep_info["l"] for ep_info in self.model.ep_info_buffer]
+                self.performance_tracker.update_train_metrics(
+                    self.num_timesteps, 
+                    train_rewards, 
+                    train_lengths, 
+                    self.episode_count
+                )
+                
             # Skip safety check for deadlocks
             if self.evaluation_in_progress:
                 current_time = time.time()
@@ -183,12 +197,24 @@ class CustomTerminationCallback(BaseCallback):
                         print("Previous evaluation still in progress, skipping this one")
                     return True
             
+            # Mark that evaluation is in progress and record time
+            self.evaluation_in_progress = True
+            self.last_evaluation_time = time.time()
+            
             # Run evaluation for tracking progress but don't terminate
             try:
-                self._run_evaluation()
+                result = self._run_evaluation()
+                
+                # Explicitly generate performance plots after evaluation
+                if result and hasattr(self, "performance_tracker"):
+                    # Generate performance plots
+                    self.performance_tracker.plot_performance(save=True, show=False)
+                    if self.verbose > 0:
+                        print(f"Performance plots updated and saved to {self.log_dir}")
+                
             except Exception as e:
                 if self.verbose > 0:
-                    print(f"Error during evaluation: {e}")
+                    print(f"Error during evaluation with early stopping disabled: {e}")
             finally:
                 self.evaluation_in_progress = False
             
