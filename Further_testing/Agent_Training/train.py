@@ -9,6 +9,10 @@ import sys
 from pathlib import Path
 from typing import Tuple, Dict, Any, List
 
+# Add the parent directory to sys.path to ensure proper imports
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import gymnasium as gym
 from gymnasium.wrappers import RecordEpisodeStatistics
 from gymnasium.vector import AsyncVectorEnv
@@ -26,8 +30,9 @@ from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-from TrainingTooling.TerminalCondition import CustomTerminationCallback
-from TrainingTooling.Tooling import visualize_agent_behavior, evaluate_with_timeout
+# Import local modules using relative imports for better compatibility
+from Agent_Training.TrainingTooling.TerminalCondition import CustomTerminationCallback
+from Agent_Training.TrainingTooling.Tooling import visualize_agent_behavior, evaluate_with_timeout
 
 from Environment_Tooling.BespokeEdits.CustomWrappers import (GoalAngleDistanceWrapper, 
                                             PartialObsWrapper, 
@@ -46,7 +51,7 @@ import Environment_Tooling.EnvironmentGeneration as Env
 from Environment_Tooling.BespokeEdits.SpawnDistribution import FlexibleSpawnWrapper, DistributionMap
 from Environment_Tooling.BespokeEdits.SpawnDistribution import SpawnDistributionCallback, EnhancedSpawnDistributionCallback, generate_final_visualizations
 
-import TrainingTooling.SpawnTooling as Spawn
+import Agent_Training.TrainingTooling.SpawnTooling as Spawn
 
 
 def load_config(config_path=None, agent_folder=None):

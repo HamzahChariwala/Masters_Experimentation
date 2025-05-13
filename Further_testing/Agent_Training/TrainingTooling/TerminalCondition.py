@@ -5,8 +5,8 @@ import threading
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 
-# Import performance tracker
-from TrainingTooling.Tooling import PerformanceTracker
+# Import performance tracker using relative import
+from .Tooling import PerformanceTracker
 
 class CustomTerminationCallback(BaseCallback):
     """

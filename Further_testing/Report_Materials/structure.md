@@ -16,16 +16,17 @@ Safety, Reliability, & Assurance
 - Priorities of regulation
 - Current regulation standards
 - Forecasted regulatory environment
+- Current verification technologies
 - Trust-building technologies
 
 Interpretability & Interventions
 - Taxonomy of interpretability
 - Neuron semanticity & circuits
 - Existing intervention techniques
+- Desirable characteristics
 
 Direct Model Editing
 - Network patching techniques
-- Desirable characteristics
 - Reviewing existing work
 
 Scalability & Efficiency Challenges
@@ -37,4 +38,18 @@ Practicality of Search-Based Methods
 - 
 
 Fast Forward-Pass Estimation
+
+
+
+
+
+Experiment Design
+
+Reward Shaping
+
+Hyperparameter Tuning
+
+Activation Patching
+
+Shapley Values
 

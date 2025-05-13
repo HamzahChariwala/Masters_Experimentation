@@ -16,6 +16,9 @@ from stable_baselines3.common.evaluation import evaluate_policy
 
 from minigrid.wrappers import FullyObsWrapper, NoDeath
 
+# Add the parent directory to sys.path to ensure Environment_Tooling can be imported
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
 from Environment_Tooling.BespokeEdits.CustomWrappers import (
     GoalAngleDistanceWrapper, 
     PartialObsWrapper, 

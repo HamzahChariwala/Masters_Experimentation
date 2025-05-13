@@ -1,8 +1,8 @@
 import gymnasium as gym
 from gymnasium.wrappers import RecordEpisodeStatistics, TimeLimit
-from gymnasium.vector import AsyncVectorEnv, VecMonitor
+from gymnasium.vector import AsyncVectorEnv
 from gymnasium.spaces import MultiDiscrete
-from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecMonitor
 from stable_baselines3.common.monitor import Monitor
 import numpy as np
 from typing import Dict, Any, List, Callable, Union, Tuple, Optional

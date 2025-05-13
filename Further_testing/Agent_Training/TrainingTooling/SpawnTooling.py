@@ -1,6 +1,11 @@
 import numpy as np
 import random
 import re
+import os
+import sys
+
+# Add the parent directory to sys.path to ensure Environment_Tooling can be imported
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 def print_spawn_distribution_info(env_params, total_timesteps):
     """
