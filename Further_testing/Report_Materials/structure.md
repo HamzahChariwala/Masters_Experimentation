@@ -53,3 +53,16 @@ Activation Patching
 
 Shapley Values
 
+Ubiquity
+Regularisation
+Optimiser
+Functional Modularity
+Dynamic Sparsification
+Attention
+Recurrent Layers
+
+
+Improving convexity of the problem
+Difference-of-convex
+Entropy regularisation
+Biconvex masking
