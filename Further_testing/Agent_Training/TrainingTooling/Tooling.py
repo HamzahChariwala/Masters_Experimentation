@@ -50,6 +50,9 @@ class PerformanceTracker:
         """
         os.makedirs(log_dir, exist_ok=True)
         
+        # Store log_dir as instance attribute
+        self.log_dir = log_dir
+        
         # Track metrics
         self.train_timesteps = []
         self.train_rewards = []
