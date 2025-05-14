@@ -6,8 +6,8 @@ set -x
 
 echo "Starting command sequence..."
 
-# echo "Training 0.025 penalty..."
-# python Agent_Training/train.py --path LavaTests/NoDeath/0.025_penalty
+echo "Training 0.025 penalty..."
+python Agent_Training/train.py --path LavaTests/NoDeath/0.025_penalty
 
 echo "Training 0.050 penalty..."
 python Agent_Training/train.py --path LavaTests/NoDeath/0.050_penalty
@@ -48,3 +48,5 @@ python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/5_penalty
 echo "Training 6 penalty..."
 python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/6_penalty
 
+echo "Training standard2..."
+python Agent_Training/train.py --path LavaTests/Standard2
