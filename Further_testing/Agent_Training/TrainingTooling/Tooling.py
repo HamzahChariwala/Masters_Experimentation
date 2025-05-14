@@ -19,6 +19,9 @@ from minigrid.wrappers import FullyObsWrapper, NoDeath
 # Add the parent directory to sys.path to ensure Environment_Tooling can be imported
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
+# Import SafeMonitor from Environment_Tooling
+from Environment_Tooling.EnvironmentGeneration import SafeMonitor, safe_evaluate_policy
+
 from Environment_Tooling.BespokeEdits.CustomWrappers import (
     GoalAngleDistanceWrapper, 
     PartialObsWrapper, 
@@ -281,7 +284,7 @@ def evaluate_with_timeout(model, env, n_eval_episodes=10, timeout=30, determinis
     def run_evaluation():
         nonlocal eval_results, eval_complete, eval_error
         try:
-            rewards, lengths = evaluate_policy(
+            rewards, lengths = safe_evaluate_policy(
                 model,
                 env,
                 n_eval_episodes=n_eval_episodes,
@@ -373,7 +376,7 @@ def visualize_agent_behavior(model, env_id, observation_params, seed=42, num_epi
     )
     env = ForceFloat32(env)
     env = OldGymCompatibility(env)
-    env = Monitor(env)
+    env = SafeMonitor(env)
     
     # Helper function to safely get agent position and direction
     def get_agent_info(env):

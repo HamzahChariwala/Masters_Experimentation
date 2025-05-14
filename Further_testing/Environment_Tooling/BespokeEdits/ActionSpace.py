@@ -15,7 +15,7 @@ class CustomActionWrapper(gym.ActionWrapper):
         Determine if a position is walkable using MiniGrid's logic.
         A position is walkable if it's within bounds and either has no object or the object can be overlapped.
         """
-        grid = self.env.grid if hasattr(self.env, 'grid') else None
+        grid = self.env.unwrapped.grid if hasattr(self.env.unwrapped, 'grid') else None
         if grid is None:
             return False
         
@@ -61,8 +61,8 @@ class CustomActionWrapper(gym.ActionWrapper):
         }
         
         # Get the agent's current direction vector
-        agent_dir = self.env.agent_dir
-        agent_pos = self.env.agent_pos
+        agent_dir = self.env.unwrapped.agent_dir
+        agent_pos = self.env.unwrapped.agent_pos
         forward_vec = direction_vecs[agent_dir]
         
         # Calculate left and right vectors relative to the agent's direction
@@ -93,26 +93,57 @@ class CustomActionWrapper(gym.ActionWrapper):
             # Convert position to integer numpy array to ensure correct update
             new_pos_int = new_pos.astype(int)
             
-            # Find the base environment to update directly
-            base_env = self.env
-            while hasattr(base_env, 'env'):
-                base_env = base_env.env
-            
             # Update position in all environment layers
             self._update_agent_position(new_pos_int)
             
             info = {"action": "diagonal", "diag_direction": diag_direction}
         else:
             info = {"action": "diagonal", "diag_direction": diag_direction, "failed": True}
-            # Return the current observation but with a configurable negative reward for failed diagonal move
-            return self.env.gen_obs(), -self.diagonal_failure_penalty, False, False, info
+            # Try different methods to get an observation
+            if hasattr(self.env.unwrapped, "gen_obs"):
+                obs = self.env.unwrapped.gen_obs()
+            else:
+                # Just get the current observation through the normal step mechanism
+                # Perform a no-op action that doesn't change state
+                obs, _, _, _, _ = self.env.step(1)  # Turn right
+                obs, _, _, _, _ = self.env.step(0)  # Turn left to return to original direction
+            
+            return obs, -self.diagonal_failure_penalty, False, False, info
 
-        if hasattr(self.env, "step_count"):
-            self.env.step_count += 1
+        # Update step count if available (using unwrapped or get_wrapper_attr)
+        if hasattr(self.env.unwrapped, "step_count"):
+            self.env.unwrapped.step_count += 1
+        elif hasattr(self.env, "get_wrapper_attr") and self.env.get_wrapper_attr("step_count") is not None:
+            try:
+                step_count = self.env.get_wrapper_attr("step_count")
+                # We need to increment and set it back
+                self.env.env.step_count = step_count + 1
+            except (AttributeError, ValueError):
+                pass  # Couldn't update step_count
 
-        terminated = hasattr(self.env, "max_steps") and (self.env.step_count >= self.env.max_steps)
+        # Check for termination based on step count and max_steps
+        terminated = False
+        if hasattr(self.env.unwrapped, "max_steps") and hasattr(self.env.unwrapped, "step_count"):
+            terminated = self.env.unwrapped.step_count >= self.env.unwrapped.max_steps
+        elif hasattr(self.env, "get_wrapper_attr"):
+            try:
+                max_steps = self.env.get_wrapper_attr("max_steps")
+                step_count = self.env.get_wrapper_attr("step_count")
+                if max_steps is not None and step_count is not None:
+                    terminated = step_count >= max_steps
+            except (AttributeError, ValueError):
+                pass  # Couldn't check termination
+        
         truncated = False
-        obs = self.env.gen_obs() if hasattr(self.env, "gen_obs") else self.env.observation_space.sample()
+        
+        # Safely get observation
+        if hasattr(self.env.unwrapped, "gen_obs"):
+            obs = self.env.unwrapped.gen_obs()
+        else:
+            # Use the current observation space to get a valid observation
+            # More reliable than using observation_space.sample()
+            current_obs, _, _, _, _ = self.env.step(1)  # Turn right
+            obs, _, _, _, _ = self.env.step(0)  # Turn left to return to original direction
         
         # Give a configurable higher reward for successful diagonal moves
         reward = self.diagonal_success_reward if is_valid_diagonal else 0
@@ -123,22 +154,34 @@ class CustomActionWrapper(gym.ActionWrapper):
         Update the agent's position in all environment wrapper layers.
         This ensures consistent state across the environment stack.
         """
-        # First update the immediate environment's agent position
-        if isinstance(self.env.agent_pos, np.ndarray):
-            self.env.agent_pos = new_pos.copy()
-        else:
-            self.env.agent_pos = tuple(new_pos)
+        # First update the agent position in the base environment
+        base_env = self.env.unwrapped
+        if hasattr(base_env, 'agent_pos'):
+            if isinstance(base_env.agent_pos, np.ndarray):
+                base_env.agent_pos = new_pos.copy()
+            else:
+                base_env.agent_pos = tuple(new_pos)
             
-        # Then recursively update all nested environments
-        env = self.env
-        while hasattr(env, 'env'):
-            inner_env = env.env
-            if hasattr(inner_env, 'agent_pos'):
-                if isinstance(inner_env.agent_pos, np.ndarray):
-                    inner_env.agent_pos = new_pos.copy()
-                else:
-                    inner_env.agent_pos = tuple(new_pos)
-            env = inner_env
+        # Then try to find and update wrappers that have agent_pos using get_wrapper_attr if available
+        # This is the safer, future-proof way to access attributes across wrappers
+        try:
+            if hasattr(self.env, 'get_wrapper_attr') and hasattr(self.env, 'env'):
+                # We already updated the unwrapped environment directly above
+                # Now update any intermediate wrappers that have their own agent_pos
+                env = self.env
+                while hasattr(env, 'env'):
+                    # Only update wrappers, not the base unwrapped env (already handled)
+                    if env != self.env.unwrapped and hasattr(env, 'agent_pos'):
+                        current_pos = env.agent_pos
+                        if isinstance(current_pos, np.ndarray):
+                            env.agent_pos = new_pos.copy()
+                        else:
+                            env.agent_pos = tuple(new_pos)
+                    env = env.env
+        except Exception:
+            # If the above fails, fall back to direct access but only for compatibility 
+            # This should ideally be removed in the future
+            pass
 
     def step(self, action):
         if action < 3:

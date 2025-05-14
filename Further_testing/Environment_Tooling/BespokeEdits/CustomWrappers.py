@@ -172,7 +172,8 @@ class GoalAngleDistanceWrapper(ObservationWrapper):
             
             # Normalize these distances based on the grid dimensions
             # to ensure values are in [0,1] range
-            max_possible_distance = np.sqrt(grid.width**2 + grid.height**2)
+            w, h = self.unwrapped.width, self.unwrapped.height
+            max_possible_distance = np.sqrt(w**2 + h**2)
             
             forward_norm = min(1.0, forward_proj / max_possible_distance)
             backward_norm = min(1.0, backward_proj / max_possible_distance)
@@ -284,7 +285,7 @@ class ExtractAbstractGrid(ObservationWrapper):
 
         # Ensure the observation space remains a Dict with the new 'new_image' key
         original_spaces = env.observation_space.spaces
-        w, h = env.width, env.height
+        w, h = env.unwrapped.width, env.unwrapped.height
         original_spaces['new_image'] = Box(low=0, high=3, shape=(2, w, h), dtype=np.uint8)
         self.observation_space = spaces.Dict(original_spaces)
 
@@ -309,7 +310,7 @@ class ExtractAbstractGrid(ObservationWrapper):
 
                 # Agent layer
                 if obj_id == 10:
-                    direction = self.env.agent_dir
+                    direction = self.env.unwrapped.agent_dir
                     agent_layer[y, x] = direction + 1
                     object_layer[y, x] = 1
 
@@ -500,9 +501,6 @@ class RandomSpawnWrapper(gym.Wrapper):
         # First reset the environment
         obs, info = self.env.reset(**kwargs)
         
-        # Print original spawn position
-        # print(f"Env {self.env_id} - Original spawn position: {self.unwrapped.agent_pos}")
-        
         # Get the grid
         grid = self.unwrapped.grid
         width, height = grid.width, grid.height
@@ -518,10 +516,6 @@ class RandomSpawnWrapper(gym.Wrapper):
                         break
                 if goal_pos:
                     break
-            
-            if goal_pos:
-                # print(f"Env {self.env_id} - Goal position: {goal_pos}")
-                pass
         
         # Find all empty cells
         empty_cells = []
@@ -539,15 +533,12 @@ class RandomSpawnWrapper(gym.Wrapper):
                             continue
                     empty_cells.append((i, j))
         
-        # print(f"Env {self.env_id} - Found {len(empty_cells)} valid spawn locations")
-        
         if empty_cells:
             # Randomly select an empty cell
             pos = random.choice(empty_cells)
             
             # Set agent position
             self.unwrapped.agent_pos = pos
-            # print(f"Env {self.env_id} - Randomized spawn position: {pos}")
             
             # Update agent's position in the grid
             self.unwrapped.grid.set(*self.unwrapped.agent_pos, None)
@@ -563,9 +554,6 @@ class RandomSpawnWrapper(gym.Wrapper):
                 # If neither method exists, re-reset the environment
                 self.unwrapped.reset()
                 obs, _ = self.env.reset()
-        else:
-            # print(f"Env {self.env_id} - WARNING: No valid spawn locations found. Using original position.")
-            pass
             
         return obs, info
 

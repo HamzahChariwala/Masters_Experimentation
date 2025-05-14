@@ -8,14 +8,21 @@ experiment:
   description: "Training an agent with flexible spawn distribution in MiniGrid"
   version: 1.0
   output:
-    log_dir: "./logs/dqn_run_2"
-    model_save_path: "dqn_minigrid_agent_empty_test_biglava_10m_exp"
-    total_timesteps: 10_000_000
+    # The log_dir and model_save_path are now optional in our updated code
+    # If --path is provided, logs will be stored in Agent_Storage/<path>/logs
+    # and model will be saved to Agent_Storage/<path>/agent.zip
+    
+    # These can be left as fallbacks if --path is not provided
+    log_dir: "./logs/default_logs"
+    model_save_path: "default_agent"
+    
+    # Total timesteps remains important
+    total_timesteps: 15_000_000
 
 # ===== Environment Configuration =====
 environment:
   id: "MiniGrid-LavaCrossingS11N5-v0"  # Options: "MiniGrid-Empty-8x8-v0", "MiniGrid-LavaCrossingS9N1-v0"
-  num_envs: 50
+  num_envs: 25
   max_episode_steps: 150  # Maximum steps per episode (None = use env default)
   use_different_envs: true  # Enable diverse environments
 
@@ -23,12 +30,12 @@ environment:
 reward_function:
   enabled: true
   type: "linear"  # Options: "linear", "exponential", "sigmoid"
-  x_intercept: 1  # Number of steps at which reward becomes approximately 0
-  y_intercept: 150  # Initial reward value at step 0
+  x_intercept: 150  # Number of steps at which reward becomes approximately 0
+  y_intercept: 1  # Initial reward value at step 0
   transition_width: 10  # Only used for sigmoid function
   verbose: false  # Controls whether basic information is printed to terminal
   debug_logging: false  # Controls whether detailed step-by-step logs are printed
-  count_lava_steps: true  # Whether to count lava steps with a penalty
+  count_lava_steps: false  # Whether to count lava steps with a penalty
   lava_step_multiplier: 5.0  # How many regular steps one lava step is equivalent to
 
 # ===== Randomness Control =====
@@ -40,9 +47,9 @@ seeds:
 
 # ===== Agent Safety Features =====
 no_death:
-  enabled: false
+  enabled: true
   types: ["lava"]
-  cost: -0.0   # Penalty for hitting death elements
+  cost: -0.175   # Penalty for hitting death elements
 
 # ===== Diagonal Movement =====
 diagonal_moves:
@@ -160,13 +167,10 @@ spawn:
 
 # ===== Observation Configuration =====
 observation:
-  window_size: 7
+  window_size: 7  # Size of the observation window
+  # Choose which observation features to use
   cnn_keys: []
-  mlp_keys: 
-    - "four_way_goal_direction"
-    - "four_way_angle_alignment"
-    - "barrier_mask"
-    - "lava_mask"
+  mlp_keys: ["four_way_goal_direction", "four_way_angle_alignment", "barrier_mask", "lava_mask"]
 
 # ===== Model Configuration =====
 model:
@@ -177,12 +181,12 @@ model:
   use_mps: false
   
   # Core parameters
-  buffer_size: 100000
+  buffer_size: 100_000
   learning_starts: 100_000
   batch_size: 64
   exploration_fraction: 0.5
   exploration_final_eps: 0.05
-  gamma: 0.6
+  gamma: 0.9
   learning_rate: 0.00025
   train_freq: 8
   target_update_interval: 1000
@@ -212,7 +216,7 @@ evaluation:
     min_reward_threshold: -1.0       # Set to a very low value to disable early termination
     max_runtime: 0                   # 0 = no time limit (disable time-based termination)
     n_eval_episodes: 1               # Keep running evaluations
-    timeout: 15                      # seconds
+    timeout: 10                      # seconds
     disable_early_stopping: true     # New flag to explicitly disable early stopping
     
   # Final evaluation

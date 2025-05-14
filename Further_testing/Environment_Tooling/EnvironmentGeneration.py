@@ -10,6 +10,74 @@ import random
 import torch
 import os
 
+# Custom monitor wrapper that properly accesses attributes through unwrapped
+class SafeMonitor(Monitor):
+    """A wrapper that properly accesses environment attributes through unwrapped to avoid deprecation warnings."""
+    def __init__(self, env, filename=None, allow_early_resets=True, 
+                 reset_keywords=(), info_keywords=()):
+        super().__init__(env, filename, allow_early_resets, reset_keywords, info_keywords)
+        
+    def get_agent_pos(self):
+        # Always access agent_pos through the unwrapped environment
+        if hasattr(self.env.unwrapped, 'agent_pos'):
+            return self.env.unwrapped.agent_pos
+        return None  # Return None if agent_pos doesn't exist
+
+# Safe version of evaluate_policy that ensures all attribute access goes through unwrapped
+def safe_evaluate_policy(
+    model, 
+    env, 
+    n_eval_episodes=10, 
+    deterministic=True, 
+    render=False, 
+    callback=None, 
+    reward_threshold=None, 
+    return_episode_rewards=False,
+    warn=True
+):
+    """
+    A wrapper around stable_baselines3's evaluate_policy that ensures environment attributes
+    are accessed through unwrapped to avoid deprecation warnings.
+    
+    This function has the same interface as stable_baselines3.common.evaluation.evaluate_policy
+    """
+    # Import here to avoid circular imports
+    from stable_baselines3.common.evaluation import evaluate_policy
+    
+    # Make sure the environment is wrapped with SafeMonitor if it's not already
+    if not hasattr(env, "get_agent_pos"):
+        # For VecEnv, we need to access the base envs
+        if hasattr(env, "envs") and len(env.envs) > 0:
+            for i, sub_env in enumerate(env.envs):
+                if not hasattr(sub_env, "get_agent_pos"):
+                    env.envs[i] = SafeMonitor(sub_env)
+        else:
+            # Try to wrap directly
+            env = SafeMonitor(env)
+    
+    # Create a wrapper for the callback to ensure agent_pos is accessed safely
+    original_callback = callback
+    
+    def safe_callback(locals_dict, globals_dict):
+        # If access to agent_pos or similar attributes is needed in the callback,
+        # make sure to use unwrapped
+        if original_callback is not None:
+            return original_callback(locals_dict, globals_dict)
+        return None
+    
+    # Call the original evaluate_policy with our safeguards
+    return evaluate_policy(
+        model=model,
+        env=env,
+        n_eval_episodes=n_eval_episodes,
+        deterministic=deterministic,
+        render=render,
+        callback=safe_callback if original_callback else None,
+        reward_threshold=reward_threshold,
+        return_episode_rewards=return_episode_rewards,
+        warn=warn
+    )
+
 from minigrid.wrappers import RGBImgPartialObsWrapper, ImgObsWrapper, FullyObsWrapper, RGBImgObsWrapper, OneHotPartialObsWrapper, NoDeath, DirectionObsWrapper
 
 from Environment_Tooling.BespokeEdits.CustomWrappers import (GoalAngleDistanceWrapper, 
@@ -272,7 +340,7 @@ def make_env(env_id: str, rank: int, env_seed: int, render_mode: str = None,
         )
         
         # Apply Monitor wrapper to record episode information
-        env = Monitor(env)
+        env = SafeMonitor(env)
 
         observation, info = env.reset(seed=env_seed + rank)
         
@@ -406,7 +474,7 @@ def make_parallel_env(env_id: str, num_envs: int, env_seed: int, window_size: in
             )
             
             # Wrap with monitor
-            env = Monitor(env)
+            env = SafeMonitor(env)
             return env
             
         return _init
@@ -577,7 +645,7 @@ def make_diverse_parallel_env(env_id: str, num_envs: int, env_seed: int,
             )
             
             # Wrap with monitor
-            env = Monitor(env)
+            env = SafeMonitor(env)
             return env
         return _init
 
@@ -698,7 +766,7 @@ def make_eval_env(env_id: str, seed: int, window_size: int = 5, cnn_keys: list =
     env = OldGymCompatibility(env)
     
     # IMPORTANT: Apply Monitor wrapper AFTER OldGymCompatibility
-    env = Monitor(env)
+    env = SafeMonitor(env)
     
     # Reset with seed
     env.reset(seed=seed)

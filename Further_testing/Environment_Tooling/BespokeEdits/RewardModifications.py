@@ -80,8 +80,8 @@ class LavaStepCounterWrapper(gym.Wrapper):
     def _update_lava_status(self, obs):
         """Check if agent is currently standing in lava based on the observation."""
         # This assumes the MiniGrid convention where 'L' is lava
-        grid = self.env.grid
-        agent_pos = self.env.agent_pos
+        grid = self.env.unwrapped.grid
+        agent_pos = self.env.unwrapped.agent_pos
         
         if grid is not None and agent_pos is not None:
             cell = grid.get(*agent_pos)

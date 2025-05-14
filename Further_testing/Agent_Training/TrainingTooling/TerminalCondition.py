@@ -5,6 +5,9 @@ import threading
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 
+# Import our safe version of evaluate_policy
+from Environment_Tooling.EnvironmentGeneration import safe_evaluate_policy
+
 # Import performance tracker using relative import
 from .Tooling import PerformanceTracker
 
@@ -132,7 +135,7 @@ class CustomTerminationCallback(BaseCallback):
                         print(f"Evaluating on environment {i+1}/{len(self.eval_envs)}")
                     
                     # Run evaluation on this environment
-                    env_rewards, env_lengths = evaluate_policy(
+                    env_rewards, env_lengths = safe_evaluate_policy(
                         self.model,
                         eval_env,
                         n_eval_episodes=self.n_eval_episodes,
