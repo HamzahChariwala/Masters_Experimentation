@@ -84,4 +84,4 @@ if __name__ == "__main__":
     # Call the evaluation function with default values
     ENV_ID = "MiniGrid-LavaCrossingS11N5-v0"
     SEED = 42
-    single_env_evals(args.path, ENV_ID, SEED, False)
+    single_env_evals(args.path, ENV_ID, SEED, True)
