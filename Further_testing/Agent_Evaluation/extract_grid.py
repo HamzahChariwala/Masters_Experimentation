@@ -160,16 +160,22 @@ def extract_grid_from_env(env):
     
     return env_tensor
 
-def visualize_env_tensor(env_tensor, save_path="visualizations/env_layout.png"):
+def visualize_env_tensor(env_tensor, save_path="visualizations/env_layout.png", generate_plot=True):
     """
     Visualize the environment tensor using matplotlib.
     
     Args:
         env_tensor: A 2D numpy array with string cell types
         save_path: Path to save the visualization
+        generate_plot: If False, no matplotlib plot will be generated (default: True)
     """
     if env_tensor is None:
         print("Cannot visualize empty environment tensor")
+        return
+    
+    # If plot generation is disabled, skip the rest of the function
+    if not generate_plot:
+        print("Plot generation is disabled")
         return
     
     # Create a color map for cell types

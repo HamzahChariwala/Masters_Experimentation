@@ -140,7 +140,7 @@ def create_evaluation_env(env_settings: Dict[str, Any], seed: int = 42, override
     return env
 
 
-def extract_and_visualize_env(env, env_id=None, save_path="visualizations/env_layout.png"):
+def extract_and_visualize_env(env, env_id=None, save_path="visualizations/env_layout.png", generate_plot=True):
     """
     Extract grid layout from the environment and visualize it.
     
@@ -148,6 +148,7 @@ def extract_and_visualize_env(env, env_id=None, save_path="visualizations/env_la
         env: The MiniGrid environment
         env_id: Environment ID string (for reference)
         save_path: Path to save the visualization
+        generate_plot: If False, no matplotlib plot will be generated (default: True)
         
     Returns:
         np.ndarray: The extracted environment tensor
@@ -159,7 +160,7 @@ def extract_and_visualize_env(env, env_id=None, save_path="visualizations/env_la
     print_env_tensor(env_tensor)
     
     # Visualize the environment
-    visualize_env_tensor(env_tensor, save_path)
+    visualize_env_tensor(env_tensor, save_path, generate_plot)
     
     return env_tensor
 
