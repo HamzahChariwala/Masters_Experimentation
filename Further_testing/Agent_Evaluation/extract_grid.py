@@ -17,81 +17,81 @@ def extract_grid_from_env(env):
     obs, _ = env.reset()
     
     # Try to access grid directly through environment unwrapping
-    # grid = None
-    # current_env = env
-    # max_depth = 3
+    grid = None
+    current_env = env
+    max_depth = 3
     
-    # # Try to find the grid by unwrapping the environment
-    # for i in range(max_depth):
-    #     # Check current level
-    #     if hasattr(current_env, 'grid'):
-    #         grid = current_env.grid
-    #         break
+    # Try to find the grid by unwrapping the environment
+    for i in range(max_depth):
+        # Check current level
+        if hasattr(current_env, 'grid'):
+            grid = current_env.grid
+            break
             
-    #     # Try env attribute
-    #     if hasattr(current_env, 'env'):
-    #         current_env = current_env.env
-    #         if hasattr(current_env, 'grid'):
-    #             grid = current_env.grid
-    #             break
-    #     # Try unwrapped attribute
-    #     elif hasattr(current_env, 'unwrapped'):
-    #         current_env = current_env.unwrapped
-    #         if hasattr(current_env, 'grid'):
-    #             grid = current_env.grid
-    #             break
-    #     else:
-    #         break
+        # Try env attribute
+        if hasattr(current_env, 'env'):
+            current_env = current_env.env
+            if hasattr(current_env, 'grid'):
+                grid = current_env.grid
+                break
+        # Try unwrapped attribute
+        elif hasattr(current_env, 'unwrapped'):
+            current_env = current_env.unwrapped
+            if hasattr(current_env, 'grid'):
+                grid = current_env.grid
+                break
+        else:
+            break
     
-    # # If grid was found, create a tensor from it
-    # if grid is not None:
-    #     # Get grid dimensions
-    #     width, height = grid.width, grid.height
+    # If grid was found, create a tensor from it
+    if grid is not None:
+        # Get grid dimensions
+        width, height = grid.width, grid.height
         
-    #     # Create our output tensor
-    #     env_tensor = np.full((height, width), "floor", dtype=object)
+        # Create our output tensor
+        env_tensor = np.full((height, width), "floor", dtype=object)
         
-    #     # Fill the tensor based on the grid content
-    #     for y in range(height):
-    #         for x in range(width):
-    #             cell = grid.get(x, y)
+        # Fill the tensor based on the grid content
+        for y in range(height):
+            for x in range(width):
+                cell = grid.get(x, y)
                 
-    #             if cell is None:
-    #                 env_tensor[y, x] = "floor"
-    #             else:
-    #                 # Map cell types
-    #                 if hasattr(cell, 'type'):
-    #                     cell_type = cell.type
+                if cell is None:
+                    env_tensor[y, x] = "floor"
+                else:
+                    # Map cell types
+                    if hasattr(cell, 'type'):
+                        cell_type = cell.type
                         
-    #                     # Map based on string type
-    #                     if cell_type == "wall":
-    #                         env_tensor[y, x] = "wall"
-    #                     elif cell_type == "lava":
-    #                         env_tensor[y, x] = "lava"
-    #                     elif cell_type == "goal":
-    #                         env_tensor[y, x] = "goal"
-    #                     elif cell_type == "empty":
-    #                         env_tensor[y, x] = "floor"
-    #                     else:
-    #                         env_tensor[y, x] = "floor"
+                        # Map based on string type
+                        if cell_type == "wall":
+                            env_tensor[y, x] = "wall"
+                        elif cell_type == "lava":
+                            env_tensor[y, x] = "lava"
+                        elif cell_type == "goal":
+                            env_tensor[y, x] = "goal"
+                        elif cell_type == "empty":
+                            env_tensor[y, x] = "floor"
+                        else:
+                            env_tensor[y, x] = "floor"
                             
-    #                 # If object has a numeric 'type_idx' attribute
-    #                 elif hasattr(cell, 'type_idx'):
-    #                     type_idx = cell.type_idx
-    #                     if type_idx == 0:  # Usually empty/floor
-    #                         env_tensor[y, x] = "floor"
-    #                     elif type_idx == 1:  # Usually wall
-    #                         env_tensor[y, x] = "wall"
-    #                     elif type_idx == 2:  # Usually door
-    #                         env_tensor[y, x] = "wall"
-    #                     elif type_idx == 8:  # Usually goal
-    #                         env_tensor[y, x] = "goal"
-    #                     elif type_idx == 9:  # Usually lava
-    #                         env_tensor[y, x] = "lava"
-    #                     else:
-    #                         env_tensor[y, x] = "floor"
+                    # If object has a numeric 'type_idx' attribute
+                    elif hasattr(cell, 'type_idx'):
+                        type_idx = cell.type_idx
+                        if type_idx == 0:  # Usually empty/floor
+                            env_tensor[y, x] = "floor"
+                        elif type_idx == 1:  # Usually wall
+                            env_tensor[y, x] = "wall"
+                        elif type_idx == 2:  # Usually door
+                            env_tensor[y, x] = "wall"
+                        elif type_idx == 8:  # Usually goal
+                            env_tensor[y, x] = "goal"
+                        elif type_idx == 9:  # Usually lava
+                            env_tensor[y, x] = "lava"
+                        else:
+                            env_tensor[y, x] = "floor"
         
-    #     return env_tensor
+        return env_tensor
     
     # If grid wasn't accessible, check if new_image exists in log_data
     next_obs, reward, terminated, truncated, info = env.step(0)  # Take a no-op action
