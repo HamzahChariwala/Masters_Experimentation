@@ -51,23 +51,23 @@ echo "Starting command sequence..."
 # echo "Training standard2..."
 # python Agent_Training/train.py --path LavaTests/Standard2
 
-echo "Training 1 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/1_penalty
+# echo "Training 1 penalty..."
+# python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/1_penalty
 
-echo "Training 7 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/7_penalty
+# echo "Training 7 penalty..."
+# python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/7_penalty
 
-echo "Training 8 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/8_penalty
+# echo "Training 8 penalty..."
+# python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/8_penalty
 
-echo "Training 9 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/9_penalty
+# echo "Training 9 penalty..."
+# python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/9_penalty
 
-echo "Training 10 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/10_penalty
+# echo "Training 10 penalty..."
+# python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/10_penalty
 
-echo "Training 1 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Exponential/1_penalty
+# echo "Training 1 penalty..."
+# python Agent_Training/train.py --path LavaTests/EpisodeEnd/Exponential/1_penalty
 
 echo "Training 2 penalty..."
 python Agent_Training/train.py --path LavaTests/EpisodeEnd/Exponential/2_penalty
