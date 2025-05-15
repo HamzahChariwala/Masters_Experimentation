@@ -6,125 +6,35 @@ set -x
 
 echo "Starting command sequence..."
 
-# echo "Training 0.025 penalty..."
-# python Agent_Training/train.py --path LavaTests/NoDeath/0.025_penalty
+echo "Training default..."
+python Agent_Training/train.py --path SpawnTests/default
 
-# echo "Training 0.050 penalty..."
-# python Agent_Training/train.py --path LavaTests/NoDeath/0.050_penalty
+echo "Training biased..."
+python Agent_Training/train.py --path SpawnTests/biased
 
-# echo "Training 0.075 penalty..."
-# python Agent_Training/train.py --path LavaTests/NoDeath/0.075_penalty
+echo "Training uniform..."
+python Agent_Training/train.py --path SpawnTests/uniform
 
-# echo "Training 0.100 penalty..."
-# python Agent_Training/train.py --path LavaTests/NoDeath/0.100_penalty
+echo "Training size 3..."
+python Agent_Training/train.py --path InputTestsMLP/WindowSizing/size_3
 
-# echo "Training 0.125 penalty..."
-# python Agent_Training/train.py --path LavaTests/NoDeath/0.125_penalty
+echo "Training size 5..."
+python Agent_Training/train.py --path InputTestsMLP/WindowSizing/size_5
 
-# echo "Training 0.150 penalty..."
-# python Agent_Training/train.py --path LavaTests/NoDeath/0.150_penalty
+echo "Training size 7..."
+python Agent_Training/train.py --path InputTestsMLP/WindowSizing/size_7
 
-# echo "Training 0.175 penalty..."
-# python Agent_Training/train.py --path LavaTests/NoDeath/0.175_penalty
+echo "Training size 9..."
+python Agent_Training/train.py --path InputTestsMLP/WindowSizing/size_9
 
-# echo "Training 0.200 penalty..."
-# python Agent_Training/train.py --path LavaTests/NoDeath/0.200_penalty
+echo "Training size 11..."
+python Agent_Training/train.py --path InputTestsMLP/WindowSizing/size_11
 
-# echo "Training standard..."
-# python Agent_Training/train.py --path LavaTests/Standard
+echo "Training size 13..."
+python Agent_Training/train.py --path InputTestsMLP/WindowSizing/size_13
 
-# echo "Training 2 penalty..."
-# python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/2_penalty
+echo "Training size 15..."
+python Agent_Training/train.py --path InputTestsMLP/WindowSizing/size_15
 
-# echo "Training 3 penalty..."
-# python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/3_penalty
-
-# echo "Training 4 penalty..."
-# python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/4_penalty
-
-# echo "Training 5 penalty..."
-# python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/5_penalty
-
-# echo "Training 6 penalty..."
-# python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/6_penalty
-
-# echo "Training standard2..."
-# python Agent_Training/train.py --path LavaTests/Standard2
-
-# echo "Training 1 penalty..."
-# python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/1_penalty
-
-# echo "Training 7 penalty..."
-# python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/7_penalty
-
-# echo "Training 8 penalty..."
-# python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/8_penalty
-
-# echo "Training 9 penalty..."
-# python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/9_penalty
-
-# echo "Training 10 penalty..."
-# python Agent_Training/train.py --path LavaTests/EpisodeEnd/Linear/10_penalty
-
-# echo "Training 1 penalty..."
-# python Agent_Training/train.py --path LavaTests/EpisodeEnd/Exponential/1_penalty
-
-echo "Training 2 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Exponential/2_penalty
-
-echo "Training 3 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Exponential/3_penalty
-
-echo "Training 4 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Exponential/4_penalty
-
-echo "Training 5 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Exponential/5_penalty
-
-echo "Training 6 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Exponential/6_penalty
-
-echo "Training 7 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Exponential/7_penalty
-
-echo "Training 8 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Exponential/8_penalty
-
-echo "Training 9 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Exponential/9_penalty
-
-echo "Training 10 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Exponential/10_penalty
-
-echo "Training 1 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Sigmoid/1_penalty
-
-echo "Training 2 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Sigmoid/2_penalty
-
-echo "Training 3 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Sigmoid/3_penalty
-
-echo "Training 4 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Sigmoid/4_penalty
-
-echo "Training 5 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Sigmoid/5_penalty
-
-echo "Training 6 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Sigmoid/6_penalty
-
-echo "Training 7 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Sigmoid/7_penalty
-
-echo "Training 8 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Sigmoid/8_penalty
-
-echo "Training 9 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Sigmoid/9_penalty
-
-echo "Training 10 penalty..."
-python Agent_Training/train.py --path LavaTests/EpisodeEnd/Sigmoid/10_penalty
-
-echo "Training standard3..."
-python Agent_Training/train.py --path LavaTests/Standard3
+echo "Tuning hyperparameters..."
+python Agent_Training/hyperparam.py --base-config Agent_Storage/Hyperparameters/example_config.yaml --tuning-config Agent_Storage/Hyperparameters/optuna_config.yaml --method bayesian --samples 20
