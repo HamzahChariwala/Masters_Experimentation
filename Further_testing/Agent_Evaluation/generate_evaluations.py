@@ -9,6 +9,11 @@ import signal
 # Add the root directory to sys.path to ensure proper imports
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, project_root)
+print(f"Added to Python path: {project_root}")
+
+# Import from Behaviour_Specification
+from Behaviour_Specification.generate_nodes import generate_state_nodes, filter_state_nodes
+from Behaviour_Specification.state_class import State
 
 # Import from our import_vars.py file
 from Agent_Evaluation.import_vars import (
@@ -53,6 +58,34 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
             print("Extracting environment layout...")
             env_tensor = extract_and_visualize_env(env, env_id=env_id, generate_plot=generate_plot)
             
+            # Generate state nodes from the environment tensor
+            print("\n===== Generating State Nodes =====")
+            height, width = env_tensor.shape
+            orientations = [0, 1, 2, 3]  # All possible orientations
+            
+            print(f"Grid dimensions: {width}x{height}")
+            print(f"Total number of possible states: {width * height * len(orientations)}")
+            
+            # Generate the nodes
+            nodes = generate_state_nodes(env_tensor, (width, height), orientations)
+            
+            # Count nodes by type
+            type_counts = {}
+            for state_tuple, state_obj in nodes.items():
+                state_type = state_obj.type
+                type_counts[state_type] = type_counts.get(state_type, 0) + 1
+            
+            print(f"Generated {len(nodes)} state nodes")
+            print("State types distribution:")
+            for state_type, count in type_counts.items():
+                print(f"  - {state_type}: {count} states")
+            
+            # Filter to include only nodes with at least one standard neighbor
+            valid_nodes = filter_state_nodes(nodes, lambda s: len(s.valid_standard) > 0)
+            print(f"Nodes with valid standard neighbors: {len(valid_nodes)} states")
+            
+            print("===== Node Generation Complete =====\n")
+            
             # Load agent
             print("Loading agent...")
             agent = load_agent(agent_path, config)
@@ -75,13 +108,19 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
 
 
 if __name__ == "__main__":
-    # Parse command line arguments - only path is configurable via command line
+    # Parse command line arguments
     parser = argparse.ArgumentParser(description="Generate evaluations for trained agents")
-    parser.add_argument("--path", type=str, required=True, 
+    parser.add_argument("--path", type=str, 
                         help="Path to the agent folder in Agent_Storage")
+    parser.add_argument("--no-plot", action="store_true", 
+                        help="Disable matplotlib plot generation (useful for headless environments)")
     args = parser.parse_args()
     
+    # Path is required
+    if not args.path:
+        parser.error("the --path argument is required")
+        
     # Call the evaluation function with default values
     ENV_ID = "MiniGrid-LavaCrossingS11N5-v0"
     SEED = 42
-    single_env_evals(args.path, ENV_ID, SEED, True)
+    single_env_evals(args.path, ENV_ID, SEED, not args.no_plot)
