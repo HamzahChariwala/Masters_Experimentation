@@ -57,7 +57,26 @@ class HyperparameterTuner:
         output_dir = os.path.join("Agent_Storage", "HyperparamTuning", f"run_{run_id}_{timestamp}")
         os.makedirs(output_dir, exist_ok=True)
         
-        config = self._update_config(params)
+        # MODIFIED: Only update the specified parameters, leave everything else from base config
+        config = copy.deepcopy(self.base_config)
+        
+        # Only apply the specific parameter changes from the tuning config
+        for param_path, value in params.items():
+            # Split the parameter path (e.g., "model.learning_rate")
+            path_parts = param_path.split('.')
+            
+            # Navigate to the correct part of the config
+            config_section = config
+            for part in path_parts[:-1]:
+                if part not in config_section:
+                    config_section[part] = {}
+                config_section = config_section[part]
+            
+            # Update only this specific parameter
+            config_section[path_parts[-1]] = value
+            
+            # Print what we're changing for clarity
+            print(f"Tuning parameter: {param_path} = {value}")
         
         # Save config
         with open(os.path.join(output_dir, f"config_{run_id}.yaml"), 'w') as f:
@@ -261,20 +280,59 @@ class HyperparameterTuner:
             self.results.append(result)
             return result['mean_reward']
         
-        # Run optimization
+        # Create a study and optimize
+        print("\nStarting Bayesian optimization with Optuna")
+        print(f"Number of trials: {num_trials}")
+        print(f"Parameter space: {len(param_space)} parameters")
+        for name, config in param_space.items():
+            if isinstance(config, list):
+                print(f"  {name}: Categorical with {len(config)} options")
+            elif isinstance(config, dict):
+                if config.get('distribution') == 'uniform':
+                    print(f"  {name}: Uniform({config['min']}, {config['max']})")
+                elif config.get('distribution') == 'loguniform':
+                    print(f"  {name}: LogUniform({config['min']}, {config['max']})")
+                elif config.get('distribution') == 'int_uniform':
+                    print(f"  {name}: IntUniform({config['min']}, {config['max']})")
+        
         study = optuna.create_study(direction='maximize')
         study.optimize(objective, n_trials=num_trials)
         
-        # Save results
+        # Save all results to a consolidated file
         self._save_results("bayesian_optimization")
         
-        # Save study object
+        # Save the Optuna study
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         results_dir = os.path.join("Agent_Storage", "HyperparamTuning", f"results_{timestamp}")
         os.makedirs(results_dir, exist_ok=True)
+        
+        # Print the best trial from Optuna's perspective
+        print("\n====== BEST TRIAL (OPTUNA) ======")
+        print(f"Value: {study.best_value:.3f}")
+        print("Parameters:")
+        for key, value in study.best_params.items():
+            print(f"  {key}: {value}")
+        
+        # Save the complete study object
         with open(os.path.join(results_dir, "optuna_study.pkl"), 'wb') as f:
             import pickle
             pickle.dump(study, f)
+        
+        # Also save a more readable summary
+        with open(os.path.join(results_dir, "optuna_summary.txt"), 'w') as f:
+            f.write(f"Optuna Study Summary\n")
+            f.write(f"Best trial: #{study.best_trial.number}\n")
+            f.write(f"Best value: {study.best_value:.6f}\n\n")
+            f.write("Best parameters:\n")
+            for key, value in study.best_params.items():
+                f.write(f"  {key}: {value}\n")
+            
+            f.write("\nAll trials:\n")
+            for trial in study.trials:
+                f.write(f"Trial #{trial.number}: value={trial.value:.6f}\n")
+                for key, value in trial.params.items():
+                    f.write(f"  {key}: {value}\n")
+                f.write("\n")
         
         return self.results
     
@@ -307,9 +365,9 @@ class HyperparameterTuner:
 def main():
     parser = argparse.ArgumentParser(description='Hyperparameter tuning for agent training')
     parser.add_argument('--base-config', type=str, required=True, 
-                        help='Path to base configuration YAML file')
+                        help='Path to base configuration YAML file (e.g., Agent_Storage/Hyperparameters/example_config.yaml)')
     parser.add_argument('--tuning-config', type=str, required=True, 
-                        help='Path to tuning configuration YAML file')
+                        help='Path to tuning configuration YAML file with parameters to optimize')
     parser.add_argument('--method', type=str, choices=['grid', 'random', 'bayesian'], 
                         default='grid', help='Search method (default: grid)')
     parser.add_argument('--samples', type=int, default=10, 
@@ -318,6 +376,15 @@ def main():
                         help='Number of parallel runs (default: 1)')
     
     args = parser.parse_args()
+    
+    print(f"\n====== HYPERPARAMETER TUNING ======")
+    print(f"Base config: {args.base_config}")
+    print(f"Tuning config: {args.tuning_config}")
+    print(f"Method: {args.method}")
+    print(f"Samples: {args.samples}")
+    print(f"Parallel runs: {args.parallel}")
+    print(f"====================================\n")
+    
     tuner = HyperparameterTuner(args.base_config, args.tuning_config)
     
     if args.method == 'grid':
