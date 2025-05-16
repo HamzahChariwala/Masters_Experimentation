@@ -34,9 +34,12 @@ def load_config(agent_folder: str) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Configuration dictionary
     """
-    # Construct path to the agent's config file in Agent_Storage
-    agent_path = os.path.join("Agent_Storage", agent_folder)
-    config_path = os.path.join(agent_path, "config.yaml")
+    # Check if the path already includes Agent_Storage prefix
+    if agent_folder.startswith("Agent_Storage/"):
+        config_path = os.path.join(agent_folder, "config.yaml")
+    else:
+        # Construct path to the agent's config file in Agent_Storage
+        config_path = os.path.join("Agent_Storage", agent_folder, "config.yaml")
     
     # Check if file exists
     if not os.path.exists(config_path):
@@ -177,7 +180,10 @@ def load_agent(agent_folder: str, config: Dict[str, Any]) -> Any:
         Any: The loaded agent model
     """
     # Get agent path
-    agent_path = os.path.join("Agent_Storage", agent_folder, "agent.zip")
+    if agent_folder.startswith("Agent_Storage/"):
+        agent_path = os.path.join(agent_folder, "agent.zip")
+    else:
+        agent_path = os.path.join("Agent_Storage", agent_folder, "agent.zip")
     
     # Check if agent exists
     if not os.path.exists(agent_path):

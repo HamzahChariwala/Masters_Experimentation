@@ -5,6 +5,13 @@ class State:
     """
     Represents a state in an environment with position, orientation, type, and neighbors.
     
+    IMPORTANT NOTE ABOUT COORDINATE SYSTEM:
+    - State tuples are defined as (x, y, orientation) where:
+      * x: horizontal axis (increases to the right)
+      * y: vertical axis (increases downward)
+      * orientation: 0=up, 1=right, 2=down, 3=left
+    - Environment tensor is accessed as tensor[y, x] because NumPy uses [row, column] indexing
+    
     Attributes:
         state (Tuple[int, int, int]): Tuple of (x, y, orientation) representing the state
         type (str): Type of the state (e.g., "floor", "wall", "lava")
@@ -21,7 +28,7 @@ class State:
     movement_vectors = {
         0: [(0, -1), (1, -1), (-1, -1)],   # Up: forward=up, diag-left=up-right, diag-right=up-left
         1: [(1, 0), (1, -1), (1, 1)],      # Right: forward=right, diag-left=up-right, diag-right=down-right
-        2: [(0, 1), (-1, 1), (1, 1)],      # Down: forward=down, diag-left=down-left, diag-right=down-right
+        2: [(0, 1), (1, 1), (-1, 1)],      # Down: forward=down, diag-left=down-right, diag-right=down-left
         3: [(-1, 0), (-1, -1), (-1, 1)]    # Left: forward=left, diag-left=up-left, diag-right=down-left
     }
     
@@ -69,7 +76,7 @@ class State:
         
         Args:
             env_tensor: Numpy array representing the environment.
-                        Access as env_tensor[x, y] to get the cell type at position (x, y).
+                        Access as env_tensor[y, x] to get the cell type at position (x, y).
         
         Returns:
             The assigned state type as a string
@@ -77,9 +84,10 @@ class State:
         x, y, _ = self.state
         
         # Check if coordinates are within bounds
-        if (0 <= x < env_tensor.shape[0] and 0 <= y < env_tensor.shape[1]):
+        if (0 <= x < env_tensor.shape[1] and 0 <= y < env_tensor.shape[0]):
             # Get the type from the tensor
-            self.type = env_tensor[x, y]
+            # IMPORTANT: The indices need to be [y, x] because numpy uses [row, column]
+            self.type = env_tensor[y, x]
         else:
             # If coordinates are out of bounds, mark as invalid
             self.type = "invalid"
@@ -129,9 +137,10 @@ class State:
         
         # Check each potential move for validity of coordinates only
         for new_x, new_y, new_orientation in potential_moves:
-            # Check if the coordinates are within the bounds of the environment tensor
-            if (0 <= new_x < env_tensor.shape[0] and 
-                0 <= new_y < env_tensor.shape[1]):
+            # Check if coordinates are within bounds, using correct dimensions
+            # env_tensor shape is (height, width) with indices [y, x]
+            if (0 <= new_x < env_tensor.shape[1] and 
+                0 <= new_y < env_tensor.shape[0]):
                 
                 # Add to neighbors if coordinates are valid, regardless of type
                 neighbors.append((new_x, new_y, new_orientation))
@@ -168,7 +177,21 @@ class State:
             return "unknown"
     
     # Helper to check if a diagonal move is safe for conservative agent
-    def is_diagonal_safe(self, current_state, neighbor_state, orientation, move_type, env_tensor):
+    def is_diagonal_safe(self, current_state, neighbor_state, orientation, move_type, env_tensor, debug=False):
+        """
+        Check if a diagonal move is safe for the conservative agent.
+        
+        Args:
+            current_state: Current state tuple (x, y, orientation)
+            neighbor_state: Neighbor state tuple to check (x, y, orientation)
+            orientation: Current orientation (0-3)
+            move_type: Type of move ("diagonal-left" or "diagonal-right")
+            env_tensor: Environment tensor with cell types
+            debug: Whether to print debug information (default: False)
+            
+        Returns:
+            bool: True if the move is safe, False if unsafe (near lava)
+        """
         cx, cy, _ = current_state
         
         # Get the vectors for the current orientation
@@ -191,15 +214,31 @@ class State:
             # Not a diagonal move
             return True
         
+        # Print debugging information if debug is enabled
+        if debug:
+            print(f"DIAGONAL SAFETY CHECK: {move_type} move from {current_state} to {neighbor_state}")
+            print(f"  Checking cells: {cells_to_check}")
+        
         # Check each cell for lava
         for cell_x, cell_y in cells_to_check:
-            if (0 <= cell_x < env_tensor.shape[0] and 0 <= cell_y < env_tensor.shape[1]):
-                if env_tensor[cell_x, cell_y] == "lava":
+            # Make sure we check within the environment bounds
+            if (0 <= cell_x < env_tensor.shape[1] and 0 <= cell_y < env_tensor.shape[0]):
+                # IMPORTANT: Environment tensor is indexed as [y, x]
+                cell_type = env_tensor[cell_y, cell_x]
+                
+                if debug:
+                    print(f"  Cell ({cell_x}, {cell_y}) has type: {cell_type}")
+                
+                if cell_type == "lava":
+                    if debug:
+                        print(f"  UNSAFE: Found lava at ({cell_x}, {cell_y})")
                     return False  # Not safe if any adjacent cell is lava
         
+        if debug:
+            print(f"  SAFE: No lava found in adjacent cells")
         return True  # Safe if no adjacent cells are lava
     
-    def generate_valid_neighbors(self, env_tensor: np.ndarray, valid_types: Dict[str, List[str]] = None) -> Dict[str, List[Tuple[int, int, int]]]:
+    def generate_valid_neighbors(self, env_tensor: np.ndarray, valid_types: Dict[str, List[str]] = None, debug: bool = False) -> Dict[str, List[Tuple[int, int, int]]]:
         """
         Generate different sets of valid neighbors from feasible neighbors using different criteria.
         
@@ -213,6 +252,7 @@ class State:
             env_tensor: 3D numpy array representing the environment.
             valid_types: Optional dictionary to override default valid types.
                         If not provided, defaults are used.
+            debug: Whether to print debug information (default: False)
         
         Returns:
             Dictionary of neighbor lists for each category
@@ -241,20 +281,21 @@ class State:
         
         # Process each feasible neighbor
         for neighbor_state in self.feasible_neighbors:
-            x, y, orientation = neighbor_state
+            nx, ny, orientation = neighbor_state
             
             # Skip if out of bounds
-            if not (0 <= x < env_tensor.shape[0] and 0 <= y < env_tensor.shape[1]):
+            if not (0 <= nx < env_tensor.shape[1] and 0 <= ny < env_tensor.shape[0]):
                 continue
                 
             # Get the type of this neighbor from the environment tensor
-            neighbor_type = env_tensor[x, y]
+            # IMPORTANT: Access as env_tensor[y, x] since numpy uses [row, column]
+            neighbor_type = env_tensor[ny, nx]
             
             # DANGEROUS: Includes lava cells
             if neighbor_type in valid_types["dangerous"]:
                 result["dangerous"].append(neighbor_state)
             
-            # STANDARD: Only includes floor cells (no lava)
+            # STANDARD: Only includes floor and goal cells (no lava)
             if neighbor_type in valid_types["standard"]:
                 result["standard"].append(neighbor_state)
             
@@ -268,7 +309,7 @@ class State:
                     result["conservative"].append(neighbor_state)
                 # For diagonal moves, check if they're safe
                 elif move_type in ["diagonal-left", "diagonal-right"]:
-                    if self.is_diagonal_safe(self.state, neighbor_state, current_orientation, move_type, env_tensor):
+                    if self.is_diagonal_safe(self.state, neighbor_state, current_orientation, move_type, env_tensor, debug):
                         result["conservative"].append(neighbor_state)
         
         # Store results in the object
@@ -281,13 +322,14 @@ class State:
         
         return result
     
-    def populate_object(self, env_tensor: np.ndarray, valid_types: Dict[str, List[str]] = None) -> None:
+    def populate_object(self, env_tensor: np.ndarray, valid_types: Dict[str, List[str]] = None, debug: bool = False) -> None:
         """
         Populate all the object's information by running the necessary methods in sequence.
         
         Args:
             env_tensor: 3D numpy array representing the environment.
             valid_types: Dictionary of valid types for different neighbor categories.
+            debug: Whether to print debug information (default: False)
         """
         # First, assign the state type
         self.assign_state_type(env_tensor)
@@ -296,6 +338,6 @@ class State:
         self.generate_feasible_neighbors(env_tensor)
         
         # Generate valid neighbors in different categories
-        self.generate_valid_neighbors(env_tensor, valid_types)
+        self.generate_valid_neighbors(env_tensor, valid_types, debug)
         
         # Additional population methods can be added here as needed
