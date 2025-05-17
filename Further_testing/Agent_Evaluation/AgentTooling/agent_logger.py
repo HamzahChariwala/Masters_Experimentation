@@ -555,8 +555,8 @@ class AgentLogger:
         # Format: {"environment": {"layout": [...], "1,1,0": {...}, ...}}
         output_data = {
             "environment": {
-                # Ensure layout is in correct row-major format to match Dijkstra logs
-                "layout": convert_numpy_to_list(self.env_tensor)
+                # Transpose the env_tensor before converting to list
+                "layout": convert_numpy_to_list(self.env_tensor.T)
             }
         }
         
