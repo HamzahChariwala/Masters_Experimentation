@@ -238,6 +238,41 @@ class State:
             print(f"  SAFE: No lava found in adjacent cells")
         return True  # Safe if no adjacent cells are lava
     
+    def get_adjacent_cells_for_diagonal(self, current_state, move_type):
+        """
+        Get the adjacent cells that we check when evaluating if a diagonal move is safe.
+        
+        Args:
+            current_state: Current state tuple (x, y, orientation)
+            move_type: Type of move ("diagonal-left" or "diagonal-right")
+            
+        Returns:
+            List[Tuple[int, int]]: List of (x, y) coordinates for cells adjacent to the diagonal move
+        """
+        cx, cy, orientation = current_state
+        
+        # Get the vectors for the current orientation
+        forward, diag_left, diag_right = self.movement_vectors[orientation]
+        
+        # Check the appropriate cells based on move type
+        if move_type == "diagonal-left":
+            # For diagonal-left, return forward and left cells
+            cells = [
+                (cx + forward[0], cy + forward[1]),  # Forward cell
+                (cx + self.left_vectors[orientation][0], cy + self.left_vectors[orientation][1])  # Left cell
+            ]
+        elif move_type == "diagonal-right":
+            # For diagonal-right, return forward and right cells
+            cells = [
+                (cx + forward[0], cy + forward[1]),  # Forward cell
+                (cx + self.right_vectors[orientation][0], cy + self.right_vectors[orientation][1])  # Right cell
+            ]
+        else:
+            # Not a diagonal move, return empty list
+            cells = []
+        
+        return cells
+    
     def generate_valid_neighbors(self, env_tensor: np.ndarray, valid_types: Dict[str, List[str]] = None, debug: bool = False) -> Dict[str, List[Tuple[int, int, int]]]:
         """
         Generate different sets of valid neighbors from feasible neighbors using different criteria.

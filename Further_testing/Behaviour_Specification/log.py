@@ -334,6 +334,15 @@ def export_path_data_to_json(
     # All possible orientations
     orientations = [0, 1, 2, 3]  # Up, right, down, left
     
+    # Define action mapping for next steps
+    action_mapping = {
+        "rotate_left": 0,   # Rotation anti-clockwise
+        "rotate_right": 1,  # Rotation clockwise
+        "forward": 2,       # Move forward
+        "diagonal_left": 3, # Move diagonally left
+        "diagonal_right": 4 # Move diagonally right
+    }
+    
     # Process each valid state
     for x in range(1, width - 1):
         for y in range(1, height - 1):
@@ -366,9 +375,19 @@ def export_path_data_to_json(
                     
                     # Initialize with default values (not reachable)
                     path_data = {
-                        "path": [],           # States visited on optimal path
-                        "reachable": False,   # Whether goal is reachable
-                        "cost": 0             # Cost of optimal path (0 if not reachable)
+                        "path_taken": [],        # Renamed from "path" to "path_taken"
+                        "next_step": {           # New field for next step information
+                            "action": None,      # Action type (0-4)
+                            "target_state": None, # Next state
+                            "type": None,        # Type of next state cell
+                            "risky_diagonal": False # Whether diagonal move is risky (near lava)
+                        },
+                        "summary_stats": {       # New field for summary statistics
+                            "path_cost": 0,      # Cost of optimal path
+                            "path_length": 0,    # Number of steps in path
+                            "lava_steps": 0,     # Steps that traverse lava cells
+                            "reachable": False   # Whether goal is reachable
+                        }
                     }
                     
                     try:
@@ -383,31 +402,106 @@ def export_path_data_to_json(
                             path_indices = paths[target_idx]
                             
                             if path_indices:  # If path is not empty
-                                # Calculate the path cost
+                                # Calculate the path cost and populate path states
                                 path_cost = 0
                                 visited_states = []
+                                lava_steps = 0
                                 
                                 # First state (start)
                                 node_data = graph.nodes()[path_indices[0]]
-                                visited_states.append(f"{node_data.state[0]},{node_data.state[1]},{node_data.state[2]}")
+                                first_state = f"{node_data.state[0]},{node_data.state[1]},{node_data.state[2]}"
+                                visited_states.append(first_state)
                                 
-                                # Calculate cost and extract states
+                                # Calculate cost, extract states, and count lava steps
                                 for i in range(len(path_indices) - 1):
                                     src_idx = path_indices[i]
                                     dst_idx = path_indices[i + 1]
                                     
                                     # Get edge weight and add to cost
                                     edge_weight = graph.get_edge_data(src_idx, dst_idx)
-                                    path_cost += edge_weight if edge_weight is not None else 1
+                                    step_cost = edge_weight if edge_weight is not None else 1
+                                    path_cost += step_cost
                                     
-                                    # Get destination node data and add to visited states
-                                    node_data = graph.nodes()[dst_idx]
-                                    visited_states.append(f"{node_data.state[0]},{node_data.state[1]},{node_data.state[2]}")
+                                    # Get destination node data
+                                    dst_node_data = graph.nodes()[dst_idx]
+                                    dst_state = dst_node_data.state
+                                    dst_x, dst_y, dst_orientation = dst_state
+                                    
+                                    # Check if this step is on lava
+                                    if env_tensor[dst_y, dst_x] == "lava":
+                                        lava_steps += 1
+                                    
+                                    # Add to visited states
+                                    visited_states.append(f"{dst_x},{dst_y},{dst_orientation}")
                                 
                                 # Update path data
-                                path_data["path"] = visited_states
-                                path_data["reachable"] = True
-                                path_data["cost"] = path_cost
+                                path_data["path_taken"] = visited_states
+                                path_data["summary_stats"]["path_cost"] = path_cost
+                                path_data["summary_stats"]["path_length"] = len(visited_states) - 1  # Subtract 1 since first state isn't a step
+                                path_data["summary_stats"]["lava_steps"] = lava_steps
+                                path_data["summary_stats"]["reachable"] = True
+                                
+                                # Get information for next_step if path has at least one step
+                                if len(path_indices) > 1:
+                                    # Source and destination for first step
+                                    src_idx = path_indices[0]
+                                    dst_idx = path_indices[1]
+                                    
+                                    src_node_data = graph.nodes()[src_idx]
+                                    dst_node_data = graph.nodes()[dst_idx]
+                                    
+                                    src_state = src_node_data.state
+                                    dst_state = dst_node_data.state
+                                    
+                                    # Format the target state as a string
+                                    dst_x, dst_y, dst_orientation = dst_state
+                                    target_state_str = f"{dst_x},{dst_y},{dst_orientation}"
+                                    
+                                    # Determine action type by comparing source and destination
+                                    sx, sy, sori = src_state
+                                    dx, dy, dori = dst_state
+                                    
+                                    # Check for rotation (orientation change without position change)
+                                    if (sx, sy) == (dx, dy) and sori != dori:
+                                        # Determine rotation direction
+                                        if (sori + 1) % 4 == dori:
+                                            action = action_mapping["rotate_right"]
+                                        else:
+                                            action = action_mapping["rotate_left"]
+                                    else:
+                                        # Position change - determine move type
+                                        node = nodes[src_state]
+                                        move_type = node.identify_move_type(src_state, dst_state, sori)
+                                        
+                                        if move_type == "forward":
+                                            action = action_mapping["forward"]
+                                        elif move_type == "diagonal-left":
+                                            action = action_mapping["diagonal_left"]
+                                        elif move_type == "diagonal-right":
+                                            action = action_mapping["diagonal_right"]
+                                        else:
+                                            # Default to forward for any other move types
+                                            action = action_mapping["forward"]
+                                    
+                                    # Check if diagonal move is risky (near lava)
+                                    risky_diagonal = False
+                                    if action in [action_mapping["diagonal_left"], action_mapping["diagonal_right"]]:
+                                        # For diagonals, check if any adjacent cells are lava
+                                        move_type = "diagonal-left" if action == action_mapping["diagonal_left"] else "diagonal-right"
+                                        adjacent_cells = node.get_adjacent_cells_for_diagonal(src_state, move_type)
+                                        
+                                        # Check each adjacent cell for lava
+                                        for adj_x, adj_y in adjacent_cells:
+                                            if (0 <= adj_y < height and 0 <= adj_x < width and 
+                                                env_tensor[adj_y, adj_x] == "lava"):
+                                                risky_diagonal = True
+                                                break
+                                    
+                                    # Update next_step information
+                                    path_data["next_step"]["action"] = action
+                                    path_data["next_step"]["target_state"] = target_state_str
+                                    path_data["next_step"]["type"] = env_tensor[dst_y, dst_x]
+                                    path_data["next_step"]["risky_diagonal"] = risky_diagonal
                     except Exception as e:
                         # Just leave as default values if there was an error
                         print(f"  Error computing path for {state_key}, {graph_name}: {e}")
