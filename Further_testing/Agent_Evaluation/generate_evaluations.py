@@ -49,17 +49,9 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
     print(f"Debug output: {'enabled' if debug else 'disabled'}")
     
     try:
-        # Handle agent_path - if it doesn't start with Agent_Storage and isn't absolute, prepend Agent_Storage
-        if not os.path.isabs(agent_path) and not agent_path.startswith("Agent_Storage"):
-            agent_path = os.path.join("Agent_Storage", agent_path)
-            print(f"Adjusted agent path to: {agent_path}")
-        
-        # Make sure agent_path is an absolute path
-        if not os.path.isabs(agent_path):
-            # If it's relative, convert it to absolute
-            agent_path = os.path.abspath(agent_path)
-            
-        print(f"Full agent path: {agent_path}")
+        # We'll let load_config handle the path resolution
+        # Just capture the original path for reference
+        original_agent_path = agent_path
         
         # Load config from agent folder
         config = load_config(agent_path)
@@ -100,12 +92,12 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
                 )
                 print(f"Path data exported to: {output_path}")
             
-            # Load agent
+            # Load agent - using the original path since config loading was successful
             print("Loading agent...")
-            agent = load_agent(agent_path, config)
+            agent = load_agent(original_agent_path, config)
             
             # Run agent evaluation and log its behavior
-            print(f"Evaluating agent in {agent_path} for {DEFAULT_NUM_EPISODES} episodes")
+            print(f"Evaluating agent in {original_agent_path} for {DEFAULT_NUM_EPISODES} episodes")
             agent_log_path = run_agent_evaluation(
                 agent=agent,
                 env=env,

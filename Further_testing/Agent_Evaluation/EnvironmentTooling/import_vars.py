@@ -34,9 +34,16 @@ def load_config(agent_folder: str) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Configuration dictionary
     """
+    original_path = agent_folder
+    
     # If it's an absolute path, use it directly
     if os.path.isabs(agent_folder):
         config_path = os.path.join(agent_folder, "config.yaml")
+    # Handle ../ in path, which indicates going up a directory
+    elif agent_folder.startswith("../"):
+        # Convert to absolute path to resolve the ../ properly
+        abs_path = os.path.abspath(agent_folder)
+        config_path = os.path.join(abs_path, "config.yaml")
     # Check if the path already includes Agent_Storage prefix
     elif agent_folder.startswith("Agent_Storage/"):
         config_path = os.path.join(agent_folder, "config.yaml")
@@ -46,8 +53,21 @@ def load_config(agent_folder: str) -> Dict[str, Any]:
     
     # Check if file exists
     if not os.path.exists(config_path):
-        raise FileNotFoundError(f"Config file not found at {config_path}")
+        print(f"Error: Config file not found at {config_path}")
+        # Try alternate approach - if we're in Agent_Evaluation, we might need to go up a level
+        if os.path.basename(os.getcwd()) == "Agent_Evaluation":
+            alt_path = os.path.join("..", original_path, "config.yaml")
+            alt_abs_path = os.path.abspath(alt_path)
+            print(f"Trying alternate path: {alt_abs_path}")
+            if os.path.exists(alt_abs_path):
+                config_path = alt_abs_path
+                print(f"Using alternate path: {config_path}")
+            else:
+                raise FileNotFoundError(f"Config file not found at {config_path} or {alt_abs_path}")
+        else:
+            raise FileNotFoundError(f"Config file not found at {config_path}")
         
+    print(f"Loading config from: {config_path}")
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
         
@@ -201,9 +221,16 @@ def load_agent(agent_folder: str, config: Dict[str, Any]) -> Any:
     Returns:
         Any: The loaded agent model
     """
+    original_path = agent_folder
+    
     # Get agent path
     if os.path.isabs(agent_folder):
         agent_path = os.path.join(agent_folder, "agent.zip")
+    # Handle ../ in path, which indicates going up a directory
+    elif agent_folder.startswith("../"):
+        # Convert to absolute path to resolve the ../ properly
+        abs_path = os.path.abspath(agent_folder)
+        agent_path = os.path.join(abs_path, "agent.zip")
     elif agent_folder.startswith("Agent_Storage/"):
         agent_path = os.path.join(agent_folder, "agent.zip")
     else:
@@ -211,7 +238,21 @@ def load_agent(agent_folder: str, config: Dict[str, Any]) -> Any:
     
     # Check if agent exists
     if not os.path.exists(agent_path):
-        raise FileNotFoundError(f"Agent not found at {agent_path}")
+        print(f"Error: Agent not found at {agent_path}")
+        # Try alternate approach - if we're in Agent_Evaluation, we might need to go up a level
+        if os.path.basename(os.getcwd()) == "Agent_Evaluation":
+            alt_path = os.path.join("..", original_path, "agent.zip")
+            alt_abs_path = os.path.abspath(alt_path)
+            print(f"Trying alternate path: {alt_abs_path}")
+            if os.path.exists(alt_abs_path):
+                agent_path = alt_abs_path
+                print(f"Using alternate path: {agent_path}")
+            else:
+                raise FileNotFoundError(f"Agent not found at {agent_path} or {alt_abs_path}")
+        else:
+            raise FileNotFoundError(f"Agent not found at {agent_path}")
+    
+    print(f"Loading agent from: {agent_path}")
     
     # Determine model type from config
     model_config = config.get('model', {})
