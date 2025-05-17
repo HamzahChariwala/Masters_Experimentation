@@ -26,6 +26,9 @@ from Agent_Evaluation.EnvironmentTooling.import_vars import (
     DEFAULT_NUM_EPISODES
 )
 
+# Import our agent logging functionality
+from Agent_Evaluation.AgentTooling.agent_logger import run_agent_evaluation
+
 
 def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: bool = True, debug: bool = False, force_dijkstra: bool = False):
     """
@@ -101,10 +104,17 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
             print("Loading agent...")
             agent = load_agent(agent_path, config)
             
-            # Here you would add the code to evaluate the agent and generate visualizations/metrics
-            print(f"Ready to evaluate agent in {agent_path} for {DEFAULT_NUM_EPISODES} episodes")
-            print(f"Using environment ID: {env_settings['env_id']}")
-            print(f"Using seed: {seed}")
+            # Run agent evaluation and log its behavior
+            print(f"Evaluating agent in {agent_path} for {DEFAULT_NUM_EPISODES} episodes")
+            agent_log_path = run_agent_evaluation(
+                agent=agent,
+                env=env,
+                env_id=env_id,
+                seed=seed,
+                num_episodes=DEFAULT_NUM_EPISODES
+            )
+            print(f"Agent behavior data exported to: {agent_log_path}")
+            
         except Exception as e:
             print(f"Error during environment tensor generation or agent evaluation: {e}")
             import traceback
