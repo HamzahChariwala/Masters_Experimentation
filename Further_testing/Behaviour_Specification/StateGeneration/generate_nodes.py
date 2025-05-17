@@ -1,7 +1,7 @@
 from typing import List, Tuple, Dict, Any, Optional
 import numpy as np
 
-from Behaviour_Specification.state_generation.state_class import State
+from Behaviour_Specification.StateGeneration.state_class import State
 
 def generate_state_nodes(
     env_tensor: np.ndarray, 

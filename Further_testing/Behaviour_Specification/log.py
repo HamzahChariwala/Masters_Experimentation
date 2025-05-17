@@ -5,13 +5,12 @@ import argparse
 from typing import Dict, Tuple, List, Optional, Any, Union
 
 # Import from reorganized modules
-from Behaviour_Specification.state_generation.generate_nodes import filter_state_nodes, analyze_state_nodes
-from Behaviour_Specification.dijkstras.dijkstras_algorithm import create_graphs_from_nodes, compute_shortest_paths
+from Behaviour_Specification.StateGeneration.generate_nodes import filter_state_nodes, analyze_state_nodes
+from Behaviour_Specification.DijkstrasAlgorithm.dijkstras_algorithm import create_graphs_from_nodes, compute_shortest_paths
 
 
 def analyze_navigation_graphs(
     env_tensor: np.ndarray,
-    lava_penalty_multiplier: int = 10,
     print_output: bool = True,
     debug: bool = False
 ) -> Dict[str, Any]:
@@ -20,28 +19,47 @@ def analyze_navigation_graphs(
     
     Args:
         env_tensor (np.ndarray): Environment tensor containing cell types
-        lava_penalty_multiplier (int): Penalty multiplier for lava cells
         print_output (bool): Whether to print analysis information
         debug (bool): Whether to print detailed diagnostic information (default: False)
         
     Returns:
         Dict[str, Any]: Dictionary containing:
             - nodes: All state nodes
-            - graphs: All navigation graphs
+            - graphs: Dictionary mapping graph types to graphs
+              * standard: Standard graph avoiding lava
+              * conservative: Conservative graph avoiding lava and risky diagonals
+              * dangerous_1: Dangerous graph with lava penalty of 1
+              * dangerous_2: Dangerous graph with lava penalty of 2
+              * dangerous_3: Dangerous graph with lava penalty of 3
+              * dangerous_4: Dangerous graph with lava penalty of 4
+              * dangerous_5: Dangerous graph with lava penalty of 5
             - goal_states: Dictionary of goal state nodes
             - paths_from_position: Dictionary mapping each valid start position (x, y) to a dict 
-              containing path results for each graph type (dangerous, standard, conservative)
-              with format: {(x,y): {"dangerous": (success, cost), "standard": (success, cost), ...}}
+              containing path results for each graph type
     """
     # Generate and analyze state nodes
     if print_output:
         print("\n===== Generating State Nodes =====")
     nodes = analyze_state_nodes(env_tensor, print_output=print_output, debug=debug)
     
-    # Create graphs from nodes
+    # Create standard and conservative graphs
     if print_output:
         print("\n===== Creating Navigation Graphs =====")
-    graphs = create_graphs_from_nodes(nodes, lava_penalty_multiplier)
+    
+    # Store all graphs in this dictionary
+    all_graphs = {}
+    
+    # Create standard and conservative graphs (no lava penalty needed)
+    base_graphs = create_graphs_from_nodes(nodes, lava_penalty_multiplier=1)
+    all_graphs['standard'] = base_graphs['standard']
+    all_graphs['conservative'] = base_graphs['conservative']
+    
+    # Create dangerous graphs with different lava penalties
+    for multiplier in range(1, 6):
+        if print_output:
+            print(f"Creating dangerous graph with lava penalty {multiplier}x...")
+        dangerous_graphs = create_graphs_from_nodes(nodes, lava_penalty_multiplier=multiplier)
+        all_graphs[f'dangerous_{multiplier}'] = dangerous_graphs['dangerous']
     
     # Find the goal states and all potential starting states
     goal_states = filter_state_nodes(nodes, lambda s: s.type == "goal")
@@ -54,7 +72,7 @@ def analyze_navigation_graphs(
     # Results to return
     results = {
         "nodes": nodes,
-        "graphs": graphs,
+        "graphs": all_graphs,
         "goal_states": goal_states,
         "paths_from_position": {}
     }
@@ -75,7 +93,7 @@ def analyze_navigation_graphs(
     
     # Create node index mappings for all graphs
     node_indices = {}
-    for graph_name, graph in graphs.items():
+    for graph_name, graph in all_graphs.items():
         node_indices[graph_name] = {}
         for idx, node_data in enumerate(graph.nodes()):
             node_indices[graph_name][node_data.state] = idx
@@ -99,20 +117,22 @@ def analyze_navigation_graphs(
             
             # Initialize best path for each graph type
             best_paths = {
-                "dangerous": (False, float('inf')),
                 "standard": (False, float('inf')),
                 "conservative": (False, float('inf'))
             }
+            # Add entries for each dangerous graph
+            for multiplier in range(1, 6):
+                best_paths[f"dangerous_{multiplier}"] = (False, float('inf'))
             
             # For standard and conservative graphs, skip lava cells as starting positions
             if cell_type == "lava":
                 if debug and print_output:
                     print(f"Skipping lava cell at ({x}, {y}) for standard/conservative path analysis")
                 # For dangerous graph, we'll still test from lava cells
-                test_graph_types = ["dangerous"]
+                test_graph_types = [f"dangerous_{i}" for i in range(1, 6)]
             else:
                 # For floor cells, test all graph types
-                test_graph_types = ["dangerous", "standard", "conservative"]
+                test_graph_types = ["standard", "conservative"] + [f"dangerous_{i}" for i in range(1, 6)]
             
             # Test all orientations at this position
             for orientation in orientations:
@@ -127,7 +147,7 @@ def analyze_navigation_graphs(
                 
                 # Test paths in each applicable graph type
                 for graph_name in test_graph_types:
-                    graph = graphs[graph_name]
+                    graph = all_graphs[graph_name]
                     try:
                         # Use goal position rather than specific goal state to find shortest path to any orientation
                         paths = compute_shortest_paths(
@@ -179,11 +199,6 @@ def analyze_navigation_graphs(
     if print_output:
         # Count reachable positions by type
         reachable_positions = {
-            "dangerous": {
-                "floor": 0,
-                "lava": 0,
-                "total": 0
-            },
             "standard": {
                 "floor": 0,
                 "lava": 0,
@@ -195,6 +210,13 @@ def analyze_navigation_graphs(
                 "total": 0
             }
         }
+        # Add entries for each dangerous graph
+        for multiplier in range(1, 6):
+            reachable_positions[f"dangerous_{multiplier}"] = {
+                "floor": 0,
+                "lava": 0,
+                "total": 0
+            }
         
         # Count reachable positions by graph type and cell type
         for pos, path_results in paths_from_position.items():
@@ -222,7 +244,7 @@ def analyze_navigation_graphs(
                   f"({counts['total']/total_positions*100:.1f}%)")
             print(f"    - Floor: {counts['floor']}/{total_floor_positions} " 
                   f"({counts['floor']/total_floor_positions*100:.1f}%)")
-            if graph_name == "dangerous":
+            if "dangerous" in graph_name:
                 print(f"    - Lava: {counts['lava']}/{total_lava_positions} " 
                       f"({counts['lava']/total_lava_positions*100:.1f}%)")
         
@@ -234,7 +256,7 @@ def analyze_navigation_graphs(
         # Create a properly structured results dictionary
         fixed_results = {
             "nodes": nodes,
-            "graphs": graphs,
+            "graphs": all_graphs,
             "goal_states": goal_states,
             "paths_from_position": paths_from_position
         }
@@ -246,8 +268,8 @@ def analyze_navigation_graphs(
 def export_path_data_to_json(
     analysis_results: Dict[str, Any], 
     env_tensor: np.ndarray, 
-    env_id: str, 
-    output_path: str = None
+    env_id: str,
+    seed: int = 0
 ) -> str:
     """
     Export Dijkstra's path data to JSON in the specified format.
@@ -256,17 +278,31 @@ def export_path_data_to_json(
         analysis_results (Dict[str, Any]): Results from analyze_navigation_graphs
         env_tensor (np.ndarray): Environment tensor containing cell types
         env_id (str): Environment ID
-        output_path (str, optional): Output file path. If None, generates a default path.
+        seed (int): Random seed used to generate the environment
         
     Returns:
         str: Path to the generated JSON file
     """
     print("\nExporting Dijkstra's path data to JSON...")
     
+    # Ensure the Evaluations directory exists inside Behaviour_Specification
+    evaluations_dir = os.path.join(os.path.dirname(__file__), "Evaluations")
+    os.makedirs(evaluations_dir, exist_ok=True)
+    
+    # Create output filename with env_id and seed
+    output_path = os.path.join(evaluations_dir, f"{env_id}-{seed}.json")
+    
     # Create the main dictionary structure
     json_data = {
-        "environment": env_id,
-        "env_tensor": env_tensor.tolist(),  # Convert NumPy array to list for JSON serialization
+        "environment": {
+            "layout": env_tensor.tolist(),  # Add environment layout to the output
+            "legend": {
+                "wall": "Wall cell - impassable",
+                "floor": "Floor cell - normal traversal",
+                "lava": "Lava cell - avoided in standard path, penalized in dangerous paths",
+                "goal": "Goal cell - destination"
+            }
+        },
         "states": {}
     }
     
@@ -320,9 +356,9 @@ def export_path_data_to_json(
                 
                 # Determine which graph types to test based on cell type
                 if cell_type == "lava":
-                    test_graph_types = ["dangerous"]
+                    test_graph_types = [f"dangerous_{i}" for i in range(1, 6)]
                 else:
-                    test_graph_types = ["dangerous", "standard", "conservative"]
+                    test_graph_types = ["standard", "conservative"] + [f"dangerous_{i}" for i in range(1, 6)]
                 
                 # Get path information for each graph type
                 for graph_name in test_graph_types:
@@ -379,10 +415,6 @@ def export_path_data_to_json(
                     # Store path data for this graph type
                     json_data["states"][state_key][graph_name] = path_data
     
-    # Generate output filename
-    if output_path is None:
-        output_path = f"{env_id}_path_data.json"
-    
     # Write to file
     with open(output_path, "w") as json_file:
         json.dump(json_data, json_file, indent=2)
@@ -429,14 +461,24 @@ def main():
                         help="Environment ID")
     parser.add_argument("--env-file", type=str, 
                         help="Path to environment file (if not using gym environment)")
-    parser.add_argument("--lava-penalty", type=int, default=10,
-                        help="Penalty multiplier for lava cells (default: 10)")
-    parser.add_argument("--output", type=str,
-                        help="Output JSON file path (default: <env_id>_path_data.json)")
+    parser.add_argument("--seed", type=int, default=0,
+                        help="Random seed (default: 0)")
     parser.add_argument("--debug", action="store_true",
                         help="Enable detailed debug output")
+    parser.add_argument("--force", action="store_true",
+                        help="Force regeneration of path data even if file exists")
     args = parser.parse_args()
     
+    # Get path to project root directory
+    project_root = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+    
+    # Check if file already exists and we're not forcing regeneration
+    evaluations_dir = os.path.join(project_root, "Evaluations")
+    output_path = os.path.join(evaluations_dir, f"{args.env_id}-{args.seed}.json")
+    if os.path.exists(output_path) and not args.force:
+        print(f"Path data file {output_path} already exists. Use --force to regenerate.")
+        return
+
     # Generate environment tensor
     if args.env_file:
         env_tensor = generate_env_tensor_from_file(args.env_file)
@@ -449,7 +491,6 @@ def main():
     # Analyze navigation graphs
     analysis_results = analyze_navigation_graphs(
         env_tensor=env_tensor,
-        lava_penalty_multiplier=args.lava_penalty,
         print_output=True,
         debug=args.debug
     )
@@ -459,7 +500,7 @@ def main():
         analysis_results=analysis_results,
         env_tensor=env_tensor,
         env_id=args.env_id,
-        output_path=args.output
+        seed=args.seed
     )
     
     print(f"Dijkstra's path analysis complete. Results saved to {output_path}")

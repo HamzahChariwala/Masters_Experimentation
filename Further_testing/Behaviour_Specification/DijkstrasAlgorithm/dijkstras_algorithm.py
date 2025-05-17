@@ -6,8 +6,8 @@ import numpy as np
 import argparse
 
 # Import from reorganized modules
-from Behaviour_Specification.state_generation.state_class import State
-from Behaviour_Specification.state_generation.generate_nodes import generate_state_nodes
+from Behaviour_Specification.StateGeneration.state_class import State
+from Behaviour_Specification.StateGeneration.generate_nodes import generate_state_nodes
 
 def create_graphs_from_nodes(
     nodes: Dict[Tuple[int, int, int], State],

@@ -9,18 +9,15 @@ from Behaviour_Specification.log import (
     generate_env_tensor_from_file
 )
 
-# Import from graph_analysis for backward compatibility
-from Behaviour_Specification.graph_analysis import analyze_navigation_graphs as analyze_navigation_graphs_legacy
-
-# Import from state_generation module
-from Behaviour_Specification.state_generation import (
+# Import from StateGeneration module
+from Behaviour_Specification.StateGeneration import (
     State,
     analyze_state_nodes,
     filter_state_nodes
 )
 
-# Import from dijkstras module
-from Behaviour_Specification.dijkstras import (
+# Import from DijkstrasAlgorithm module
+from Behaviour_Specification.DijkstrasAlgorithm import (
     create_graphs_from_nodes,
     compute_shortest_paths
 )

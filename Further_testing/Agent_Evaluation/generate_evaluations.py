@@ -27,7 +27,7 @@ from Agent_Evaluation.import_vars import (
 )
 
 
-def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: bool = True, lava_penalty: int = 1, debug: bool = False):
+def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: bool = True, debug: bool = False, force_dijkstra: bool = False):
     """
     Evaluate an agent in a single environment configuration
     
@@ -36,14 +36,13 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
         env_id (str): Environment ID to use for evaluation
         seed (int): Random seed for reproducibility
         generate_plot (bool): Whether to generate matplotlib plots (default: True)
-        lava_penalty (int): Penalty for lava cells in dangerous graph (default: 1)
         debug (bool): Whether to print detailed diagnostic information (default: False)
+        force_dijkstra (bool): Whether to force recalculation of Dijkstra's paths (default: False)
     """
     print(f"\nEvaluating agent: {agent_path}")
     print(f"Environment: {env_id}")
     print(f"Seed: {seed}")
     print(f"Plot generation: {'enabled' if generate_plot else 'disabled'}")
-    print(f"Lava penalty: {lava_penalty}x")
     print(f"Debug output: {'enabled' if debug else 'disabled'}")
     
     try:
@@ -67,22 +66,29 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
             print("Extracting environment layout...")
             env_tensor = extract_and_visualize_env(env, env_id=env_id, generate_plot=generate_plot)
             
-            # Analyze navigation graphs - this now includes state node generation, graph creation,
-            # and path analysis, all in one function
-            analysis_results = analyze_navigation_graphs(
-                env_tensor=env_tensor, 
-                lava_penalty_multiplier=lava_penalty,
-                print_output=True,
-                debug=debug
-            )
-            
-            # Export path data to JSON
-            output_path = export_path_data_to_json(
-                analysis_results=analysis_results,
-                env_tensor=env_tensor,
-                env_id=env_id
-            )
-            print(f"Path data exported to: {output_path}")
+            # Check if Dijkstra's analysis has already been performed
+            evaluations_dir = os.path.join(project_root, "Behaviour_Specification", "Evaluations")
+            dijkstra_output_path = os.path.join(evaluations_dir, f"{env_id}-{seed}.json")
+            if os.path.exists(dijkstra_output_path) and not force_dijkstra:
+                print(f"Dijkstra's path data already exists at {dijkstra_output_path}. Skipping path analysis.")
+            else:
+                # Analyze navigation graphs - this now includes state node generation, graph creation,
+                # and path analysis, all in one function
+                print("Running Dijkstra's path analysis...")
+                analysis_results = analyze_navigation_graphs(
+                    env_tensor=env_tensor, 
+                    print_output=True,
+                    debug=debug
+                )
+                
+                # Export path data to JSON
+                output_path = export_path_data_to_json(
+                    analysis_results=analysis_results,
+                    env_tensor=env_tensor,
+                    env_id=env_id,
+                    seed=seed
+                )
+                print(f"Path data exported to: {output_path}")
             
             # Load agent
             print("Loading agent...")
@@ -112,8 +118,8 @@ if __name__ == "__main__":
                         help="Path to the agent folder in Agent_Storage")
     parser.add_argument("--no-plot", action="store_true", 
                         help="Disable matplotlib plot generation (useful for headless environments)")
-    parser.add_argument("--lava-penalty", type=int, default=1,
-                        help="Penalty multiplier for lava cells in the dangerous graph (default: 1)")
+    parser.add_argument("--force-dijkstra", action="store_true",
+                        help="Force recalculation of Dijkstra's paths even if they exist")
     parser.add_argument("--debug", action="store_true",
                         help="Enable detailed debug output including diagonal safety checks")
     args = parser.parse_args()
@@ -125,4 +131,4 @@ if __name__ == "__main__":
     # Call the evaluation function with default values
     ENV_ID = "MiniGrid-LavaCrossingS11N5-v0"
     SEED = 12345
-    single_env_evals(args.path, ENV_ID, SEED, not args.no_plot, args.lava_penalty, args.debug)
+    single_env_evals(args.path, ENV_ID, SEED, not args.no_plot, args.debug, args.force_dijkstra)
