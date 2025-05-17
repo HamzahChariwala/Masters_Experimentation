@@ -29,13 +29,16 @@ def load_config(agent_folder: str) -> Dict[str, Any]:
     Load configuration from the agent's config.yaml file.
     
     Args:
-        agent_folder (str): Path to the agent folder relative to Agent_Storage
+        agent_folder (str): Path to the agent folder. Can be absolute or relative.
         
     Returns:
         Dict[str, Any]: Configuration dictionary
     """
+    # If it's an absolute path, use it directly
+    if os.path.isabs(agent_folder):
+        config_path = os.path.join(agent_folder, "config.yaml")
     # Check if the path already includes Agent_Storage prefix
-    if agent_folder.startswith("Agent_Storage/"):
+    elif agent_folder.startswith("Agent_Storage/"):
         config_path = os.path.join(agent_folder, "config.yaml")
     else:
         # Construct path to the agent's config file in Agent_Storage
@@ -173,14 +176,16 @@ def load_agent(agent_folder: str, config: Dict[str, Any]) -> Any:
     Load the trained agent from the specified folder.
     
     Args:
-        agent_folder (str): Path to the agent folder relative to Agent_Storage
+        agent_folder (str): Path to the agent folder. Can be absolute or relative.
         config (Dict[str, Any]): Configuration dictionary
         
     Returns:
         Any: The loaded agent model
     """
     # Get agent path
-    if agent_folder.startswith("Agent_Storage/"):
+    if os.path.isabs(agent_folder):
+        agent_path = os.path.join(agent_folder, "agent.zip")
+    elif agent_folder.startswith("Agent_Storage/"):
         agent_path = os.path.join(agent_folder, "agent.zip")
     else:
         agent_path = os.path.join("Agent_Storage", agent_folder, "agent.zip")

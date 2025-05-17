@@ -5,13 +5,9 @@ from typing import Dict, Tuple, List, Optional, Any, Union
 import numpy as np
 import argparse
 
-# Add the root directory to sys.path to ensure proper imports
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.insert(0, project_root)
-print(f"Added to Python path: {project_root}")
-
-from Behaviour_Specification.state_class import State
-from Behaviour_Specification.generate_nodes import generate_state_nodes
+# Import from reorganized modules
+from Behaviour_Specification.state_generation.state_class import State
+from Behaviour_Specification.state_generation.generate_nodes import generate_state_nodes
 
 def create_graphs_from_nodes(
     nodes: Dict[Tuple[int, int, int], State],

@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import signal
+import json
 
 # Add the root directory to sys.path to ensure proper imports
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -12,7 +13,7 @@ sys.path.insert(0, project_root)
 print(f"Added to Python path: {project_root}")
 
 # Import from Behaviour_Specification
-from Behaviour_Specification.graph_analysis import analyze_navigation_graphs
+from Behaviour_Specification.log import analyze_navigation_graphs, export_path_data_to_json
 
 # Import from our import_vars.py file
 from Agent_Evaluation.import_vars import (
@@ -46,6 +47,11 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
     print(f"Debug output: {'enabled' if debug else 'disabled'}")
     
     try:
+        # Make sure agent_path is an absolute path
+        if not os.path.isabs(agent_path):
+            # If it's relative, convert it to absolute
+            agent_path = os.path.abspath(agent_path)
+        
         # Load config from agent folder
         config = load_config(agent_path)
         
@@ -69,6 +75,14 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
                 print_output=True,
                 debug=debug
             )
+            
+            # Export path data to JSON
+            output_path = export_path_data_to_json(
+                analysis_results=analysis_results,
+                env_tensor=env_tensor,
+                env_id=env_id
+            )
+            print(f"Path data exported to: {output_path}")
             
             # Load agent
             print("Loading agent...")
