@@ -15,8 +15,8 @@ print(f"Added to Python path: {project_root}")
 # Import from Behaviour_Specification
 from Behaviour_Specification.log import analyze_navigation_graphs, export_path_data_to_json
 
-# Import from our import_vars.py file
-from Agent_Evaluation.import_vars import (
+# Import from our import_vars.py file - updated to reflect new location
+from Agent_Evaluation.EnvironmentTooling.import_vars import (
     load_config,
     extract_env_config,
     create_evaluation_env,
@@ -46,10 +46,17 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
     print(f"Debug output: {'enabled' if debug else 'disabled'}")
     
     try:
+        # Handle agent_path - if it doesn't start with Agent_Storage and isn't absolute, prepend Agent_Storage
+        if not os.path.isabs(agent_path) and not agent_path.startswith("Agent_Storage"):
+            agent_path = os.path.join("Agent_Storage", agent_path)
+            print(f"Adjusted agent path to: {agent_path}")
+        
         # Make sure agent_path is an absolute path
         if not os.path.isabs(agent_path):
             # If it's relative, convert it to absolute
             agent_path = os.path.abspath(agent_path)
+            
+        print(f"Full agent path: {agent_path}")
         
         # Load config from agent folder
         config = load_config(agent_path)
@@ -64,7 +71,7 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
         try:
             # Extract and visualize the environment tensor using the new method
             print("Extracting environment layout...")
-            env_tensor = extract_and_visualize_env(env, env_id=env_id, generate_plot=generate_plot)
+            env_tensor = extract_and_visualize_env(env, env_id=env_id, seed=seed, generate_plot=generate_plot)
             
             # Check if Dijkstra's analysis has already been performed
             evaluations_dir = os.path.join(project_root, "Behaviour_Specification", "Evaluations")
@@ -130,5 +137,5 @@ if __name__ == "__main__":
         
     # Call the evaluation function with default values
     ENV_ID = "MiniGrid-LavaCrossingS11N5-v0"
-    SEED = 12345
+    SEED = 42
     single_env_evals(args.path, ENV_ID, SEED, not args.no_plot, args.debug, args.force_dijkstra)

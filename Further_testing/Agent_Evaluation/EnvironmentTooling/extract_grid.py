@@ -218,8 +218,16 @@ def visualize_env_tensor(env_tensor, save_path="visualizations/env_layout.png", 
     plt.title('Environment Layout')
     plt.tight_layout()
     
-    # Save figure
+    # Ensure the directory exists, defaulting to EnvVisualisations inside Agent_Evaluation
+    if save_path.startswith("visualizations/"):
+        # Replace default visualization path with EnvVisualisations
+        dirname = os.path.join(os.path.dirname(os.path.dirname(__file__)), "EnvVisualisations")
+        filename = os.path.basename(save_path)
+        save_path = os.path.join(dirname, filename)
+    
+    # Create the directory if it doesn't exist
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    
     plt.savefig(save_path)
     plt.close()
     print(f"Environment visualization saved to {save_path}")

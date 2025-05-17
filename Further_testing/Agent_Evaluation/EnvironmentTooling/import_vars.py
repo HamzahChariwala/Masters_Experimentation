@@ -18,7 +18,7 @@ from Environment_Tooling.BespokeEdits.FeatureExtractor import CustomCombinedExtr
 from stable_baselines3 import DQN, PPO, A2C
 
 # Import our grid extraction utilities
-from Agent_Evaluation.extract_grid import extract_grid_from_env, visualize_env_tensor, print_env_tensor
+from Agent_Evaluation.EnvironmentTooling.extract_grid import extract_grid_from_env, visualize_env_tensor, print_env_tensor
 
 # Default values for evaluation
 DEFAULT_RANK = 0
@@ -146,14 +146,14 @@ def create_evaluation_env(env_settings: Dict[str, Any], seed: int = 42, override
     return env
 
 
-def extract_and_visualize_env(env, env_id=None, save_path="visualizations/env_layout.png", generate_plot=True):
+def extract_and_visualize_env(env, env_id=None, seed=42, generate_plot=True):
     """
     Extract grid layout from the environment and visualize it.
     
     Args:
         env: The MiniGrid environment
         env_id: Environment ID string (for reference)
-        save_path: Path to save the visualization
+        seed: Random seed used for the environment
         generate_plot: If False, no matplotlib plot will be generated (default: True)
         
     Returns:
@@ -164,6 +164,25 @@ def extract_and_visualize_env(env, env_id=None, save_path="visualizations/env_la
     
     # Print the tensor
     print_env_tensor(env_tensor)
+    
+    # Create a simplified env_id for the filename
+    if env_id:
+        # Extract the specific environment name, e.g., LavaCrossingS11N5 from MiniGrid-LavaCrossingS11N5-v0
+        env_parts = env_id.split('-')
+        if len(env_parts) > 1:
+            # Get the middle part without version
+            simplified_env_id = env_parts[1].replace('Crossing', '')
+        else:
+            simplified_env_id = env_id.replace('MiniGrid-', '').replace('-v0', '')
+    else:
+        simplified_env_id = "Unknown"
+    
+    # Build the visualization filename with the seed
+    save_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), 
+        "EnvVisualisations", 
+        f"{simplified_env_id}-{seed}.png"
+    )
     
     # Visualize the environment
     visualize_env_tensor(env_tensor, save_path, generate_plot)
