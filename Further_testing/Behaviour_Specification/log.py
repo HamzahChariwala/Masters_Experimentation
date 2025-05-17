@@ -265,6 +265,24 @@ def analyze_navigation_graphs(
     return results
 
 
+def convert_dijkstra_to_agent_orientation(orientation: int) -> int:
+    """
+    Convert from Dijkstra orientation convention to agent orientation convention.
+    
+    Dijkstra orientation: 0=up, 1=right, 2=down, 3=left
+    Agent orientation: 0=right, 1=down, 2=left, 3=up
+    
+    Args:
+        orientation (int): Orientation in Dijkstra convention
+        
+    Returns:
+        int: Orientation in agent convention
+    """
+    # Mapping from Dijkstra to agent orientation
+    dijkstra_to_agent = {0: 3, 1: 0, 2: 1, 3: 2}
+    return dijkstra_to_agent[orientation]
+
+
 def export_path_data_to_json(
     analysis_results: Dict[str, Any], 
     env_tensor: np.ndarray, 
@@ -273,6 +291,7 @@ def export_path_data_to_json(
 ) -> str:
     """
     Export Dijkstra's path data to JSON in the specified format.
+    Converts Dijkstra orientation convention to agent orientation convention.
     
     Args:
         analysis_results (Dict[str, Any]): Results from analyze_navigation_graphs
@@ -331,7 +350,7 @@ def export_path_data_to_json(
     # Get environment dimensions
     height, width = env_tensor.shape
     
-    # All possible orientations
+    # All possible orientations (Dijkstra convention)
     orientations = [0, 1, 2, 3]  # Up, right, down, left
     
     # Define action mapping for next steps
@@ -353,12 +372,16 @@ def export_path_data_to_json(
             cell_type = env_tensor[y, x]
             
             for orientation in orientations:
-                state_key = f"{x},{y},{orientation}"
-                start_state = (x, y, orientation)
+                # Create the state key with Dijkstra orientation
+                dijkstra_state = (x, y, orientation)
                 
                 # Skip if state doesn't exist in nodes
-                if start_state not in nodes:
+                if dijkstra_state not in nodes:
                     continue
+                
+                # Convert orientation to agent convention for the state key in output JSON
+                agent_orientation = convert_dijkstra_to_agent_orientation(orientation)
+                state_key = f"{x},{y},{agent_orientation}"
                 
                 # Initialize state data in the json structure
                 json_data["states"][state_key] = {}
@@ -393,7 +416,7 @@ def export_path_data_to_json(
                     try:
                         # Compute the shortest path
                         paths = compute_shortest_paths(
-                            graph, start_state, goal_position, node_indices[graph_name]
+                            graph, dijkstra_state, goal_position, node_indices[graph_name]
                         )
                         
                         # If a path was found, get the details
@@ -409,7 +432,10 @@ def export_path_data_to_json(
                                 
                                 # First state (start)
                                 node_data = graph.nodes()[path_indices[0]]
-                                first_state = f"{node_data.state[0]},{node_data.state[1]},{node_data.state[2]}"
+                                # Convert orientation to agent convention
+                                first_x, first_y, first_orientation_dijkstra = node_data.state
+                                first_orientation_agent = convert_dijkstra_to_agent_orientation(first_orientation_dijkstra)
+                                first_state = f"{first_x},{first_y},{first_orientation_agent}"
                                 visited_states.append(first_state)
                                 
                                 # Calculate cost, extract states, and count lava steps
@@ -425,14 +451,17 @@ def export_path_data_to_json(
                                     # Get destination node data
                                     dst_node_data = graph.nodes()[dst_idx]
                                     dst_state = dst_node_data.state
-                                    dst_x, dst_y, dst_orientation = dst_state
+                                    dst_x, dst_y, dst_orientation_dijkstra = dst_state
                                     
                                     # Check if this step is on lava
                                     if env_tensor[dst_y, dst_x] == "lava":
                                         lava_steps += 1
                                     
+                                    # Convert orientation to agent convention for the state key
+                                    dst_orientation_agent = convert_dijkstra_to_agent_orientation(dst_orientation_dijkstra)
+                                    
                                     # Add to visited states
-                                    visited_states.append(f"{dst_x},{dst_y},{dst_orientation}")
+                                    visited_states.append(f"{dst_x},{dst_y},{dst_orientation_agent}")
                                 
                                 # Update path data
                                 path_data["path_taken"] = visited_states
@@ -453,9 +482,10 @@ def export_path_data_to_json(
                                     src_state = src_node_data.state
                                     dst_state = dst_node_data.state
                                     
-                                    # Format the target state as a string
-                                    dst_x, dst_y, dst_orientation = dst_state
-                                    target_state_str = f"{dst_x},{dst_y},{dst_orientation}"
+                                    # Format the target state as a string with agent orientation
+                                    dst_x, dst_y, dst_orientation_dijkstra = dst_state
+                                    dst_orientation_agent = convert_dijkstra_to_agent_orientation(dst_orientation_dijkstra)
+                                    target_state_str = f"{dst_x},{dst_y},{dst_orientation_agent}"
                                     
                                     # Determine action type by comparing source and destination
                                     sx, sy, sori = src_state

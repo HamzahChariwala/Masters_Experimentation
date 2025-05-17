@@ -11,7 +11,10 @@ def extract_grid_from_env(env):
         
     Returns:
         np.ndarray: A 2D array with string cell types ("floor", "wall", "lava", "goal")
-        with shape (height, width) where [0,0] is the top-left corner
+        with shape (height, width) where [0,0] is the top-left corner.
+        
+        The returned array is an array of rows, where each row is an array of cells.
+        This matches the format used in the Dijkstra logs.
     """
     # Reset the environment
     obs, _ = env.reset()
@@ -48,7 +51,7 @@ def extract_grid_from_env(env):
         # Get grid dimensions
         width, height = grid.width, grid.height
         
-        # Create our output tensor
+        # Create our output tensor - array of rows, each row is an array of cells
         env_tensor = np.full((height, width), "floor", dtype=object)
         
         # Fill the tensor based on the grid content
@@ -103,7 +106,7 @@ def extract_grid_from_env(env):
             grid_array = new_image[1]
             height, width = grid_array.shape
             
-            # Create tensor and map cell types
+            # Create tensor and map cell types - array of rows
             env_tensor = np.full((height, width), "floor", dtype=object)
             
             # Corrected type mapping based on observed values
