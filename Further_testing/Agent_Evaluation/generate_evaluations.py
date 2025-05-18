@@ -120,6 +120,15 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
         traceback.print_exc()
 
 
+def multiple_env_evals(agent_path: str, env_id: str, seed: int, num_envs: int, generate_plot: bool = True, debug: bool = False, force_dijkstra: bool = False):
+    """
+    Evaluate an agent in multiple environments
+    """
+    for i in range(num_envs):
+        current_seed = seed + i
+        single_env_evals(agent_path, env_id, current_seed, generate_plot, debug, force_dijkstra)
+
+
 if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Generate evaluations for trained agents")
@@ -140,4 +149,5 @@ if __name__ == "__main__":
     # Call the evaluation function with default values
     ENV_ID = "MiniGrid-LavaCrossingS11N5-v0"
     SEED = 42
-    single_env_evals(args.path, ENV_ID, SEED, not args.no_plot, args.debug, args.force_dijkstra)
+    NUM = 10
+    multiple_env_evals(args.path, ENV_ID, SEED, NUM, not args.no_plot, args.debug, args.force_dijkstra)
