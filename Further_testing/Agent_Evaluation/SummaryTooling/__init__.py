@@ -2,7 +2,7 @@
 SummaryTooling package for analyzing agent evaluation logs and generating performance summaries.
 """
 
-from SummaryTooling.evaluation_summary import (
+from .evaluation_summary import (
     process_evaluation_logs, 
     generate_summary_stats, 
     save_summary_results,

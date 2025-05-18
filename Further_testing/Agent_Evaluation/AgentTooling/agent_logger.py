@@ -441,7 +441,11 @@ class AgentLogger:
             # Only collect the keys specified in the config
             for key in config_keys:
                 if key in log_data:
-                    model_inputs[key] = convert_numpy_to_list(log_data[key])
+                    # For barrier_mask and lava_mask, transpose them like we do for env_tensor
+                    if key in ["barrier_mask", "lava_mask"] and isinstance(log_data[key], np.ndarray):
+                        model_inputs[key] = convert_numpy_to_list(log_data[key].T)
+                    else:
+                        model_inputs[key] = convert_numpy_to_list(log_data[key])
         
         return model_inputs
     
@@ -647,12 +651,16 @@ class AgentLogger:
             if 'barrier_mask' in log_data and log_data['barrier_mask'] is not None:
                 mask = log_data['barrier_mask']
                 if isinstance(mask, np.ndarray):
+                    # Transpose mask to be consistent with env_tensor handling
+                    mask = mask.T
                     flat_mask = mask.flatten()
                     # Copy as many elements as will fit without going out of bounds
                     copy_size = min(50, flat_mask.size)
                     feature_vector[5:5+copy_size] = flat_mask[:copy_size]
                 elif isinstance(mask, (list, tuple)):
-                    flat_mask = np.array(mask).flatten()
+                    # Convert to numpy array, transpose, and flatten
+                    mask_array = np.array(mask).T
+                    flat_mask = mask_array.flatten()
                     copy_size = min(50, flat_mask.size)
                     feature_vector[5:5+copy_size] = flat_mask[:copy_size]
                     
@@ -660,12 +668,16 @@ class AgentLogger:
             if 'lava_mask' in log_data and log_data['lava_mask'] is not None:
                 mask = log_data['lava_mask']
                 if isinstance(mask, np.ndarray):
+                    # Transpose mask to be consistent with env_tensor handling
+                    mask = mask.T
                     flat_mask = mask.flatten()
                     # Copy as many elements as will fit without going out of bounds
                     copy_size = min(50, flat_mask.size)
                     feature_vector[55:55+copy_size] = flat_mask[:copy_size]
                 elif isinstance(mask, (list, tuple)):
-                    flat_mask = np.array(mask).flatten()
+                    # Convert to numpy array, transpose, and flatten
+                    mask_array = np.array(mask).T
+                    flat_mask = mask_array.flatten()
                     copy_size = min(50, flat_mask.size)
                     feature_vector[55:55+copy_size] = flat_mask[:copy_size]
                     

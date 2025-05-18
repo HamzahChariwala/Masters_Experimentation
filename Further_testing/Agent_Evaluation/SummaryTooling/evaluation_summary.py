@@ -7,14 +7,15 @@ from typing import Dict, List, Any, Optional, Tuple, Union
 import re
 
 # Add the root directory to sys.path to ensure proper imports
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, project_root)
 
 
 def format_json_with_compact_arrays(data: Union[Dict, List, Any], indent: int = 2) -> str:
     """
     Custom JSON formatter that keeps arrays on a single line,
-    except for nested arrays in the environment layout which are kept on separate lines.
+    except for nested arrays in the environment layout, barrier_mask, and lava_mask
+    which are kept with each row on its own line.
     
     Args:
         data (Union[Dict, List, Any]): The data to format
@@ -23,67 +24,77 @@ def format_json_with_compact_arrays(data: Union[Dict, List, Any], indent: int = 
     Returns:
         str: Formatted JSON string
     """
-    # First, convert to a JSON string with regular indentation
-    json_str = json.dumps(data, indent=indent)
+    # Preprocess mask arrays at the object level before converting to JSON
+    if isinstance(data, dict) and "environment" in data and isinstance(data["environment"], dict):
+        env = data["environment"]
+        
+        # First clean up any empty rows in the layout if it exists
+        if "layout" in env and isinstance(env["layout"], list):
+            layout = env["layout"]
+            clean_layout = []
+            for row in layout:
+                if row and isinstance(row, list):
+                    clean_layout.append(row)
+            env["layout"] = clean_layout
     
-    # Function to replace array content with single-line format
-    def compact_array(match):
-        content = match.group(1).strip()
-        
-        # Skip empty arrays
-        if not content:
-            return "[]"
-        
-        # Check if this is a nested array (contains at least one '[')
-        if '[' in content:
-            # This might be the environment layout - handle nested arrays specially
-            if '"layout"' in json_str[max(0, match.start()-20):match.start()]:
-                # For layout, keep each nested array on its own line
-                lines = content.split('\n')
-                processed_lines = []
+    # Helper function to format arrays with special handling for layout and masks
+    def custom_format(obj, level=0):
+        if isinstance(obj, dict):
+            # Format dictionary
+            result = "{\n"
+            items = list(obj.items())
+            
+            for i, (key, value) in enumerate(items):
+                indent_str = " " * (level + 2)
+                result += f'{indent_str}"{key}": {custom_format(value, level + 2)}'
+                if i < len(items) - 1:
+                    result += ","
+                result += "\n"
+            
+            return result + (" " * level) + "}"
+            
+        elif isinstance(obj, list):
+            # Check if this is a matrix (2D array) - layout or mask
+            is_matrix = all(isinstance(x, list) for x in obj) and obj
+            is_mask_or_layout = False
+            
+            # Check if this is a barrier_mask, lava_mask, or layout array
+            if is_matrix:
+                # We need to look up in the call stack to determine context
+                # This is not perfect but works for our specific use case
+                import inspect
+                stack = inspect.stack()
+                for frame in stack:
+                    if 'key' in frame.frame.f_locals:
+                        key = frame.frame.f_locals['key']
+                        if key in ["barrier_mask", "lava_mask", "layout"]:
+                            is_mask_or_layout = True
+                            break
+            
+            if is_matrix and is_mask_or_layout:
+                # Format layout or mask with each row on its own line
+                result = "[\n"
+                indent_str = " " * (level + 2)
                 
-                # Process each line - might be a nested array or just part of one
-                for line in lines:
-                    stripped = line.strip()
-                    if stripped.startswith('[') and stripped.endswith(','):
-                        # This is a complete nested array with a trailing comma
-                        nested_content = stripped[1:-1]  # Remove [ and ,
-                        # Compact the nested array's contents
-                        processed_lines.append(f"[{compact_nested_array(nested_content)}],")
-                    elif stripped.startswith('[') and stripped.endswith(']'):
-                        # This is a complete nested array without a trailing comma
-                        nested_content = stripped[1:-1]  # Remove [ and ]
-                        # Compact the nested array's contents
-                        processed_lines.append(f"[{compact_nested_array(nested_content)}]")
-                    else:
-                        # This is part of an array - keep as is
-                        processed_lines.append(line)
+                for i, row in enumerate(obj):
+                    # Format each row compactly
+                    row_str = json.dumps(row)
+                    result += indent_str + row_str
+                    if i < len(obj) - 1:
+                        result += ","
+                    result += "\n"
                 
-                # Join with newlines to keep the layout structure
-                indentation = ' ' * indent
-                joined = '\n'.join([f"{indentation}{line}" for line in processed_lines])
-                return f"[\n{joined}\n{' ' * (indent-2)}]"
+                return result + (" " * level) + "]"
             else:
-                # Handle any other nested arrays normally - compact everything
-                return f"[{compact_nested_array(content)}]"
+                # Format regular arrays compactly on one line
+                return json.dumps(obj)
+                
         else:
-            # Regular (non-nested) array - put on a single line
-            return f"[{compact_nested_array(content)}]"
+            # Format primitives normally
+            return json.dumps(obj)
     
-    # Function to compact the content of a nested array
-    def compact_nested_array(content):
-        # Remove all newlines and extra spaces
-        compacted = re.sub(r'\s+', ' ', content).strip()
-        # Remove spaces after commas for further compacting
-        compacted = re.sub(r',\s+', ', ', compacted)
-        return compacted
-    
-    # Replace all arrays with their compacted versions
-    # This regex matches arrays with their content: [...content...]
-    pattern = r'\[\n([\s\S]*?)\n\s*\]'
-    result = re.sub(pattern, compact_array, json_str)
-    
-    return result
+    # Apply our custom formatter
+    return custom_format(data)
 
 
 def process_evaluation_logs(agent_dirs: Optional[List[str]] = None, 

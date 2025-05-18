@@ -152,7 +152,7 @@ def generate_complete_summary(agent_path: str, env_id: str, seed: int, num_envs:
     print("\nGenerating performance summaries...")
     
     # Import summary functions
-    from SummaryTooling.evaluation_summary import process_evaluation_logs
+    from Agent_Evaluation.SummaryTooling.evaluation_summary import process_evaluation_logs
     
     # Determine the full agent path
     if os.path.isabs(agent_path) or agent_path.startswith("Agent_Storage/"):
