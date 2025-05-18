@@ -161,3 +161,83 @@ After implementing these changes, you should observe:
 ## Monitoring the Changes
 
 After implementing each change, monitor the FPS over time to see if the degradation is reduced. The fixes can be implemented incrementally to measure the impact of each change. 
+
+# SummaryTooling for Evaluation Logs
+
+## Overview
+The `SummaryTooling` package provides robust functionality for processing Dijkstra's algorithm evaluation logs and generating performance summaries for different evaluation modes. It's designed to handle various evaluation modes including standard, conservative, and different danger levels (1-5).
+
+## Key Features
+
+### Consistent JSON Formatting
+The package includes a custom JSON formatter that ensures consistent formatting of arrays:
+- Most arrays are compactly formatted on a single line
+- Arrays representing environment layouts, barrier masks, and lava masks are formatted with each row on its own line for better readability
+- All arrays are properly transposed to match the actual environment layout
+
+### Multiple Evaluation Modes
+The tooling supports processing logs with multiple evaluation modes:
+- Standard mode: Normal path planning
+- Conservative mode: Avoids risky diagonal moves
+- Danger modes (1-5): Allows traversing lava with different penalty levels
+
+### Comprehensive Statistics
+For each mode, the tooling computes several performance metrics:
+- Success rate (percentage of states that can reach the goal)
+- Lava avoidance rate (percentage of decisions that avoid lava)
+- Safe diagonal rate (percentage of diagonal moves that are safe)
+- Average path length
+- Detailed counts of total states, goal states, diagonal moves, etc.
+
+## Usage
+
+### Command Line
+The package can be used directly from the command line:
+
+```bash
+# Process logs in the default location
+python Behaviour_Specification/SummaryTooling/evaluation_summary.py
+
+# Process logs in a specific directory
+python Behaviour_Specification/SummaryTooling/evaluation_summary.py --logs_dir path/to/logs
+
+# Save results to a specific directory
+python Behaviour_Specification/SummaryTooling/evaluation_summary.py --output_dir path/to/output
+```
+
+### From Python
+You can also use the package programmatically:
+
+```python
+from Behaviour_Specification.SummaryTooling import process_dijkstra_logs
+
+# Process logs and get summaries
+mode_summaries = process_dijkstra_logs(
+    logs_dir="path/to/logs",
+    save_results=True,
+    output_dir="path/to/output"
+)
+
+# Access statistics for different modes
+for mode, summaries in mode_summaries.items():
+    print(f"Mode: {mode}, Environments: {len(summaries)}")
+```
+
+### Integration with Agent Evaluation
+The SummaryTooling is integrated with the agent evaluation process:
+
+```bash
+# Run evaluations and automatically process logs
+python Agent_Evaluation/generate_evaluations.py --path YourAgentFolder
+```
+
+## Testing
+The package includes a test script to verify the functionality:
+
+```bash
+# Run the test script
+python Behaviour_Specification/SummaryTooling/test_summary.py
+
+# Test with specific directories
+python Behaviour_Specification/SummaryTooling/test_summary.py --logs_dir path/to/logs --output_dir path/to/output
+``` 

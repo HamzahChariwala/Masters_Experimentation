@@ -1,0 +1,121 @@
+{
+  "environment": {
+    "layout": [
+      ["wall", "wall", "wall", "wall", "wall"],
+      ["wall", "floor", "floor", "floor", "wall"],
+      ["wall", "floor", "lava", "floor", "wall"],
+      ["wall", "floor", "floor", "goal", "wall"],
+      ["wall", "wall", "wall", "wall", "wall"]
+    ],
+    "1,1,0": {
+      "standard": {
+        "path_taken": ["1,1,0", "2,1,0", "3,1,0", "3,2,0", "3,3,0"],
+        "next_step": {
+          "action": 2,
+          "target_state": "2,1,0",
+          "type": "floor",
+          "risky_diagonal": false
+        },
+        "summary_stats": {
+          "path_cost": 4,
+          "path_length": 4,
+          "lava_steps": 0,
+          "reachable": true
+        },
+        "model_inputs": {
+          "barrier_mask": [
+            [1, 1, 1, 1, 1],
+            [1, 0, 0, 0, 1],
+            [1, 0, 0, 0, 1],
+            [1, 0, 0, 0, 1],
+            [1, 1, 1, 1, 1]
+          ],
+          "lava_mask": [
+            [0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0],
+            [0, 0, 1, 0, 0],
+            [0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0]
+          ]
+        }
+      },
+      "conservative": {
+        "path_taken": ["1,1,0", "2,1,0", "2,2,0", "2,3,0", "3,3,0"],
+        "next_step": {
+          "action": 2,
+          "target_state": "2,1,0",
+          "type": "floor",
+          "risky_diagonal": false
+        },
+        "summary_stats": {
+          "path_cost": 4,
+          "path_length": 4,
+          "lava_steps": 0,
+          "reachable": true
+        }
+      },
+      "danger1": {
+        "path_taken": ["1,1,0", "2,1,0", "3,1,0", "3,2,0"],
+        "next_step": {
+          "action": 2,
+          "target_state": "2,1,0",
+          "type": "floor",
+          "risky_diagonal": false
+        },
+        "summary_stats": {
+          "path_cost": 3,
+          "path_length": 3,
+          "lava_steps": 0,
+          "reachable": true
+        }
+      }
+    },
+    "1,2,0": {
+      "standard": {
+        "path_taken": ["1,2,0", "2,2,0", "3,2,0", "3,3,0"],
+        "next_step": {
+          "action": 2,
+          "target_state": "2,2,0",
+          "type": "floor",
+          "risky_diagonal": false
+        },
+        "summary_stats": {
+          "path_cost": 3,
+          "path_length": 3,
+          "lava_steps": 0,
+          "reachable": true
+        }
+      },
+      "conservative": {
+        "path_taken": ["1,2,0", "2,2,0", "2,3,0", "3,3,0"],
+        "next_step": {
+          "action": 2,
+          "target_state": "2,2,0",
+          "type": "floor",
+          "risky_diagonal": false
+        },
+        "summary_stats": {
+          "path_cost": 3,
+          "path_length": 3,
+          "lava_steps": 0,
+          "reachable": true
+        }
+      },
+      "danger1": {
+        "path_taken": ["1,2,0", "2,2,0", "3,2,0"],
+        "next_step": {
+          "action": 3,
+          "target_state": "2,2,0",
+          "type": "lava",
+          "risky_diagonal": true
+        },
+        "summary_stats": {
+          "path_cost": 2,
+          "path_length": 2,
+          "lava_steps": 1,
+          "reachable": true
+        }
+      }
+    }
+  }
+} 

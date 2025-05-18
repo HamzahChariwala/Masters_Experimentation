@@ -151,7 +151,7 @@ def generate_complete_summary(agent_path: str, env_id: str, seed: int, num_envs:
     # Then, generate performance summaries
     print("\nGenerating performance summaries...")
     
-    # Import summary functions
+    # Import summary functions - use the original agent evaluation summary processor
     from Agent_Evaluation.SummaryTooling.evaluation_summary import process_evaluation_logs
     
     # Determine the full agent path
@@ -189,8 +189,30 @@ def generate_complete_summary(agent_path: str, env_id: str, seed: int, num_envs:
     else:
         print(f"No evaluation logs processed for agent {agent_path}")
     
-    print(f"\nEvaluation and summary generation complete for agent {agent_path}")
+    # Separately process the Dijkstra logs (if the new module is available)
+    try:
+        print("\nProcessing Dijkstra evaluation logs...")
+        # Try to import the new Dijkstra log processor
+        from Behaviour_Specification.SummaryTooling import process_dijkstra_logs
+        
+        # Process Dijkstra logs but don't overwrite existing agent performance data
+        evaluations_dir = os.path.join(project_root, "Behaviour_Specification", "Evaluations")
+        dijkstra_mode_summaries = process_dijkstra_logs(
+            logs_dir=evaluations_dir,
+            save_results=True,
+            output_dir=evaluations_dir
+        )
+        
+        # Print summary of Dijkstra results
+        print(f"\nDijkstra log analysis results:")
+        for mode, env_summaries in dijkstra_mode_summaries.items():
+            if env_summaries:
+                env_count = len(env_summaries)
+                print(f"  Mode '{mode}': {env_count} environments processed")
+    except (ImportError, ModuleNotFoundError):
+        print("Note: Behaviour_Specification.SummaryTooling not available - skipping Dijkstra log processing")
     
+    print(f"\nEvaluation and summary generation complete for agent {agent_path}")
 
 
 if __name__ == "__main__":
