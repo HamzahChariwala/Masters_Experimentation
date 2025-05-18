@@ -615,6 +615,13 @@ def process_dijkstra_logs(logs_dir: Optional[str] = None,
     if save_results:
         # Create a combined summary of all modes
         combined_summaries = {}
+        
+        # First print detection results
+        for mode in ["standard", "conservative", "dangerous_1", "dangerous_2", "dangerous_3", "dangerous_4", "dangerous_5"]:
+            if mode in all_mode_summaries and all_mode_summaries[mode]:
+                print(f"  Mode '{mode}': {len(all_mode_summaries[mode])} environments processed")
+        
+        # Process each mode that has data
         for mode, mode_summaries in all_mode_summaries.items():
             if mode_summaries:
                 mode_summary = save_summary_results(output_dir, mode, mode_summaries)
