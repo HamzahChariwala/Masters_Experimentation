@@ -4,79 +4,188 @@ from gymnasium import spaces
 from gymnasium.core import Wrapper
 import math
 
-class PositionAwareWrapper(Wrapper):
-    """
-    A wrapper that ensures agent position and orientation are properly set during evaluations
-    and that the feature extractors receive the correct position data.
+# class PositionAwareWrapper(gym.Wrapper):
+#     """
+#     A wrapper that ensures agent position and orientation are properly set during evaluations
+#     and that the feature extractors receive the correct position data.
     
-    This wrapper is specifically designed for evaluation purposes and should not affect
-    the training pipeline.
-    """
+#     This wrapper is specifically designed for evaluation purposes and should not affect
+#     the training pipeline.
+#     """
     
+#     def __init__(self, env):
+#         super().__init__(env)
+#         self.env = env
+#         # Keep track of current agent position and orientation for feature computation
+#         self._agent_pos = None
+#         self._agent_dir = None
+        
+#         # Find the actual MiniGrid environment in the wrapper stack
+#         self._find_minigrid_env()
+        
+#     def _find_minigrid_env(self):
+#         """Find the underlying MiniGrid environment in the wrapper stack."""
+#         env = self.env
+#         self.minigrid_env = None
+        
+#         # Search for environment with agent_pos attribute
+#         while hasattr(env, 'env'):
+#             if hasattr(env, 'agent_pos') and hasattr(env, 'agent_dir'):
+#                 self.minigrid_env = env
+#                 break
+#             env = env.env
+            
+#         if self.minigrid_env is None:
+#             print("WARNING: Could not find MiniGrid environment in wrapper stack")
+    
+#     def reset(self, **kwargs):
+#         """
+#         Reset the environment and ensure agent position and orientation are properly set.
+#         """
+#         obs, info = self.env.reset(**kwargs)
+        
+#         # Check if options contains agent position and direction
+#         if 'options' in kwargs and kwargs['options'] is not None:
+#             options = kwargs['options']
+#             if 'agent_pos' in options and 'agent_dir' in options:
+#                 self._agent_pos = options['agent_pos']
+#                 self._agent_dir = options['agent_dir']
+                
+#                 # Force set the agent position and direction in the MiniGrid environment
+#                 if self.minigrid_env is not None:
+#                     print(f"PositionAwareWrapper: Setting agent position to {self._agent_pos} and direction to {self._agent_dir}")
+#                     self.minigrid_env.agent_pos = np.array(self._agent_pos)
+#                     self.minigrid_env.agent_dir = self._agent_dir
+                    
+#                     # Update observation data based on new position
+#                     self._update_obs_with_position(obs, info)
+        
+#         return obs, info
+    
+#     def step(self, action):
+#         """
+#         Execute environment step and track agent position for feature computation.
+#         """
+#         obs, reward, terminated, truncated, info = self.env.step(action)
+        
+#         # Update agent position and direction after step
+#         if self.minigrid_env is not None:
+#             self._agent_pos = self.minigrid_env.agent_pos
+#             self._agent_dir = self.minigrid_env.agent_dir
+            
+#             # Update observation data
+#             self._update_obs_with_position(obs, info)
+        
+#         return obs, reward, terminated, truncated, info
+
+    
+# class PositionAwareWrapper(gym.Wrapper):
+#     """
+#     A wrapper that fixes agent_pos/agent_dir handling by always using env.unwrapped,
+#     and updates obs/info accordingly.
+#     """
+#     def __init__(self, env):
+#         super().__init__(env)
+#         # The true MiniGrid env is always env.unwrapped
+#         self.minigrid_env = env.unwrapped
+
+#     def reset(self, *, seed=None, options=None):
+#         # forward seed/options to underlying
+#         obs, info = self.env.reset(seed=seed, options=options)
+#         # if user provided a starting state, force-set it
+#         if options and 'agent_pos' in options and 'agent_dir' in options:
+#             pos = options['agent_pos']
+#             d = options['agent_dir']
+#             self.minigrid_env.agent_pos = np.array(pos)
+#             self.minigrid_env.agent_dir = d
+#             # regenerate raw observation so other wrappers see the change
+#             if hasattr(self.minigrid_env, 'gen_obs'):
+#                 raw = self.minigrid_env.gen_obs()
+#                 # copy into obs dict where appropriate
+#                 if isinstance(obs, dict) and 'image' in raw:
+#                     obs.update(raw)
+#                 else:
+#                     obs = raw
+#         # record base pos/dir
+#         self._agent_pos = tuple(self.minigrid_env.agent_pos)
+#         self._agent_dir = self.minigrid_env.agent_dir
+#         # inject into info
+#         info.setdefault('log_data', {})['agent_pos'] = self._agent_pos
+#         info['log_data']['agent_dir'] = self._agent_dir
+#         return obs, info
+
+#     def step(self, action):
+#         obs, reward, terminated, truncated, info = self.env.step(action)
+#         # always pull real pos/dir from base
+#         self._agent_pos = tuple(self.minigrid_env.agent_pos)
+#         self._agent_dir = self.minigrid_env.agent_dir
+#         info.setdefault('log_data', {})['agent_pos'] = self._agent_pos
+#         info['log_data']['agent_dir'] = self._agent_dir
+#         return obs, reward, terminated, truncated, info
+
+class PositionAwareWrapper(gym.Wrapper):
+    """
+    Ensure all position/orientation resets and steps use the true MiniGrid env,
+    by locating it in the wrapper stack and syncing agent_pos/agent_dir into info['log_data'].
+    """
     def __init__(self, env):
         super().__init__(env)
-        self.env = env
-        # Keep track of current agent position and orientation for feature computation
-        self._agent_pos = None
-        self._agent_dir = None
-        
-        # Find the actual MiniGrid environment in the wrapper stack
-        self._find_minigrid_env()
-        
-    def _find_minigrid_env(self):
-        """Find the underlying MiniGrid environment in the wrapper stack."""
-        env = self.env
-        self.minigrid_env = None
-        
-        # Search for environment with agent_pos attribute
-        while hasattr(env, 'env'):
-            if hasattr(env, 'agent_pos') and hasattr(env, 'agent_dir'):
-                self.minigrid_env = env
+        # Locate the underlying MiniGrid environment (where agent_pos and agent_dir live)
+        self.minigrid_env = self._find_minigrid_env(env)
+
+    def _find_minigrid_env(self, env):
+        current = env
+        # Crawl through both .env and .unwrapped until we find the base
+        while True:
+            if hasattr(current, 'agent_pos') and hasattr(current, 'agent_dir'):
+                return current
+            if hasattr(current, 'env'):
+                current = current.env
+            elif hasattr(current, 'unwrapped'):
+                current = current.unwrapped
+            else:
                 break
-            env = env.env
-            
-        if self.minigrid_env is None:
-            print("WARNING: Could not find MiniGrid environment in wrapper stack")
-    
-    def reset(self, **kwargs):
-        """
-        Reset the environment and ensure agent position and orientation are properly set.
-        """
-        obs, info = self.env.reset(**kwargs)
-        
-        # Check if options contains agent position and direction
-        if 'options' in kwargs and kwargs['options'] is not None:
-            options = kwargs['options']
-            if 'agent_pos' in options and 'agent_dir' in options:
-                self._agent_pos = options['agent_pos']
-                self._agent_dir = options['agent_dir']
-                
-                # Force set the agent position and direction in the MiniGrid environment
-                if self.minigrid_env is not None:
-                    print(f"PositionAwareWrapper: Setting agent position to {self._agent_pos} and direction to {self._agent_dir}")
-                    self.minigrid_env.agent_pos = np.array(self._agent_pos)
-                    self.minigrid_env.agent_dir = self._agent_dir
-                    
-                    # Update observation data based on new position
-                    self._update_obs_with_position(obs, info)
-        
+        raise RuntimeError("PositionAwareWrapper: cannot locate underlying MiniGrid env")
+
+    def reset(self, *, seed=None, options=None):
+        # Forward reset to wrapped env, including seed/options
+        obs, info = self.env.reset(seed=seed, options=options)
+
+        # If the user passed specific start-state, enforce it on the base env
+        if options and 'agent_pos' in options and 'agent_dir' in options:
+            pos, d = options['agent_pos'], options['agent_dir']
+            self.minigrid_env.agent_pos = np.array(pos)
+            self.minigrid_env.agent_dir = d
+            # Regenerate the raw observation so subsequent wrappers see the new state
+            if hasattr(self.minigrid_env, 'gen_obs'):
+                raw = self.minigrid_env.gen_obs()
+                if isinstance(obs, dict):
+                    obs.update(raw)
+                else:
+                    obs = raw
+
+        # Sync position/dir into info for logging
+        self._sync_agent_info(info)
         return obs, info
-    
+
     def step(self, action):
-        """
-        Execute environment step and track agent position for feature computation.
-        """
+        # Step through entire wrapper stack
         obs, reward, terminated, truncated, info = self.env.step(action)
-        
-        # Update agent position and direction after step
-        if self.minigrid_env is not None:
-            self._agent_pos = self.minigrid_env.agent_pos
-            self._agent_dir = self.minigrid_env.agent_dir
-            
-            # Update observation data
-            self._update_obs_with_position(obs, info)
-        
+        # After step, sync the real base env's pos/dir
+        self._sync_agent_info(info)
         return obs, reward, terminated, truncated, info
+
+    def _sync_agent_info(self, info):
+        """
+        Write current agent_pos and agent_dir from the base MiniGrid env into info['log_data']
+        """
+        pos = tuple(self.minigrid_env.agent_pos)
+        d = self.minigrid_env.agent_dir
+        log_data = info.setdefault('log_data', {})
+        log_data['agent_pos'] = pos
+        log_data['agent_dir'] = d
+
+############################################################################
     
     def _update_obs_with_position(self, obs, info):
         """

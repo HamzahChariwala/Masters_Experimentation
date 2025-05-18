@@ -9,8 +9,8 @@ class OldGymCompatibility(gym.Env):
     def __init__(self, env: gym.Env):
         super().__init__()
         # Wrap in Monitor to get episode info in `info["episode"]`
-        # self.env = Monitor(env)
-        self.env = RecordEpisodeStatistics(env)
+        self.env = Monitor(env)
+        # self.env = RecordEpisodeStatistics(env)
         self.action_space      = self.env.action_space
         self.observation_space = self.env.observation_space
 

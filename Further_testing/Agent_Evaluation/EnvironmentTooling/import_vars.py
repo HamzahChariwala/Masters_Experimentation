@@ -11,7 +11,7 @@ sys.path.insert(0, project_root)
 print(f"Added to Python path: {project_root}")
 
 # Import from Environment_Tooling
-from Environment_Tooling.EnvironmentGeneration import make_env
+from Environment_Tooling.EnvironmentGeneration import make_env, make_final_eval_env
 from Environment_Tooling.BespokeEdits.FeatureExtractor import CustomCombinedExtractor
 
 # Import the new position-aware wrapper
@@ -126,45 +126,51 @@ def extract_env_config(config: Dict[str, Any], override_env_id: Optional[str] = 
 
 
 def create_evaluation_env(env_settings: Dict[str, Any], seed: int = 42, override_rank: int = 0) -> gym.Env:
-    """
-    Create an environment for evaluation using the make_env function.
-    Wraps the environment with PositionAwareWrapper for accurate agent positioning during evaluation.
+    # """
+    # Create an environment for evaluation using the make_env function.
+    # Wraps the environment with PositionAwareWrapper for accurate agent positioning during evaluation.
     
-    Args:
-        env_settings (Dict[str, Any]): Environment settings
-        seed (int, optional): Random seed. Defaults to 42.
-        override_rank (int, optional): Override the environment rank. Defaults to 0.
+    # Args:
+    #     env_settings (Dict[str, Any]): Environment settings
+    #     seed (int, optional): Random seed. Defaults to 42.
+    #     override_rank (int, optional): Override the environment rank. Defaults to 0.
         
-    Returns:
-        gym.Env: The configured environment
-    """
-    # Create environment function
-    env_fn = make_env(
-        env_id=env_settings['env_id'],
-        rank=override_rank,
-        env_seed=seed,
-        window_size=env_settings['window_size'],
-        cnn_keys=env_settings['cnn_keys'],
-        mlp_keys=env_settings['mlp_keys'],
-        max_episode_steps=env_settings['max_episode_steps'],
-        use_random_spawn=False,  # Always off
-        use_flexible_spawn=False,  # Always off
-        spawn_distribution_type='uniform',  # Default value (won't be used)
-        spawn_distribution_params={},  # Default value (won't be used)
-        exclude_goal_adjacent=False,  # Default value (won't be used)
-        use_no_death=env_settings['use_no_death'],
-        no_death_types=env_settings['no_death_types'],
-        death_cost=env_settings['death_cost'],
-        monitor_diagonal_moves=False,  # Always off
-        diagonal_success_reward=0.0,  # Always 0
-        diagonal_failure_penalty=0.0,  # Always 0
-    )
+    # Returns:
+    #     gym.Env: The configured environment
+    # """
+    # # Create environment function
+    # env_fn = make_env(
+    #     env_id=env_settings['env_id'],
+    #     rank=override_rank,
+    #     env_seed=seed,
+    #     window_size=env_settings['window_size'],
+    #     cnn_keys=env_settings['cnn_keys'],
+    #     mlp_keys=env_settings['mlp_keys'],
+    #     max_episode_steps=env_settings['max_episode_steps'],
+    #     use_random_spawn=False,  # Always off
+    #     use_flexible_spawn=False,  # Always off
+    #     spawn_distribution_type='uniform',  # Default value (won't be used)
+    #     spawn_distribution_params={},  # Default value (won't be used)
+    #     exclude_goal_adjacent=False,  # Default value (won't be used)
+    #     use_no_death=env_settings['use_no_death'],
+    #     no_death_types=env_settings['no_death_types'],
+    #     death_cost=env_settings['death_cost'],
+    #     monitor_diagonal_moves=True,  # Always on
+    #     diagonal_success_reward=0.0,  # Always 0
+    #     diagonal_failure_penalty=0.0,  # Always 0
+    # )
     
-    # Create the environment
-    env = env_fn()
+    # # Create the environment
+    # env = env_fn()
     
-    # Wrap the environment with PositionAwareWrapper for accurate agent positioning
-    env = PositionAwareWrapper(env)
+    # # Wrap the environment with PositionAwareWrapper for accurate agent positioning
+    # env = PositionAwareWrapper(env)
+
+    env = make_final_eval_env(env_settings['env_id'], 
+                              seed, env_settings['cnn_keys'], 
+                              env_settings['mlp_keys'], 
+                              env_settings['window_size'], 
+                              env_settings['max_episode_steps'])
     
     print(f"Created evaluation environment: {env_settings['env_id']}")
     print(f"Observation space: {env.observation_space}")

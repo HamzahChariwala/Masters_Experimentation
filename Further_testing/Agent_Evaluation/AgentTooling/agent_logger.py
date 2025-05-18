@@ -11,7 +11,7 @@ sys.path.insert(0, project_root)
 
 from Behaviour_Specification.StateGeneration.state_class import State
 # Import make_env and CustomCombinedExtractor
-from Environment_Tooling.EnvironmentGeneration import make_env
+from Environment_Tooling.EnvironmentGeneration import make_env, make_final_eval_env
 from Environment_Tooling.BespokeEdits.FeatureExtractor import CustomCombinedExtractor
 from Agent_Evaluation.EnvironmentTooling.extract_grid import extract_grid_from_env
 
@@ -38,7 +38,7 @@ class AgentLogger:
         self.state_object = State((1, 1, 0))  # Create a State object for utility methods
         self.all_states_data = {}  # Store data for all tested states
         
-    def log_agent_behavior(self, eval_env_fn) -> Dict[str, Any]:
+    def log_agent_behavior(self, environment_to_evaluate) -> Dict[str, Any]:
         """
         Systematically test agent behavior from all valid starting positions and orientations.
         
@@ -75,7 +75,8 @@ class AgentLogger:
 
                     try:
                         # spawn a fresh env instance so env.reset(options=…) is always honored
-                        env = eval_env_fn()
+                        # env = eval_env_fn()
+                        env = environment_to_evaluate
                         self._run_episode_from_state(env, (x, y, orientation))
                     except Exception as e:
                         print(f"Error running episode from state {state_key}: {e}")
@@ -236,7 +237,7 @@ class AgentLogger:
                 done = terminated_loop or truncated_loop
                 step_count += 1
                 if terminated_loop and reward_loop > 0: break
-                
+
             except Exception as e_loop_step:
                 print(f"  ERROR during episode loop step {step_count} for state {state_key}: {e_loop_step}")
                 # append a “fake” step record with all the keys your summary needs
@@ -811,28 +812,38 @@ def run_agent_evaluation(agent, env, env_id: str, seed: int, num_episodes: int =
     # This ensures that all necessary wrappers for log_data generation are present.
     # The mlp_keys should match those used during training and expected by _extract_mlp_inputs.
     print(f"DEBUG: Creating fully wrapped environment for evaluation using make_env for {env_id} with seed {seed}")
-    base_fn = make_env(
-        env_id=env_id,
-        rank=0,  # Typically 0 for a single environment
-        env_seed=seed,
-        window_size=7, # TODO: This should ideally come from a config or be more generic
-        cnn_keys=[],   # Assuming no CNN keys for this agent, adjust if necessary
-        mlp_keys=["four_way_goal_direction",
-                  "four_way_angle_alignment",
-                  "barrier_mask",
-                  "lava_mask"],
-        max_episode_steps=250,  # A reasonable default for evaluation episodes
-        # Add other parameters for make_env if they were used during training for this agent
-        # e.g., use_random_spawn, use_no_death, etc. For now, using common defaults.
-    )
+    # base_fn = make_env(
+    #     env_id=env_id,
+    #     rank=0,  # Typically 0 for a single environment
+    #     env_seed=seed,
+    #     window_size=7, # TODO: This should ideally come from a config or be more generic
+    #     cnn_keys=[],   # Assuming no CNN keys for this agent, adjust if necessary
+    #     mlp_keys=["four_way_goal_direction",
+    #               "four_way_angle_alignment",
+    #               "barrier_mask",
+    #               "lava_mask"],
+    #     max_episode_steps=250,  # A reasonable default for evaluation episodes
+    #     # Add other parameters for make_env if they were used during training for this agent
+    #     # e.g., use_random_spawn, use_no_death, etc. For now, using common defaults.
+    # )
 
-    # wrap *every* new env in your PositionAwareWrapper
-    from Agent_Evaluation.EnvironmentTooling.position_aware_wrapper import PositionAwareWrapper
-    def eval_env_fn():
-        env = base_fn()
-        return PositionAwareWrapper(env)
+    # # wrap *every* new env in your PositionAwareWrapper
+    # from Agent_Evaluation.EnvironmentTooling.position_aware_wrapper import PositionAwareWrapper
+    # def eval_env_fn():
+    #     env = base_fn()
+    #     return PositionAwareWrapper(env)
 
-    evaluation_env = eval_env_fn()
+    # evaluation_env = eval_env_fn()
+
+    evaluation_env = make_final_eval_env(env_id, 
+                              seed, 
+                              cnn_keys=[], 
+                              mlp_keys=["four_way_goal_direction",
+                                        "four_way_angle_alignment",
+                                        "barrier_mask",
+                                        "lava_mask"],
+                              window_size=7, 
+                              max_episode_steps=250)
     evaluation_env.reset(seed=seed)
     env_tensor = extract_grid_from_env(evaluation_env)
 
@@ -863,7 +874,7 @@ def run_agent_evaluation(agent, env, env_id: str, seed: int, num_episodes: int =
         
         # Log agent behavior using the fully wrapped environment
         # This 'evaluation_env' should provide dynamic log_data
-        logger.log_agent_behavior(eval_env_fn) 
+        logger.log_agent_behavior(evaluation_env) 
     
     # Structure the data (this part remains largely the same, but operates on new data)
     formatted_states = {}
