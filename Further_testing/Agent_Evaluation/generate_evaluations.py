@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import time
 import signal
 import json
+import yaml
+import gymnasium as gym
 
 # Add the root directory to sys.path to ensure proper imports
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -215,29 +217,150 @@ def generate_complete_summary(agent_path: str, env_id: str, seed: int, num_envs:
     print(f"\nEvaluation and summary generation complete for agent {agent_path}")
 
 
+def check_environment_seed(config, env_id, seed_override=None):
+    """
+    Log a warning if the environment is being created with a different seed from the one used for Dijkstra.
+    This is a key fix for Issue 1 - environment layout mismatch.
+    
+    Args:
+        config: The agent config dictionary
+        env_id: The environment ID
+        seed_override: Optional seed override value
+    
+    Returns:
+        int: The correct seed to use
+    """
+    # If the seed_override is provided, use it
+    if seed_override is not None:
+        print(f"Using seed override value: {seed_override}")
+        return seed_override
+    
+    # Check if a specific evaluation seed was set in the config
+    if 'seeds' in config and 'evaluation' in config['seeds']:
+        eval_seed = config['seeds']['evaluation']
+        print(f"Using evaluation seed from config: {eval_seed}")
+        return eval_seed
+    
+    # Otherwise, fall back to a default seed
+    print("WARNING: No evaluation seed specified in config or override, using default seed 81102")
+    return 81102
+
+
+def generate_agent_evaluations_in_dir(agent_dir, base_env, env_id, num_episodes=1, seed=81102, verbose=False):
+    """
+    Generate evaluations for all agents in the specified directory.
+    
+    Args:
+        agent_dir: Path to the directory containing agent models
+        base_env: Base environment object (will be reset with proper seed for each evaluation)
+        env_id: Environment ID string
+        num_episodes: Number of episodes to run per evaluation
+        seed: Random seed to use for the evaluation
+        verbose: Whether to print verbose output
+    """
+    # Get agent paths
+    agent_subdirs = [d for d in os.listdir(agent_dir) if os.path.isdir(os.path.join(agent_dir, d))]
+    
+    for subdir in agent_subdirs:
+        agent_path = os.path.join(agent_dir, subdir)
+        
+        # Check if the agent file exists
+        model_file = os.path.join(agent_path, "agent.zip")
+        if not os.path.exists(model_file):
+            if verbose:
+                print(f"No agent file found at {model_file}")
+            continue
+        
+        # Check if config file exists to get the right evaluation seed
+        config_file = os.path.join(agent_path, "config.yaml")
+        evaluation_seed = seed  # Default
+        if os.path.exists(config_file):
+            try:
+                with open(config_file, 'r') as f:
+                    config = yaml.safe_load(f)
+                evaluation_seed = check_environment_seed(config, env_id, seed)
+            except Exception as e:
+                print(f"Failed to read config file: {e}")
+        
+        # Create environment with the correct seed from the config
+        env = create_evaluation_env(base_env, env_id, seed=evaluation_seed)
+        
+        # Generate evaluation
+        print(f"\nGenerating evaluation for agent: {agent_path}")
+        print(f"Using evaluation seed: {evaluation_seed}")
+        generate_agent_evaluation(agent_path, env, env_id, evaluation_seed, num_episodes, verbose)
+
+
+def generate_agent_evaluation(agent_path, env, env_id, seed, num_episodes=1, verbose=False):
+    """
+    Generate an evaluation for a single agent and save it to a JSON file.
+    
+    Args:
+        agent_path: Path to the agent directory
+        env: Environment to evaluate in
+        env_id: Environment ID string
+        seed: Random seed to use for the evaluation
+        num_episodes: Number of episodes to run
+        verbose: Whether to print verbose output
+    
+    Returns:
+        str: Path to the saved JSON file
+    """
+    print(f"Running agent evaluation for {agent_path} with seed {seed}...")
+    
+    try:
+        # Import agent model
+        from stable_baselines3 import DQN
+        from stable_baselines3.common.evaluation import evaluate_policy
+        
+        # Load the agent model from the agent.zip file
+        agent_file = os.path.join(agent_path, "agent.zip")
+        agent = DQN.load(agent_file)
+        
+        # Create agent evaluation logs directory
+        eval_logs_dir = os.path.join(agent_path, "evaluation_logs")
+        os.makedirs(eval_logs_dir, exist_ok=True)
+        
+        # Run agent evaluation and export to JSON
+        from Agent_Evaluation.AgentTooling.agent_logger import run_agent_evaluation
+        
+        # Run evaluation with real agent path generation
+        json_path = run_agent_evaluation(
+            agent, env, env_id, seed, num_episodes=num_episodes,
+            agent_dir=agent_path
+        )
+        
+        print(f"Agent evaluation saved to {json_path}")
+        return json_path
+        
+    except Exception as e:
+        print(f"Error generating agent evaluation: {e}")
+        if verbose:
+            import traceback
+            traceback.print_exc()
+        return None
+
+
 if __name__ == "__main__":
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(description="Generate evaluations for trained agents")
-    parser.add_argument("--path", type=str, 
-                        help="Path to the agent folder in Agent_Storage")
-    parser.add_argument("--no-plot", action="store_true", 
-                        help="Disable matplotlib plot generation (useful for headless environments)")
-    parser.add_argument("--force-dijkstra", action="store_true",
-                        help="Force recalculation of Dijkstra's paths even if they exist")
-    parser.add_argument("--debug", action="store_true",
-                        help="Enable detailed debug output including diagonal safety checks")
+    import argparse
+    from Agent_Evaluation.EnvironmentTooling.import_vars import create_evaluation_env
+    
+    parser = argparse.ArgumentParser(description="Generate agent evaluations")
+    parser.add_argument("--path", type=str, required=True, 
+                        help="Path to the agent directory or parent directory containing multiple agents")
+    
     args = parser.parse_args()
     
-    # Path is required
-    if not args.path:
-        parser.error("the --path argument is required")
-        
     # Default values
     ENV_ID = "MiniGrid-LavaCrossingS11N5-v0"
     SEED = 81102
-    NUM = 15
+    NUM = 15  # Number of different seeds to evaluate on
+    NUM_EPISODES = 1  # Number of episodes per seed (usually 1 since evaluation is deterministic)
     
+    # Generate complete summary which runs evaluations on multiple seeds
     generate_complete_summary(
         args.path, ENV_ID, SEED, NUM, 
-        not args.no_plot, args.debug, args.force_dijkstra
+        generate_plot=True, 
+        debug=False, 
+        force_dijkstra=False
     )

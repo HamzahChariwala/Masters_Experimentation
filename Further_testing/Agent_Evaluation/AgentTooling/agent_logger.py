@@ -81,8 +81,7 @@ class AgentLogger:
     def _run_episode_from_state(self, env, start_state: Tuple[int, int, int]):
         """
         Run a single episode with the agent starting at the specified state.
-        Since we're encountering issues with the agent prediction,
-        we'll focus on logging the observation data from each state.
+        This version actually runs the agent model to predict actions and generate real paths.
         
         Args:
             env: The environment to evaluate in
@@ -103,14 +102,24 @@ class AgentLogger:
         
         # Navigate to the unwrapped environment with grid
         current_env = env
-        while hasattr(current_env, 'env'):
-            current_env = current_env.env
+        max_depth = 10
+        found_base_env = False
+        
+        for _ in range(max_depth):
             if hasattr(current_env, 'grid') and hasattr(current_env, 'agent_pos') and hasattr(current_env, 'agent_dir'):
                 # Found the base MiniGrid environment
+                found_base_env = True
+                break
+            
+            if hasattr(current_env, 'env'):
+                current_env = current_env.env
+            elif hasattr(current_env, 'unwrapped'):
+                current_env = current_env.unwrapped
+            else:
                 break
         
         # If we found a MiniGrid environment with accessible attributes
-        if hasattr(current_env, 'grid') and hasattr(current_env, 'agent_pos') and hasattr(current_env, 'agent_dir'):
+        if found_base_env:
             # Set agent position and orientation
             current_env.agent_pos = np.array([x, y])
             current_env.agent_dir = orientation
@@ -136,10 +145,7 @@ class AgentLogger:
         
         # Initialize episode data
         steps = []
-        
-        # For path_taken, try to simulate a reasonable path to the goal
-        # In a real implementation, this would come from the agent's trajectory
-        path_taken = self._generate_simulated_path(start_state)
+        path_taken = [state_key]  # Initialize path with starting state
         
         # Log current state
         curr_state = (x, y, orientation)
@@ -148,10 +154,25 @@ class AgentLogger:
         # Extract features for logging
         model_inputs = self._extract_model_inputs(obs, info)
         
-        # Create first step data without actually predicting agent actions
+        # Maximum number of steps to run
+        max_steps = 20
+        
+        # Get MLP inputs for the model
+        mlp_inputs = self._extract_mlp_inputs(obs, info)
+        
+        # Predict action using the agent model
+        action = None
+        try:
+            action, _ = self.agent.predict(mlp_inputs, deterministic=True)
+            if isinstance(action, np.ndarray):
+                action = int(action)
+        except Exception as e:
+            print(f"  Error predicting action: {e}")
+        
+        # Create first step data
         first_step = {
             "state": state_key,
-            "action": None,  # Skip prediction
+            "action": action,
             "reward": 0,
             "terminated": False,
             "truncated": False,
@@ -161,138 +182,125 @@ class AgentLogger:
         
         steps.append(first_step)
         
+        # Try to run a few steps to generate a real path
+        done = False
+        step_count = 0
+        
+        # Copy the environment to avoid affecting the original
+        import copy
+        env_copy = env
+        
+        # Get a fresh observation after setting the state
+        obs, info = env_copy.reset(seed=self.seed)
+        
+        # Set position and orientation again
+        current_env.agent_pos = np.array([x, y])
+        current_env.agent_dir = orientation
+        
+        # Update observation
+        if hasattr(current_env, 'gen_obs'):
+            obs = current_env.gen_obs()
+        
+        # Run the agent for a few steps to generate a path
+        total_reward = 0
+        while not done and step_count < max_steps:
+            # Predict action
+            try:
+                mlp_inputs = self._extract_mlp_inputs(obs, info)
+                action, _ = self.agent.predict(mlp_inputs, deterministic=True)
+                
+                # Convert action to int
+                if isinstance(action, np.ndarray):
+                    action = int(action)
+                    
+                # Take action in environment
+                next_obs, reward, terminated, truncated, next_info = env_copy.step(action)
+                
+                # Get new state
+                next_x, next_y, next_orientation = self._get_agent_position(env_copy)
+                next_state_key = f"{next_x},{next_y},{next_orientation}"
+                
+                # Get cell type
+                next_cell_type = "unknown"
+                if 0 <= next_y < self.env_tensor.shape[0] and 0 <= next_x < self.env_tensor.shape[1]:
+                    next_cell_type = self.env_tensor[next_y, next_x]
+                
+                # Create step data
+                step_data = {
+                    "state": next_state_key,
+                    "action": action,
+                    "reward": reward,
+                    "terminated": terminated,
+                    "truncated": truncated,
+                    "cell_type": next_cell_type,
+                    "model_inputs": self._extract_model_inputs(next_obs, next_info)
+                }
+                
+                # Add to steps and path
+                steps.append(step_data)
+                path_taken.append(next_state_key)
+                
+                # Update for next iteration
+                obs = next_obs
+                info = next_info
+                total_reward += reward
+                
+                # Check if done
+                done = terminated or truncated
+                step_count += 1
+                
+                if terminated and reward > 0:
+                    # Goal reached
+                    break
+            except Exception as e:
+                print(f"  Error running step {step_count}: {e}")
+                break
+        
         # Calculate summary statistics for this episode
         summary = {
-            "total_steps": 1,
-            "outcome": "skipped_prediction",
-            "final_reward": 0,
+            "total_steps": len(steps),
+            "outcome": "success" if (done and total_reward > 0) else "failure",
+            "final_reward": total_reward,
             "state_type": curr_cell_type
         }
         
         # Store complete state data
         state_data = {
             "steps": steps,
-            "path": path_taken,
+            "path_taken": path_taken,
             "summary": summary
         }
         
         # Add this state's data to the overall dataset
         self.all_states_data[state_key] = state_data
-        
-    def _generate_simulated_path(self, start_state: Tuple[int, int, int]) -> List[str]:
+    
+    def _get_agent_position(self, env):
         """
-        Generate a simulated path to the goal.
-        In a real implementation, this would use the actual path from agent trajectory,
-        but for now we'll create a synthetic path.
+        Get agent position and orientation from environment.
         
         Args:
-            start_state: The starting state (x, y, orientation)
-            
+            env: Environment
+        
         Returns:
-            List[str]: List of state keys representing a path to the goal
+            Tuple of (x, y, orientation)
         """
-        # Start with current state
-        x, y, orientation = start_state
-        state_key = f"{x},{y},{orientation}"
-        path = [state_key]
+        # Try to unwrap the environment to get agent position and orientation
+        current_env = env
+        max_depth = 10
         
-        # Locate goal position
-        goal_x, goal_y = None, None
-        for y_idx in range(self.env_tensor.shape[0]):
-            for x_idx in range(self.env_tensor.shape[1]):
-                if self.env_tensor[y_idx, x_idx] == "goal":
-                    goal_x, goal_y = x_idx, y_idx
-                    break
-        
-        # If we couldn't find the goal, just return the current state
-        if goal_x is None:
-            return path
+        for _ in range(max_depth):
+            if hasattr(current_env, 'agent_pos') and hasattr(current_env, 'agent_dir'):
+                return current_env.agent_pos[0], current_env.agent_pos[1], current_env.agent_dir
             
-        # For simplicity, we'll use a rough approximation of a path
-        # This could be replaced with a proper pathfinding algorithm
-        
-        # 1. Find the goal location
-        # Start with current position
-        curr_x, curr_y, curr_dir = start_state
-        
-        # Choose a direction that moves towards the goal
-        # We'll use a naive approach: first move horizontally, then vertically
-        
-        # First, try to reach the correct column (move horizontally)
-        while curr_x != goal_x:
-            # Determine direction to move
-            target_dir = 0 if goal_x > curr_x else 2  # 0=right, 2=left
-            
-            # If not facing the right direction, turn
-            if curr_dir != target_dir:
-                # Add a turning state
-                if (target_dir - curr_dir) % 4 == 1 or (target_dir - curr_dir) % 4 == -3:
-                    # Turn right
-                    curr_dir = (curr_dir + 1) % 4
-                else:
-                    # Turn left
-                    curr_dir = (curr_dir - 1) % 4
-                path.append(f"{curr_x},{curr_y},{curr_dir}")
+            if hasattr(current_env, 'env'):
+                current_env = current_env.env
+            elif hasattr(current_env, 'unwrapped'):
+                current_env = current_env.unwrapped
             else:
-                # Move in the direction we're facing
-                if curr_dir == 0:  # Right
-                    curr_x += 1
-                elif curr_dir == 2:  # Left
-                    curr_x -= 1
-                    
-                # Check if this is a valid move (not into a wall or lava)
-                if 0 <= curr_y < self.env_tensor.shape[0] and 0 <= curr_x < self.env_tensor.shape[1]:
-                    cell_type = self.env_tensor[curr_y, curr_x]
-                    if cell_type == "wall":
-                        # Can't move here, undo and try another direction
-                        if curr_dir == 0:  # Right
-                            curr_x -= 1
-                        elif curr_dir == 2:  # Left
-                            curr_x += 1
-                        break
-                        
-                path.append(f"{curr_x},{curr_y},{curr_dir}")
+                break
         
-        # Then, try to reach the correct row (move vertically)
-        while curr_y != goal_y:
-            # Determine direction to move
-            target_dir = 1 if goal_y > curr_y else 3  # 1=down, 3=up
-            
-            # If not facing the right direction, turn
-            if curr_dir != target_dir:
-                # Add a turning state
-                if (target_dir - curr_dir) % 4 == 1 or (target_dir - curr_dir) % 4 == -3:
-                    # Turn right
-                    curr_dir = (curr_dir + 1) % 4
-                else:
-                    # Turn left
-                    curr_dir = (curr_dir - 1) % 4
-                path.append(f"{curr_x},{curr_y},{curr_dir}")
-            else:
-                # Move in the direction we're facing
-                if curr_dir == 1:  # Down
-                    curr_y += 1
-                elif curr_dir == 3:  # Up
-                    curr_y -= 1
-                    
-                # Check if this is a valid move (not into a wall or lava)
-                if 0 <= curr_y < self.env_tensor.shape[0] and 0 <= curr_x < self.env_tensor.shape[1]:
-                    cell_type = self.env_tensor[curr_y, curr_x]
-                    if cell_type == "wall":
-                        # Can't move here, undo and try another direction
-                        if curr_dir == 1:  # Down
-                            curr_y -= 1
-                        elif curr_dir == 3:  # Up
-                            curr_y += 1
-                        break
-                        
-                path.append(f"{curr_x},{curr_y},{curr_dir}")
-        
-        # Limit path length for performance
-        if len(path) > 30:
-            path = path[:30]
-            
-        return path
+        # Default values if agent position and orientation not found
+        return 1, 1, 0
     
     def _get_agent_state(self, env) -> Optional[Tuple[int, int, int]]:
         """
