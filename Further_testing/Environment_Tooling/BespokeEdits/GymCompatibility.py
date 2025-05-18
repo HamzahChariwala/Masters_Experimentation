@@ -9,10 +9,9 @@ class OldGymCompatibility(gym.Env):
         self.action_space      = self.env.action_space
         self.observation_space = self.env.observation_space
 
-    def reset(self, **kwargs):
-        # Gymnasium.reset() → (obs, info)
-        obs, info = self.env.reset(**kwargs)
-        # Return both so DummyVecEnv.reset() can unpack correctly
+    def reset(self, *, seed=None, options=None):
+        # Pass options right through to the underlying Monitor → MiniGrid
+        obs, info = self.env.reset(seed=seed, options=options)
         return obs, info
 
     def step(self, action):

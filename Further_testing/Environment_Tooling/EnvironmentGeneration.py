@@ -22,6 +22,12 @@ class SafeMonitor(Monitor):
         if hasattr(self.env.unwrapped, 'agent_pos'):
             return self.env.unwrapped.agent_pos
         return None  # Return None if agent_pos doesn't exist
+    
+    def reset(self, *, seed=None, options=None):
+        #   — forward both arguments so MiniGrid.reset(options=…) actually runs!
+        obs, info = self.env.reset(seed=seed, options=options)
+        #  now let Monitor do its logging book-keeping
+        return obs, info
 
 # Safe version of evaluate_policy that ensures all attribute access goes through unwrapped
 def safe_evaluate_policy(
