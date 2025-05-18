@@ -4,6 +4,7 @@ from gymnasium.vector import AsyncVectorEnv
 from gymnasium.spaces import MultiDiscrete
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecMonitor
 from stable_baselines3.common.monitor import Monitor
+from gymnasium.wrappers import RecordEpisodeStatistics
 import numpy as np
 from typing import Dict, Any, List, Callable, Union, Tuple, Optional
 import random
@@ -11,23 +12,40 @@ import torch
 import os
 
 # Custom monitor wrapper that properly accesses attributes through unwrapped
-class SafeMonitor(Monitor):
-    """A wrapper that properly accesses environment attributes through unwrapped to avoid deprecation warnings."""
-    def __init__(self, env, filename=None, allow_early_resets=True, 
-                 reset_keywords=(), info_keywords=()):
-        super().__init__(env, filename, allow_early_resets, reset_keywords, info_keywords)
+# class SafeMonitor(Monitor):
+#     """A wrapper that properly accesses environment attributes through unwrapped to avoid deprecation warnings."""
+#     def __init__(self, env, filename=None, allow_early_resets=True, 
+#                  reset_keywords=(), info_keywords=()):
+#         super().__init__(env, filename, allow_early_resets, reset_keywords, info_keywords)
         
+#     def get_agent_pos(self):
+#         # Always access agent_pos through the unwrapped environment
+#         if hasattr(self.env.unwrapped, 'agent_pos'):
+#             return self.env.unwrapped.agent_pos
+#         return None  # Return None if agent_pos doesn't exist
+    
+#     def reset(self, *, seed=None, options=None):
+#         #   — forward both arguments so MiniGrid.reset(options=…) actually runs!
+#         obs, info = self.env.reset(seed=seed, options=options)
+#         #  now let Monitor do its logging book-keeping
+#         return obs, info
+    
+
+class SafeMonitor(RecordEpisodeStatistics):
+    def __init__(self, env):
+        # no filename / keywords here—just wrap the env
+        super().__init__(env)
+
     def get_agent_pos(self):
-        # Always access agent_pos through the unwrapped environment
         if hasattr(self.env.unwrapped, 'agent_pos'):
             return self.env.unwrapped.agent_pos
-        return None  # Return None if agent_pos doesn't exist
-    
+        return None
+
     def reset(self, *, seed=None, options=None):
-        #   — forward both arguments so MiniGrid.reset(options=…) actually runs!
+        # forward both seed and options so MiniGrid.reset(options=…) works
         obs, info = self.env.reset(seed=seed, options=options)
-        #  now let Monitor do its logging book-keeping
         return obs, info
+
 
 # Safe version of evaluate_policy that ensures all attribute access goes through unwrapped
 def safe_evaluate_policy(

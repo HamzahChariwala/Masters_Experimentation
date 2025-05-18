@@ -236,10 +236,22 @@ class AgentLogger:
                 done = terminated_loop or truncated_loop
                 step_count += 1
                 if terminated_loop and reward_loop > 0: break
+                
             except Exception as e_loop_step:
                 print(f"  ERROR during episode loop step {step_count} for state {state_key}: {e_loop_step}")
-                steps.append({"error": f"Step error: {e_loop_step}"})
+                # append a “fake” step record with all the keys your summary needs
+                steps.append({
+                    "state": path_taken[-1],
+                    "action": None,
+                    "reward": 0.0,
+                    "terminated": True,
+                    "truncated": False,
+                    "cell_type": curr_cell_type,
+                    "model_inputs": current_obs['MLP_input'].tolist(),
+                    "error": str(e_loop_step),
+                })
                 done = True
+
         
         # Calculate summary statistics
         summary = self._calculate_summary_stats(steps, path_taken)
@@ -799,7 +811,7 @@ def run_agent_evaluation(agent, env, env_id: str, seed: int, num_episodes: int =
     # This ensures that all necessary wrappers for log_data generation are present.
     # The mlp_keys should match those used during training and expected by _extract_mlp_inputs.
     print(f"DEBUG: Creating fully wrapped environment for evaluation using make_env for {env_id} with seed {seed}")
-    eval_env_fn = make_env(
+    base_fn = make_env(
         env_id=env_id,
         rank=0,  # Typically 0 for a single environment
         env_seed=seed,
@@ -813,6 +825,12 @@ def run_agent_evaluation(agent, env, env_id: str, seed: int, num_episodes: int =
         # Add other parameters for make_env if they were used during training for this agent
         # e.g., use_random_spawn, use_no_death, etc. For now, using common defaults.
     )
+
+    # wrap *every* new env in your PositionAwareWrapper
+    from Agent_Evaluation.EnvironmentTooling.position_aware_wrapper import PositionAwareWrapper
+    def eval_env_fn():
+        env = base_fn()
+        return PositionAwareWrapper(env)
 
     evaluation_env = eval_env_fn()
     evaluation_env.reset(seed=seed)
