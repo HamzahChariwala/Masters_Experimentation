@@ -108,7 +108,7 @@ class AgentLogger:
 
         try:
             # Attempt to reset the environment to the specific start_state using options
-            obs, info = env.reset(seed=self.seed, options=reset_options)
+            obs, info = env.reset(options=reset_options)
             print(f"  DEBUG: For state {state_key}, after env.reset(options={reset_options}):")
             if isinstance(obs, dict):
                 print(f"    obs keys: {list(obs.keys())}")
@@ -813,7 +813,11 @@ def run_agent_evaluation(agent, env, env_id: str, seed: int, num_episodes: int =
         # Add other parameters for make_env if they were used during training for this agent
         # e.g., use_random_spawn, use_no_death, etc. For now, using common defaults.
     )
+    
     evaluation_env = eval_env_fn()
+    evaluation_env.reset(seed=seed)
+    env_tensor = extract_grid_from_env(evaluation_env)
+
     print(f"DEBUG: Fully wrapped environment for evaluation created: {evaluation_env}")
 
     # ──────────────────────────────────────────────────────────────────────────
