@@ -38,7 +38,7 @@ class AgentLogger:
         self.state_object = State((1, 1, 0))  # Create a State object for utility methods
         self.all_states_data = {}  # Store data for all tested states
         
-    def log_agent_behavior(self, env) -> Dict[str, Any]:
+    def log_agent_behavior(self, eval_env_fn) -> Dict[str, Any]:
         """
         Systematically test agent behavior from all valid starting positions and orientations.
         
@@ -68,14 +68,14 @@ class AgentLogger:
                 if cell_type == "wall" or cell_type == "goal":
                     continue
                 
-                # Test all orientations at this position
+                # Test all orientations at this position on a brand-new env each time
                 for orientation in orientations:
                     state_key = f"{x},{y},{orientation}"
                     print(f"Testing from state: {state_key}...")
-                    
-                    # Run a single episode from this starting state
+
                     try:
-                        # Reset environment and set agent to this position
+                        # spawn a fresh env instance so env.reset(options=…) is always honored
+                        env = eval_env_fn()
                         self._run_episode_from_state(env, (x, y, orientation))
                     except Exception as e:
                         print(f"Error running episode from state {state_key}: {e}")
@@ -141,8 +141,8 @@ class AgentLogger:
             return
 
         curr_cell_type = self.env_tensor[y, x] 
-        import copy
-        model_inputs_for_json = copy.deepcopy(self._extract_model_inputs(obs, info))
+        # simply record the actual 106-d input vector the model saw
+        model_inputs_for_json = obs['MLP_input'].tolist()
 
         # FOR PREDICTION: We now strictly expect obs['MLP_input'] to be valid from the wrapped environment
         if not (isinstance(obs, dict) and 'MLP_input' in obs and 
@@ -220,7 +220,7 @@ class AgentLogger:
                 next_state_key_str = f"{next_x},{next_y},{next_orientation}"
                 next_cell_type = self.env_tensor[next_y, next_x] if 0 <= next_y < self.env_tensor.shape[0] and 0 <= next_x < self.env_tensor.shape[1] else "unknown"
                 
-                step_model_inputs_json = copy.deepcopy(self._extract_model_inputs(next_obs, next_info))
+                step_model_inputs_json = next_obs['MLP_input'].tolist()
 
                 step_data = {
                     "state": next_state_key_str, "action": action_loop, "reward": reward_loop,
@@ -813,7 +813,7 @@ def run_agent_evaluation(agent, env, env_id: str, seed: int, num_episodes: int =
         # Add other parameters for make_env if they were used during training for this agent
         # e.g., use_random_spawn, use_no_death, etc. For now, using common defaults.
     )
-    
+
     evaluation_env = eval_env_fn()
     evaluation_env.reset(seed=seed)
     env_tensor = extract_grid_from_env(evaluation_env)
@@ -845,7 +845,7 @@ def run_agent_evaluation(agent, env, env_id: str, seed: int, num_episodes: int =
         
         # Log agent behavior using the fully wrapped environment
         # This 'evaluation_env' should provide dynamic log_data
-        logger.log_agent_behavior(evaluation_env) 
+        logger.log_agent_behavior(eval_env_fn) 
     
     # Structure the data (this part remains largely the same, but operates on new data)
     formatted_states = {}
