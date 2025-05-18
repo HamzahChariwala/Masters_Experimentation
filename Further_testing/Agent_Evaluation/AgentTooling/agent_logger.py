@@ -528,14 +528,16 @@ class AgentLogger:
             "reachable": success or path_length > 0  # Consider reachable if success or it moved
         }
     
-    def export_to_json(self, output_path: str = None) -> str:
+    def export_to_json(self, output_path: str = None, agent_dir: str = None) -> str:
         """
         Export the agent behavior data to a JSON file.
         Format to match Dijkstra logs structure.
         
         Args:
             output_path (str, optional): Path to save the JSON file. 
-                If None, saved to Agent_Evaluation/AgentLogs directory.
+                If None, saved to agent_dir/evaluation_logs directory.
+            agent_dir (str, optional): Path to the agent directory.
+                If None, defaults to saving in Agent_Evaluation/AgentLogs.
             
         Returns:
             str: Path to the saved JSON file
@@ -566,18 +568,35 @@ class AgentLogger:
         
         # Determine output path if not provided
         if output_path is None:
-            # Create Agent_Evaluation/AgentLogs directory if it doesn't exist
-            agent_logs_dir = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-                "AgentLogs"
-            )
-            os.makedirs(agent_logs_dir, exist_ok=True)
-            
-            # Save to Agent_Evaluation/AgentLogs directory with the proper name format
-            output_path = os.path.join(
-                agent_logs_dir, 
-                f"{self.env_id}-{self.seed}-agent.json"
-            )
+            if agent_dir is not None:
+                # Create evaluation_logs directory in the agent's folder
+                # First, verify that the agent_dir exists
+                if not os.path.exists(agent_dir):
+                    print(f"Warning: Agent directory {agent_dir} does not exist. Creating it...")
+                    os.makedirs(agent_dir, exist_ok=True)
+                
+                agent_logs_dir = os.path.join(agent_dir, "evaluation_logs")
+                os.makedirs(agent_logs_dir, exist_ok=True)
+                print(f"Created evaluation_logs directory: {agent_logs_dir}")
+                
+                # Save to agent's evaluation_logs directory with the name format without "-agent"
+                output_path = os.path.join(
+                    agent_logs_dir, 
+                    f"{self.env_id}-{self.seed}.json"
+                )
+            else:
+                # Fallback to the previous behavior if agent_dir is not provided
+                agent_logs_dir = os.path.join(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+                    "AgentLogs"
+                )
+                os.makedirs(agent_logs_dir, exist_ok=True)
+                
+                # Save to Agent_Evaluation/AgentLogs directory with the old name format
+                output_path = os.path.join(
+                    agent_logs_dir, 
+                    f"{self.env_id}-{self.seed}-agent.json"
+                )
         
         # Save the data to a JSON file
         with open(output_path, 'w') as f:
@@ -661,7 +680,7 @@ class AgentLogger:
         return feature_vector
 
 
-def run_agent_evaluation(agent, env, env_id: str, seed: int, num_episodes: int = 1, logger=None) -> str:
+def run_agent_evaluation(agent, env, env_id: str, seed: int, num_episodes: int = 1, logger=None, agent_dir: str = None) -> str:
     """
     Run the agent evaluation and log its behavior.
     Format to match a simplified version of the logs structure without standard/conservative nesting.
@@ -674,6 +693,8 @@ def run_agent_evaluation(agent, env, env_id: str, seed: int, num_episodes: int =
         seed (int): Random seed
         num_episodes (int): Number of episodes to run (default: 1)
         logger (AgentLogger, optional): Pre-populated logger instance. If provided, skips data collection.
+        agent_dir (str, optional): Path to the agent directory for saving logs.
+            If provided, logs will be saved to {agent_dir}/evaluation_logs/{env_id}-{seed}.json
         
     Returns:
         str: Path to the saved JSON file
@@ -853,5 +874,5 @@ def run_agent_evaluation(agent, env, env_id: str, seed: int, num_episodes: int =
     # Update the logger's all_states_data with the formatted data
     logger.all_states_data = formatted_data
     
-    # Export the data to JSON
-    return logger.export_to_json() 
+    # Export the data to JSON with the agent directory
+    return logger.export_to_json(agent_dir=agent_dir)
