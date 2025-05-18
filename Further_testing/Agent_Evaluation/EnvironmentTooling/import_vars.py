@@ -14,6 +14,9 @@ print(f"Added to Python path: {project_root}")
 from Environment_Tooling.EnvironmentGeneration import make_env
 from Environment_Tooling.BespokeEdits.FeatureExtractor import CustomCombinedExtractor
 
+# Import the new position-aware wrapper
+from Agent_Evaluation.EnvironmentTooling.position_aware_wrapper import PositionAwareWrapper
+
 # Import from stable_baselines3
 from stable_baselines3 import DQN, PPO, A2C
 
@@ -125,6 +128,7 @@ def extract_env_config(config: Dict[str, Any], override_env_id: Optional[str] = 
 def create_evaluation_env(env_settings: Dict[str, Any], seed: int = 42, override_rank: int = 0) -> gym.Env:
     """
     Create an environment for evaluation using the make_env function.
+    Wraps the environment with PositionAwareWrapper for accurate agent positioning during evaluation.
     
     Args:
         env_settings (Dict[str, Any]): Environment settings
@@ -158,6 +162,9 @@ def create_evaluation_env(env_settings: Dict[str, Any], seed: int = 42, override
     
     # Create the environment
     env = env_fn()
+    
+    # Wrap the environment with PositionAwareWrapper for accurate agent positioning
+    env = PositionAwareWrapper(env)
     
     print(f"Created evaluation environment: {env_settings['env_id']}")
     print(f"Observation space: {env.observation_space}")

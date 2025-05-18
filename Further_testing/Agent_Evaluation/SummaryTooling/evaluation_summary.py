@@ -162,17 +162,16 @@ def process_evaluation_logs(agent_dirs: Optional[List[str]] = None,
             if performance_data:
                 agent_summaries[file_name] = performance_data
                 
-                # Write performance data back to the original JSON file
-                # Create a new dictionary with performance at the top
-                updated_data = {
-                    "performance": performance_data
-                }
-                # Copy the environment data
-                updated_data["environment"] = data["environment"]
+                # Read the original file again to ensure we have the most up-to-date version
+                with open(json_file, 'r') as f:
+                    current_data = json.load(f)
+                
+                # Add performance data to the existing data, preserving other keys
+                current_data["performance"] = performance_data
                 
                 # Write back to the file with custom JSON formatting
                 with open(json_file, 'w') as f:
-                    f.write(format_json_with_compact_arrays(updated_data))
+                    f.write(format_json_with_compact_arrays(current_data))
                 
                 print(f"    Added performance data to {file_name}")
         

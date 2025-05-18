@@ -61,12 +61,17 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
         # Extract environment settings with provided env_id
         env_settings = extract_env_config(config, override_env_id=env_id)
         
+        # IMPORTANT: Use exactly the same seed for environment creation and visualization
+        # This ensures the environment layout will match between Dijkstra and agent evaluation
+        print(f"Creating environment with seed: {seed}")
+        
         # Create evaluation environment first so we can extract the actual layout
         print("Creating environment...")
         env = create_evaluation_env(env_settings, seed=seed, override_rank=DEFAULT_RANK)
         
         try:
             # Extract and visualize the environment tensor using the new method
+            # Pass the same seed here to ensure filename consistency
             print("Extracting environment layout...")
             env_tensor = extract_and_visualize_env(env, env_id=env_id, seed=seed, generate_plot=generate_plot)
             
@@ -99,6 +104,7 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
             agent = load_agent(original_agent_path, config)
             
             # Run agent evaluation and log its behavior
+            # IMPORTANT: Use the same environment instance and seed we used for visualization
             print(f"Evaluating agent in {original_agent_path} for {DEFAULT_NUM_EPISODES} episodes")
             
             # Check if the path is absolute or already includes Agent_Storage
@@ -110,9 +116,9 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
             
             agent_log_path = run_agent_evaluation(
                 agent=agent,
-                env=env,
+                env=env,  # Use the same environment instance
                 env_id=env_id,
-                seed=seed,
+                seed=seed,  # Use the same seed
                 num_episodes=DEFAULT_NUM_EPISODES,
                 agent_dir=full_agent_dir
             )

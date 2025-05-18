@@ -10,6 +10,10 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, project_root)
 
 from Behaviour_Specification.StateGeneration.state_class import State
+# Import make_env and CustomCombinedExtractor
+from Environment_Tooling.EnvironmentGeneration import make_env
+from Environment_Tooling.BespokeEdits.FeatureExtractor import CustomCombinedExtractor
+from Agent_Evaluation.EnvironmentTooling.extract_grid import extract_grid_from_env
 
 class AgentLogger:
     """
@@ -81,197 +85,171 @@ class AgentLogger:
     def _run_episode_from_state(self, env, start_state: Tuple[int, int, int]):
         """
         Run a single episode with the agent starting at the specified state.
-        This version actually runs the agent model to predict actions and generate real paths.
-        
         Args:
-            env: The environment to evaluate in
+            env: The fully wrapped environment to evaluate in
             start_state: The starting state (x, y, orientation)
         """
         x, y, orientation = start_state
+
+        # Safety: make sure env is not a VecEnv
+        if hasattr(env, "envs") and len(env.envs) == 1:
+            env = env.envs[0]
+
         state_key = f"{x},{y},{orientation}"
         
-        # Skip if we've already tested this state
         if state_key in self.all_states_data:
             return
-        
-        # Reset environment
-        obs, info = env.reset(seed=self.seed)
-        
-        # Try to place agent at the specified position and orientation
-        unwrapped_env = env.unwrapped
-        
-        # Navigate to the unwrapped environment with grid
-        current_env = env
-        max_depth = 10
-        found_base_env = False
-        
-        for _ in range(max_depth):
-            if hasattr(current_env, 'grid') and hasattr(current_env, 'agent_pos') and hasattr(current_env, 'agent_dir'):
-                # Found the base MiniGrid environment
-                found_base_env = True
-                break
-            
-            if hasattr(current_env, 'env'):
-                current_env = current_env.env
-            elif hasattr(current_env, 'unwrapped'):
-                current_env = current_env.unwrapped
+
+        print(f"\nAttempting to set state {state_key} using env.reset(options=...)")
+        reset_options = {
+            'agent_pos': (x, y),
+            'agent_dir': orientation
+        }
+
+        try:
+            # Attempt to reset the environment to the specific start_state using options
+            obs, info = env.reset(seed=self.seed, options=reset_options)
+            print(f"  DEBUG: For state {state_key}, after env.reset(options={reset_options}):")
+            if isinstance(obs, dict):
+                print(f"    obs keys: {list(obs.keys())}")
+                if 'MLP_input' in obs:
+                    print(f"    obs['MLP_input'] shape: {obs['MLP_input'].shape}, dtype: {obs['MLP_input'].dtype}")
+                    # print(f"    obs['MLP_input'] content: {obs['MLP_input']}") # Potentially too verbose
+                else:
+                    print(f"    WARNING: 'MLP_input' key NOT found in obs after reset with options.")
             else:
-                break
-        
-        # If we found a MiniGrid environment with accessible attributes
-        if found_base_env:
-            # Set agent position and orientation
-            current_env.agent_pos = np.array([x, y])
-            current_env.agent_dir = orientation
+                print(f"    WARNING: obs is not a dict after reset with options. Type: {type(obs)}")
             
-            # Force environment observation update
-            if hasattr(current_env, 'gen_obs'):
-                obs = current_env.gen_obs()
+            if isinstance(info, dict):
+                print(f"    info keys: {list(info.keys())}")
+                if 'log_data' in info and isinstance(info['log_data'], dict):
+                    print(f"    info['log_data'] keys: {list(info['log_data'].keys())}")
+                    # Log specific items from log_data for comparison if they exist
+                    for key_to_check in ['four_way_goal_direction', 'barrier_mask']:
+                        if key_to_check in info['log_data']:
+                            print(f"      log_data['{key_to_check}'] (type: {type(info['log_data'][key_to_check])}): {str(info['log_data'][key_to_check])[:100]}")
+                        else:
+                            print(f"      log_data['{key_to_check}'] not found.")
+                else:
+                    print(f"    WARNING: info['log_data'] not found or not a dict.")
             else:
-                # Try to get updated observation through the wrapper chain
-                obs, _, _, _, info = env.step(0)  # Take a no-op action to update observation
-                # Reset to restore environment
-                obs, info = env.reset(seed=self.seed)  
-                # Position might have been reset, set it again
-                current_env.agent_pos = np.array([x, y])  
-                current_env.agent_dir = orientation
-                # Generate observation again
-                if hasattr(current_env, 'gen_obs'):
-                    obs = current_env.gen_obs()
-        else:
-            # If we couldn't find base environment attributes, skip this state
-            print(f"  Could not set agent to state {state_key}, skipping...")
+                print(f"    WARNING: info is not a dict. Type: {type(info)}")
+
+        except Exception as e_reset:
+            print(f"  CRITICAL ERROR during env.reset(options={reset_options}) for state {state_key}: {e_reset}")
+            self.all_states_data[state_key] = {"error": f"Error in reset(options): {e_reset}", "steps": [], "path_taken": [], "summary": {}}
+            return
+
+        curr_cell_type = self.env_tensor[y, x] 
+        import copy
+        model_inputs_for_json = copy.deepcopy(self._extract_model_inputs(obs, info))
+
+        # FOR PREDICTION: We now strictly expect obs['MLP_input'] to be valid from the wrapped environment
+        if not (isinstance(obs, dict) and 'MLP_input' in obs and 
+                isinstance(obs['MLP_input'], np.ndarray) and obs['MLP_input'].shape == (106,)):
+            print(f"  CRITICAL ERROR: For state {state_key}, obs['MLP_input'] is missing or invalid after reset(options=...). Cannot proceed with prediction.")
+            self.all_states_data[state_key] = {
+                "error": "obs['MLP_input'] missing or invalid for first prediction", 
+                "steps": [], "path_taken": [state_key],
+                "summary": {"outcome": "failure_mlp_input_missing"},
+                "model_inputs_at_error": model_inputs_for_json # Log what we extracted for JSON
+            }
             return
         
-        # Initialize episode data
+        observation_for_predict = obs # Use the whole obs dict, which contains MLP_input
+
         steps = []
-        path_taken = [state_key]  # Initialize path with starting state
+        path_taken = [state_key]
+        first_step_log_entry = {
+            "state": state_key, "action": None, "reward": 0, "terminated": False, "truncated": False,
+            "cell_type": curr_cell_type, "model_inputs": model_inputs_for_json
+        }
         
-        # Log current state
-        curr_state = (x, y, orientation)
-        curr_cell_type = self.env_tensor[y, x]
-        
-        # Extract features for logging
-        model_inputs = self._extract_model_inputs(obs, info)
-        
-        # Maximum number of steps to run
-        max_steps = 20
-        
-        # Get MLP inputs for the model
-        mlp_inputs = self._extract_mlp_inputs(obs, info)
-        
-        # Predict action using the agent model
         action = None
         try:
-            action, _ = self.agent.predict(mlp_inputs, deterministic=True)
+            print(f"  DEBUG: Passing to model.predict for state {state_key}. Type of observation_for_predict: {type(observation_for_predict)}")
+            if isinstance(observation_for_predict, dict):
+                 print(f"         Keys: {list(observation_for_predict.keys())}")
+
+            action, _ = self.agent.predict(observation_for_predict, deterministic=True)
             if isinstance(action, np.ndarray):
                 action = int(action)
-        except Exception as e:
-            print(f"  Error predicting action: {e}")
+            first_step_log_entry["action"] = action
+        except Exception as e_predict:
+            print(f"  ERROR predicting first action for state {state_key}: {e_predict}")
+            self.all_states_data[state_key] = {
+                "error": f"Prediction error: {e_predict}", 
+                "steps": [first_step_log_entry],
+                "path_taken": path_taken,
+                "summary": {"outcome": "failure_predict_error"},
+                "model_inputs_at_error": model_inputs_for_json,
+                "mlp_vector_at_error": obs.get('MLP_input', np.array([])).tolist() # Log MLP_input if available
+            }
+            return 
+
+        steps.append(first_step_log_entry)
+
+        # --- Episode Stepping Loop ---
+        # CRITICAL FIX: Use the original environment instead of creating a new one
+        # This ensures we maintain the correct agent position and direction throughout the episode
+        print(f"  DEBUG: Using original environment for stepping loop for state {state_key}")
         
-        # Create first step data
-        first_step = {
-            "state": state_key,
-            "action": action,
-            "reward": 0,
-            "terminated": False,
-            "truncated": False,
-            "cell_type": curr_cell_type,
-            "model_inputs": model_inputs
-        }
-        
-        steps.append(first_step)
-        
-        # Try to run a few steps to generate a real path
+        # Set variables for the stepping loop
+        current_obs = obs
+        current_info = info
         done = False
         step_count = 0
-        
-        # Copy the environment to avoid affecting the original
-        import copy
-        env_copy = env
-        
-        # Get a fresh observation after setting the state
-        obs, info = env_copy.reset(seed=self.seed)
-        
-        # Set position and orientation again
-        current_env.agent_pos = np.array([x, y])
-        current_env.agent_dir = orientation
-        
-        # Update observation
-        if hasattr(current_env, 'gen_obs'):
-            obs = current_env.gen_obs()
-        
-        # Run the agent for a few steps to generate a path
+        max_steps = 20
         total_reward = 0
+
         while not done and step_count < max_steps:
-            # Predict action
             try:
-                mlp_inputs = self._extract_mlp_inputs(obs, info)
-                action, _ = self.agent.predict(mlp_inputs, deterministic=True)
-                
-                # Convert action to int
-                if isinstance(action, np.ndarray):
-                    action = int(action)
-                    
-                # Take action in environment
-                next_obs, reward, terminated, truncated, next_info = env_copy.step(action)
-                
-                # Get new state
-                next_x, next_y, next_orientation = self._get_agent_position(env_copy)
-                next_state_key = f"{next_x},{next_y},{next_orientation}"
-                
-                # Get cell type
-                next_cell_type = "unknown"
-                if 0 <= next_y < self.env_tensor.shape[0] and 0 <= next_x < self.env_tensor.shape[1]:
-                    next_cell_type = self.env_tensor[next_y, next_x]
-                
-                # Create step data
-                step_data = {
-                    "state": next_state_key,
-                    "action": action,
-                    "reward": reward,
-                    "terminated": terminated,
-                    "truncated": truncated,
-                    "cell_type": next_cell_type,
-                    "model_inputs": self._extract_model_inputs(next_obs, next_info)
-                }
-                
-                # Add to steps and path
-                steps.append(step_data)
-                path_taken.append(next_state_key)
-                
-                # Update for next iteration
-                obs = next_obs
-                info = next_info
-                total_reward += reward
-                
-                # Check if done
-                done = terminated or truncated
-                step_count += 1
-                
-                if terminated and reward > 0:
-                    # Goal reached
+                if not (isinstance(current_obs, dict) and 'MLP_input' in current_obs):
+                    print(f"  CRITICAL ERROR: Loop: current_obs['MLP_input'] missing for {state_key}. Aborting step.")
+                    steps.append({"error": "Loop: MLP_input missing in current_obs"})
                     break
-            except Exception as e:
-                print(f"  Error running step {step_count}: {e}")
-                break
+
+                action_loop, _ = self.agent.predict(current_obs, deterministic=True)
+                if isinstance(action_loop, np.ndarray):
+                    action_loop = int(action_loop)
+
+                next_obs, reward_loop, terminated_loop, truncated_loop, next_info = env.step(action_loop)
+                
+                # Get the agent's position after the step
+                next_x, next_y, next_orientation = self._get_agent_position(env)
+                next_state_key_str = f"{next_x},{next_y},{next_orientation}"
+                next_cell_type = self.env_tensor[next_y, next_x] if 0 <= next_y < self.env_tensor.shape[0] and 0 <= next_x < self.env_tensor.shape[1] else "unknown"
+                
+                step_model_inputs_json = copy.deepcopy(self._extract_model_inputs(next_obs, next_info))
+
+                step_data = {
+                    "state": next_state_key_str, "action": action_loop, "reward": reward_loop,
+                    "terminated": terminated_loop, "truncated": truncated_loop, "cell_type": next_cell_type,
+                    "model_inputs": step_model_inputs_json
+                }
+                steps.append(step_data)
+                path_taken.append(next_state_key_str)
+                
+                current_obs = next_obs
+                current_info = next_info
+                total_reward += reward_loop
+                done = terminated_loop or truncated_loop
+                step_count += 1
+                if terminated_loop and reward_loop > 0: break
+            except Exception as e_loop_step:
+                print(f"  ERROR during episode loop step {step_count} for state {state_key}: {e_loop_step}")
+                steps.append({"error": f"Step error: {e_loop_step}"})
+                done = True
         
-        # Calculate summary statistics for this episode
-        summary = {
-            "total_steps": len(steps),
-            "outcome": "success" if (done and total_reward > 0) else "failure",
-            "final_reward": total_reward,
-            "state_type": curr_cell_type
-        }
+        # Calculate summary statistics
+        summary = self._calculate_summary_stats(steps, path_taken)
         
-        # Store complete state data
+        # Store all data for this state
         state_data = {
             "steps": steps,
             "path_taken": path_taken,
             "summary": summary
         }
-        
-        # Add this state's data to the overall dataset
         self.all_states_data[state_key] = state_data
     
     def _get_agent_position(self, env):
@@ -285,7 +263,15 @@ class AgentLogger:
             Tuple of (x, y, orientation)
         """
         # Try to unwrap the environment to get agent position and orientation
-        current_env = env
+
+        # ──────────────────────────────────────────────────────────────────────────
+        # If someone accidentally passed in a VecEnv, pull out the real env
+        if hasattr(env, "envs") and len(env.envs) == 1:
+            current_env = env.envs[0]
+        else:
+            current_env = env
+        # ──────────────────────────────────────────────────────────────────────────
+        
         max_depth = 10
         
         for _ in range(max_depth):
@@ -566,17 +552,26 @@ class AgentLogger:
                 return item
         
         # Build the output data structure to match Dijkstra log format
-        # Format: {"environment": {"layout": [...], "1,1,0": {...}, ...}}
+        # Format: {"environment": {"layout": [...]}, "states": {"1,1,0": {...}, ...}}
         output_data = {
             "environment": {
-                # Transpose the env_tensor before converting to list
-                "layout": convert_numpy_to_list(self.env_tensor.T)
-            }
+                # IMPORTANT: DON'T transpose the layout here, as it's already in the correct format
+                # The env_tensor is in shape (height, width) where [0,0] is the top-left corner
+                # This matches the format used in Dijkstra logs
+                "layout": convert_numpy_to_list(self.env_tensor)
+            },
+            "performance": {
+                "__comment": "Each state maps to an array with the following values in order: [cell_type, path_length, lava_steps, reaches_goal, next_cell_is_lava, risky_diagonal, target_state, action_taken]"
+            },
+            "states": {}  # Add a states key for all state data
         }
         
-        # Add all state data
+        # Add all state data to the states object
         for state_key, state_data in self.all_states_data.items():
-            output_data["environment"][state_key] = convert_numpy_to_list(state_data)
+            # Ensure state_data has the correct structure for processed data
+            if isinstance(state_data, dict):
+                # Convert state data to the expected format
+                output_data["states"][state_key] = convert_numpy_to_list(state_data)
         
         # Determine output path if not provided
         if output_path is None:
@@ -610,6 +605,12 @@ class AgentLogger:
                     f"{self.env_id}-{self.seed}-agent.json"
                 )
         
+        # Verify that the output structure includes states with path data
+        state_count = len(output_data.get("states", {}))
+        paths_with_data = sum(1 for state in output_data.get("states", {}).values() 
+                            if "path_taken" in state and len(state["path_taken"]) > 0)
+        print(f"Exporting data for {state_count} states, {paths_with_data} with path data")
+        
         # Save the data to a JSON file
         with open(output_path, 'w') as f:
             json.dump(output_data, f, indent=2)
@@ -631,11 +632,11 @@ class AgentLogger:
         Returns:
             np.ndarray: A (106,) shaped numpy array for the agent's predict method
         """
-        # DEBUG: Print observation and info structure
+        # Print debug info without full arrays
         print(f"    Observation keys: {list(obs.keys()) if isinstance(obs, dict) else 'Not a dict'}")
         print(f"    Info keys: {list(info.keys()) if isinstance(info, dict) else 'Not a dict'}")
         
-        # Create a feature vector of the required size (106 elements)
+        # Create a brand new feature vector for this specific state
         feature_vector = np.zeros(106, dtype=np.float32)
         
         # Check if log_data is available in info
@@ -643,109 +644,225 @@ class AgentLogger:
             log_data = info['log_data']
             print(f"    log_data keys: {list(log_data.keys()) if isinstance(log_data, dict) else 'Not a dict'}")
             
-            # 1. Extract four_way_goal_direction (one-hot encode it into first 4 positions)
-            if 'four_way_goal_direction' in log_data and log_data['four_way_goal_direction'] is not None:
-                direction = log_data['four_way_goal_direction']
-                if isinstance(direction, int) and 0 <= direction < 4:
-                    feature_vector[direction] = 1.0
+            # Create a completely new copy of log_data to prevent any shared references
+            import copy
+            safe_log_data = copy.deepcopy(log_data)
+            
+            # 1. Extract four_way_goal_direction as a one-hot vector (first 4 positions)
+            try:
+                direction_processed = False
+                if 'four_way_goal_direction' in safe_log_data and safe_log_data['four_way_goal_direction'] is not None:
+                    direction_data = safe_log_data['four_way_goal_direction']
+                    print(f"    _extract_mlp_inputs: four_way_goal_direction raw value: {direction_data}, type: {type(direction_data)}")
+                    if isinstance(direction_data, (list, np.ndarray)) and np.array(direction_data).ndim == 1 and np.array(direction_data).size > 0:
+                        # Assuming the array contains scores/probabilities for directions, take the argmax
+                        direction_idx = np.argmax(direction_data)
+                        if 0 <= direction_idx < 4:
+                            feature_vector[direction_idx] = 1.0
+                            direction_processed = True
+                            print(f"    Info: Processed four_way_goal_direction (argmax): index {direction_idx}")
+                        else:
+                            print(f"    Warning: argmax of four_way_goal_direction array {direction_idx} is out of range 0-3.")
+                    elif isinstance(direction_data, (int, np.integer)) and 0 <= int(direction_data) < 4:
+                        # If it's already a valid integer index
+                        feature_vector[int(direction_data)] = 1.0
+                        direction_processed = True
+                        print(f"    Info: Processed four_way_goal_direction (scalar): index {int(direction_data)}")
+                    else:
+                        print(f"    Warning: four_way_goal_direction value '{direction_data}' is not a valid integer (0-3) or a processable array.")
+                else:
+                    print(f"    Warning: four_way_goal_direction not found in log_data or is None.")
+                if not direction_processed:
+                    print(f"    Info: Setting default for four_way_goal_direction (all zeros in one-hot).")
+            except Exception as e:
+                print(f"    Warning: Error processing four_way_goal_direction: {e}. Using default.")
                     
             # 2. Extract four_way_angle_alignment (position 4)
-            if 'four_way_angle_alignment' in log_data and log_data['four_way_angle_alignment'] is not None:
-                alignment = log_data['four_way_angle_alignment']
-                if isinstance(alignment, (int, float, np.number)):
-                    feature_vector[4] = float(alignment)
+            try:
+                alignment_processed = False
+                if 'four_way_angle_alignment' in safe_log_data and safe_log_data['four_way_angle_alignment'] is not None:
+                    alignment_data = safe_log_data['four_way_angle_alignment']
+                    print(f"    _extract_mlp_inputs: four_way_angle_alignment raw value: {alignment_data}, type: {type(alignment_data)}")
+                    if isinstance(alignment_data, (list, np.ndarray)) and np.array(alignment_data).ndim == 1 and np.array(alignment_data).size > 0:
+                        # Assuming we should take the first element if it's an array
+                        value_to_use = float(np.array(alignment_data)[0])
+                        feature_vector[4] = value_to_use
+                        alignment_processed = True
+                        print(f"    Info: Processed four_way_angle_alignment (first element of array): {value_to_use}")
+                    elif isinstance(alignment_data, (int, float, np.number)):
+                        # If it's already a scalar number
+                        feature_vector[4] = float(alignment_data)
+                        alignment_processed = True
+                        print(f"    Info: Processed four_way_angle_alignment (scalar): {float(alignment_data)}")
+                    else:
+                        print(f"    Warning: four_way_angle_alignment value '{alignment_data}' is not a valid number or processable array.")
+                else:
+                    print(f"    Warning: four_way_angle_alignment not found in log_data or is None.")
+                if not alignment_processed:
+                    feature_vector[4] = 0.0 # Default to 0.0
+                    print(f"    Info: Setting four_way_angle_alignment to default 0.0.")
+            except Exception as e:
+                print(f"    Warning: Error processing four_way_angle_alignment: {e}. Using default 0.0.")
+                feature_vector[4] = 0.0
                     
-            # 3. Extract and flatten barrier_mask (positions 5-54, assuming size matches)
-            if 'barrier_mask' in log_data and log_data['barrier_mask'] is not None:
-                mask = log_data['barrier_mask']
-                if isinstance(mask, np.ndarray):
-                    # Transpose mask to be consistent with env_tensor handling
-                    mask = mask.T
-                    flat_mask = mask.flatten()
-                    # Copy as many elements as will fit without going out of bounds
-                    copy_size = min(50, flat_mask.size)
-                    feature_vector[5:5+copy_size] = flat_mask[:copy_size]
-                elif isinstance(mask, (list, tuple)):
-                    # Convert to numpy array, transpose, and flatten
-                    mask_array = np.array(mask).T
-                    flat_mask = mask_array.flatten()
-                    copy_size = min(50, flat_mask.size)
-                    feature_vector[5:5+copy_size] = flat_mask[:copy_size]
+            # 3. Extract and flatten barrier_mask (positions 5-54)
+            try:
+                if 'barrier_mask' in safe_log_data and safe_log_data['barrier_mask'] is not None:
+                    barrier_mask_data = safe_log_data['barrier_mask']
+                    print(f"    _extract_mlp_inputs: barrier_mask_data type: {type(barrier_mask_data)}, content (first 5 elements if list/array): {str(barrier_mask_data)[:100] if not isinstance(barrier_mask_data, (str, bool, int, float)) else barrier_mask_data}")
+
+                    # Ensure it's a numpy array of numbers
+                    if isinstance(barrier_mask_data, (list, tuple)):
+                        barrier_mask_data = np.array(barrier_mask_data, dtype=np.float32)
+                    elif not isinstance(barrier_mask_data, np.ndarray):
+                         # Attempt to convert if it's some other type, or default to zeros
+                        try:
+                            barrier_mask_data = np.array(barrier_mask_data, dtype=np.float32)
+                        except:
+                            print(f"    Warning: barrier_mask could not be converted to np.ndarray. Using zeros. Original type: {type(barrier_mask_data)}")
+                            barrier_mask_data = np.zeros((7,7), dtype=np.float32) # Assuming 7x7, adjust if different
+
+                    if barrier_mask_data.ndim == 2: # Should be 2D
+                        barrier_mask = barrier_mask_data.T.astype(np.float32) # Transpose and ensure float
+                        flat_mask = barrier_mask.flatten()
+                        
+                        # Copy values - limit to 50 elements
+                        copy_size = min(50, flat_mask.size)
+                        for i in range(copy_size):
+                            feature_vector[5 + i] = float(flat_mask[i]) # Ensure float
+                    else:
+                        print(f"    Warning: barrier_mask was not 2D. Shape: {barrier_mask_data.shape}. Using zeros for barrier_mask features.")
+
+            except Exception as e:
+                print(f"    Warning: Error processing barrier_mask: {e}")
                     
-            # 4. Extract and flatten lava_mask (positions 55-104, assuming size matches)
-            if 'lava_mask' in log_data and log_data['lava_mask'] is not None:
-                mask = log_data['lava_mask']
-                if isinstance(mask, np.ndarray):
-                    # Transpose mask to be consistent with env_tensor handling
-                    mask = mask.T
-                    flat_mask = mask.flatten()
-                    # Copy as many elements as will fit without going out of bounds
-                    copy_size = min(50, flat_mask.size)
-                    feature_vector[55:55+copy_size] = flat_mask[:copy_size]
-                elif isinstance(mask, (list, tuple)):
-                    # Convert to numpy array, transpose, and flatten
-                    mask_array = np.array(mask).T
-                    flat_mask = mask_array.flatten()
-                    copy_size = min(50, flat_mask.size)
-                    feature_vector[55:55+copy_size] = flat_mask[:copy_size]
+            # 4. Extract and flatten lava_mask (positions 55-104)
+            try:
+                if 'lava_mask' in safe_log_data and safe_log_data['lava_mask'] is not None:
+                    lava_mask_data = safe_log_data['lava_mask']
+                    print(f"    _extract_mlp_inputs: lava_mask_data type: {type(lava_mask_data)}, content (first 5 elements if list/array): {str(lava_mask_data)[:100] if not isinstance(lava_mask_data, (str, bool, int, float)) else lava_mask_data}")
+
+                    # Ensure it's a numpy array of numbers
+                    if isinstance(lava_mask_data, (list, tuple)):
+                        lava_mask_data = np.array(lava_mask_data, dtype=np.float32)
+                    elif not isinstance(lava_mask_data, np.ndarray):
+                        try:
+                            lava_mask_data = np.array(lava_mask_data, dtype=np.float32)
+                        except:
+                            print(f"    Warning: lava_mask could not be converted to np.ndarray. Using zeros. Original type: {type(lava_mask_data)}")
+                            lava_mask_data = np.zeros((7,7), dtype=np.float32) # Assuming 7x7, adjust if different
+                    
+                    if lava_mask_data.ndim == 2: # Should be 2D
+                        lava_mask = lava_mask_data.T.astype(np.float32) # Transpose and ensure float
+                        flat_mask = lava_mask.flatten()
+                        
+                        # Copy values - limit to 50 elements
+                        copy_size = min(50, flat_mask.size)
+                        for i in range(copy_size):
+                            feature_vector[55 + i] = float(flat_mask[i]) # Ensure float
+                    else:
+                        print(f"    Warning: lava_mask was not 2D. Shape: {lava_mask_data.shape}. Using zeros for lava_mask features.")
+            except Exception as e:
+                print(f"    Warning: Error processing lava_mask: {e}")
                     
             # 5. Add a feature indicating we have valid data at position 105
             feature_vector[105] = 1.0
             
             print(f"    Created feature vector with shape {feature_vector.shape}")
-            return feature_vector
-            
+            return feature_vector  # Return the newly created feature vector
+        
         # If we couldn't extract the needed features, still return a zero-filled 106-element vector
         print(f"    Created empty feature vector with shape {feature_vector.shape}")
-        return feature_vector
+        return feature_vector  # Return an empty feature vector
 
 
 def run_agent_evaluation(agent, env, env_id: str, seed: int, num_episodes: int = 1, logger=None, agent_dir: str = None) -> str:
     """
     Run the agent evaluation and log its behavior.
-    Format to match a simplified version of the logs structure without standard/conservative nesting.
-    All orientation values use the agent/environment convention (0=right, 1=down, 2=left, 3=up).
+    Uses a fully wrapped environment created by make_env to ensure dynamic log_data.
     
     Args:
         agent: The agent model
-        env: The environment to evaluate in
+        env: This environment instance is IGNORED. A new one is created with make_env.
         env_id (str): Environment ID
         seed (int): Random seed
         num_episodes (int): Number of episodes to run (default: 1)
         logger (AgentLogger, optional): Pre-populated logger instance. If provided, skips data collection.
         agent_dir (str, optional): Path to the agent directory for saving logs.
-            If provided, logs will be saved to {agent_dir}/evaluation_logs/{env_id}-{seed}.json
         
     Returns:
         str: Path to the saved JSON file
     """
-    from Agent_Evaluation.EnvironmentTooling.extract_grid import extract_grid_from_env
+    print(f"INFO: run_agent_evaluation called for env_id={env_id}, seed={seed}")
 
-    # If a logger is provided, use it
-    if logger is not None:
-        print("Using pre-populated logger")
-        states_data = logger.all_states_data
+    # Create a new, fully wrapped environment for this evaluation run
+    # This ensures that all necessary wrappers for log_data generation are present.
+    # The mlp_keys should match those used during training and expected by _extract_mlp_inputs.
+    print(f"DEBUG: Creating fully wrapped environment for evaluation using make_env for {env_id} with seed {seed}")
+    eval_env_fn = make_env(
+        env_id=env_id,
+        rank=0,  # Typically 0 for a single environment
+        env_seed=seed,
+        window_size=7, # TODO: This should ideally come from a config or be more generic
+        cnn_keys=[],   # Assuming no CNN keys for this agent, adjust if necessary
+        mlp_keys=["four_way_goal_direction",
+                  "four_way_angle_alignment",
+                  "barrier_mask",
+                  "lava_mask"],
+        max_episode_steps=250,  # A reasonable default for evaluation episodes
+        # Add other parameters for make_env if they were used during training for this agent
+        # e.g., use_random_spawn, use_no_death, etc. For now, using common defaults.
+    )
+    evaluation_env = eval_env_fn()
+    print(f"DEBUG: Fully wrapped environment for evaluation created: {evaluation_env}")
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # If make_env returned a DummyVecEnv/SubprocVecEnv, pull out the single sub-env
+    if hasattr(evaluation_env, "envs") and len(evaluation_env.envs) == 1:
+        print("DEBUG: Unwrapping vectorized env → using env.envs[0]")
+        evaluation_env = evaluation_env.envs[0]
+    # ──────────────────────────────────────────────────────────────────────────
+
+    # If a logger is provided, use it (though it might have been initialized with a different env_tensor)
+    # For consistency, we'll re-initialize the logger if states_data is not already populated.
+    if logger is not None and logger.all_states_data:
+        print("Using pre-populated logger with existing states_data.")
+        # Ensure env_tensor in logger matches the new evaluation_env if possible,
+        # but this is tricky as logger might be for a different seed/layout.
+        # For now, if logger is pre-populated, we assume it's correct for its data.
+        pass
     else:
-        # Extract environment tensor
-        env_tensor = extract_grid_from_env(env)
+        print("DEBUG: Creating new AgentLogger instance.")
+        # Extract environment tensor from the new, fully wrapped evaluation environment
+        env_tensor = extract_grid_from_env(evaluation_env)
         
-        # Create agent logger
+        # Create agent logger with the new environment and its tensor
         logger = AgentLogger(env_id, seed, env_tensor, agent)
         
-        # Log agent behavior
-        states_data = logger.log_agent_behavior(env)
+        # Log agent behavior using the fully wrapped environment
+        # This 'evaluation_env' should provide dynamic log_data
+        logger.log_agent_behavior(evaluation_env) 
     
-    # Structure the data with simplified format
-    formatted_data = {}
+    # Structure the data (this part remains largely the same, but operates on new data)
+    formatted_states = {}
     
     # For tracking the number of risky diagonals found
     risky_diagonals_found = 0
     
     # For each state in the agent behavior data
-    for state_key, state_data in states_data.items():
-        # Get path_taken from state_data
-        path_taken = state_data["path_taken"] if "path_taken" in state_data else state_data.get("path", [])
+    for state_key, state_data in logger.all_states_data.items():
+        # Get path_taken from state_data - preserve what's already there
+        path_taken = state_data.get("path_taken", [])
         
+        # If the path isn't there but it's in the original data structure under "steps"
+        if not path_taken and "steps" in state_data:
+            # Collect state keys from each step to build the path
+            path_taken = [step.get("state", "") for step in state_data["steps"] if "state" in step]
+        
+        # Fallback to old "path" key if available
+        if not path_taken and "path" in state_data:
+            path_taken = state_data["path"]
+            
         # Calculate actual path_length based on path_taken
         path_length = len(path_taken) - 1 if len(path_taken) > 0 else 0
         
@@ -883,16 +1000,18 @@ def run_agent_evaluation(agent, env, env_id: str, seed: int, num_episodes: int =
         
         # Extract model_inputs directly from the steps
         if "steps" in state_data and state_data["steps"] and "model_inputs" in state_data["steps"][0]:
-            # Use the raw model_inputs directly
-            formatted_state_data["model_inputs"] = state_data["steps"][0]["model_inputs"]
+            # Make a deep copy of the model_inputs to ensure each state has unique inputs
+            import copy
+            formatted_state_data["model_inputs"] = copy.deepcopy(state_data["steps"][0]["model_inputs"])
         
         # Add the formatted state data to the main dictionary
-        formatted_data[state_key] = formatted_state_data
+        formatted_states[state_key] = formatted_state_data
     
     print(f"\nTotal risky diagonals found: {risky_diagonals_found}")
+    print(f"Total states processed: {len(formatted_states)}")
     
     # Update the logger's all_states_data with the formatted data
-    logger.all_states_data = formatted_data
+    logger.all_states_data = formatted_states
     
     # Export the data to JSON with the agent directory
     return logger.export_to_json(agent_dir=agent_dir)

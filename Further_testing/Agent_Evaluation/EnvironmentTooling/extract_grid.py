@@ -16,7 +16,8 @@ def extract_grid_from_env(env):
         The returned array is an array of rows, where each row is an array of cells.
         This matches the format used in the Dijkstra logs.
     """
-    # Reset the environment
+    # Reset the environment - don't provide a seed here, we assume the env was already created with the right seed
+    # This ensures we get the layout corresponding to the seed used to create the env
     obs, _ = env.reset()
     
     # Try to access grid directly through environment unwrapping
@@ -52,6 +53,7 @@ def extract_grid_from_env(env):
         width, height = grid.width, grid.height
         
         # Create our output tensor - array of rows, each row is an array of cells
+        # This matches the orientation in Dijkstra logs where [0,0] is the top-left corner
         env_tensor = np.full((height, width), "floor", dtype=object)
         
         # Fill the tensor based on the grid content
@@ -129,6 +131,9 @@ def extract_grid_from_env(env):
     # If all else fails, create default grid based on environment ID
     env_id = str(env)
     
+    # ADD A WARNING HERE
+    print(f"WARNING: Could not extract grid using direct access or new_image. Falling back to default grid for env_id: {env_id}")
+
     # Default layout for LavaCrossing environments
     if "LavaCrossing" in env_id:
         width, height = 11, 11

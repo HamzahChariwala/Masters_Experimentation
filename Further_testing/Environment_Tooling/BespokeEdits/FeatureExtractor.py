@@ -85,6 +85,13 @@ class CustomCombinedExtractor(BaseFeaturesExtractor):
         print(f"TOTAL_FEATURE_DIM (CNN + MLP): {self._features_dim}")
 
     def forward(self, observations):
+        # Add debug print for the observations
+        # print(f"DEBUG CustomCombinedExtractor: Forward called with observations keys: {list(observations.keys())}")
+        
+        # if 'MLP_input' in observations:
+        #     print(f"DEBUG CustomCombinedExtractor: MLP_input shape: {observations['MLP_input'].shape}")
+        #     print(f"DEBUG CustomCombinedExtractor: First few values of MLP_input: {observations['MLP_input'][0, :5]}")
+        
         features = []
 
         if self.use_cnn:
@@ -92,6 +99,9 @@ class CustomCombinedExtractor(BaseFeaturesExtractor):
 
         if self.use_mlp:
             features.append(self.mlp(observations['MLP_input']))
+            # mlp_input = observations['MLP_input']
+            # print(f"DEBUG CustomCombinedExtractor: Processing MLP_input with shape {mlp_input.shape}")
+            # features.append(self.mlp(mlp_input))
 
         return th.cat(features, dim=1) if len(features) > 1 else features[0]
     
@@ -126,6 +136,21 @@ class SelectiveObservationWrapper(ObservationWrapper):
 
     def observation(self, obs):
         new_obs = {}
+        
+        # Add debug print for observation method
+        # try:
+        #     from gymnasium.wrappers import TimeLimit
+        #     env = self.env
+        #     while not hasattr(env, 'agent_pos') and hasattr(env, 'env'):
+        #         env = env.env
+        #     if hasattr(env, 'agent_pos'):
+        #         agent_pos = env.agent_pos
+        #         agent_dir = env.agent_dir
+        #         print(f"DEBUG SelectiveObservationWrapper: Agent position in observation method: {agent_pos}, direction: {agent_dir}")
+        #     else:
+        #         print(f"DEBUG SelectiveObservationWrapper: Could not find agent_pos in environment chain")
+        # except Exception as e:
+        #     print(f"DEBUG SelectiveObservationWrapper: Error checking agent position: {e}")
 
         # CNN input formatting: (H, W, C) → (C, H, W)
         if self.cnn_keys:
@@ -136,7 +161,16 @@ class SelectiveObservationWrapper(ObservationWrapper):
         # MLP input: flatten each input
         if self.mlp_keys:
             mlp_inputs = [np.ravel(obs[key]) for key in self.mlp_keys]
+            
+            # Debug each input key
+            # for i, key in enumerate(self.mlp_keys):
+            #     if key in obs:
+            #         print(f"DEBUG SelectiveObservationWrapper: {key} shape: {obs[key].shape}, data: {obs[key]}")
+            #     else:
+            #         print(f"DEBUG SelectiveObservationWrapper: {key} not found in observation")
+            
             new_obs['MLP_input'] = np.concatenate(mlp_inputs, axis=0)
+            # print(f"DEBUG SelectiveObservationWrapper: Final MLP_input shape: {new_obs['MLP_input'].shape}")
 
         # Save original full obs for logging
         self.latest_log_data = dict(obs)
@@ -145,12 +179,47 @@ class SelectiveObservationWrapper(ObservationWrapper):
 
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
+        
+        # Add debug print for step method
+        # try:
+        #     from gymnasium.wrappers import TimeLimit
+        #     env = self.env
+        #     while not hasattr(env, 'agent_pos') and hasattr(env, 'env'):
+        #         env = env.env
+        #     if hasattr(env, 'agent_pos'):
+        #         agent_pos = env.agent_pos
+        #         agent_dir = env.agent_dir
+        #         print(f"DEBUG SelectiveObservationWrapper: Agent position after step: {agent_pos}, direction: {agent_dir}")
+        #     else:
+        #         print(f"DEBUG SelectiveObservationWrapper: Could not find agent_pos in environment chain")
+        # except Exception as e:
+        #     print(f"DEBUG SelectiveObservationWrapper: Error checking agent position in step: {e}")
+            
         obs = self.observation(obs)
         info['log_data'] = self.latest_log_data
         return obs, reward, terminated, truncated, info
 
     def reset(self, **kwargs):
         obs, info = self.env.reset(**kwargs)
+        
+        # Add debug print for reset method
+        # try:
+        #     env = self.env
+        #     while not hasattr(env, 'agent_pos') and hasattr(env, 'env'):
+        #         env = env.env
+        #     if hasattr(env, 'agent_pos'):
+        #         agent_pos = env.agent_pos
+        #         agent_dir = env.agent_dir
+        #         print(f"DEBUG SelectiveObservationWrapper: Agent position after reset: {agent_pos}, direction: {agent_dir}")
+                
+        #         # Check kwargs
+        #         if 'options' in kwargs and kwargs['options'] is not None:
+        #             print(f"DEBUG SelectiveObservationWrapper: Reset options: {kwargs['options']}")
+        #     else:
+        #         print(f"DEBUG SelectiveObservationWrapper: Could not find agent_pos in environment chain")
+        # except Exception as e:
+        #     print(f"DEBUG SelectiveObservationWrapper: Error checking agent position in reset: {e}")
+            
         obs = self.observation(obs)
         info['log_data'] = self.latest_log_data
         return obs, info
