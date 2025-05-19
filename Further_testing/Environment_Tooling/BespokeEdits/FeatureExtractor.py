@@ -146,11 +146,11 @@ class SelectiveObservationWrapper(ObservationWrapper):
             mlp_inputs = [np.ravel(obs[key]) for key in self.mlp_keys]
             
             # Debug each input key
-            for i, key in enumerate(self.mlp_keys):
-                if key in obs:
-                    print(f"DEBUG SelectiveObservationWrapper: {key} shape: {obs[key].shape}, data: {obs[key]}")
-                else:
-                    print(f"DEBUG SelectiveObservationWrapper: {key} not found in observation")
+            # for i, key in enumerate(self.mlp_keys):
+            #     if key in obs:
+            #         print(f"DEBUG SelectiveObservationWrapper: {key} shape: {obs[key].shape}, data: {obs[key]}")
+            #     else:
+            #         print(f"DEBUG SelectiveObservationWrapper: {key} not found in observation")
             
             new_obs['MLP_input'] = np.concatenate(mlp_inputs, axis=0)
             # print(f"DEBUG SelectiveObservationWrapper: Final MLP_input shape: {new_obs['MLP_input'].shape}")
