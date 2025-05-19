@@ -1,5 +1,5 @@
 """
-Environment_Tooling module for Deep Reinforcement Learning experiments.
+Environment_Tooling package for environment generation and management.
 
 This module contains tools and utilities for creating, configuring, and managing
 reinforcement learning environments, particularly focused on Minigrid environments.
