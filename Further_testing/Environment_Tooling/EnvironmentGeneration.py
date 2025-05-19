@@ -11,8 +11,6 @@ import random
 import torch
 import os
 
-from Agent_Evaluation.EnvironmentTooling.position_aware_wrapper import PositionAwareWrapper
-
 # Custom monitor wrapper that properly accesses attributes through unwrapped
 # class SafeMonitor(Monitor):
 #     """A wrapper that properly accesses environment attributes through unwrapped to avoid deprecation warnings."""
@@ -851,64 +849,5 @@ def make_eval_env(env_id: str, seed: int, window_size: int = 5, cnn_keys: list =
                 exclude_occupied=True,
                 exclude_goal_adjacent=exclude_goal_adjacent
             )
-
-    return env
-
-
-def make_final_eval_env(
-    env_id: str,
-    seed: int = 42,
-    cnn_keys: list = None,
-    mlp_keys: list = None,
-    window_size: int = 7,
-    max_episode_steps: int = None
-) -> gym.Env:
-    """
-    Create a fully-wrapped evaluation environment with correct wrapper order.
-
-    Wrappers applied:
-      1. OldGymCompatibility (RecordEpisodeStatistics-based compatibility)
-      2. TimeLimit (if max_episode_steps provided)
-      3. CustomActionWrapper (adds diagonal move actions)
-      4. PositionAwareWrapper (syncs agent_pos/dir into info)
-      5. SelectiveObservationWrapper (builds CNN_input/MLP_input)
-      6. ForceFloat32 (ensures numpy arrays are float32)
-
-    Args:
-        env_id: Gym environment ID (e.g., 'MiniGrid-Empty-8x8-v0').
-        seed: RNG seed for reset.
-        cnn_keys: List of observation keys for CNN input.
-        mlp_keys: List of observation keys for MLP input.
-        window_size: Agent-view window size for certain wrappers (not used here).
-        max_episode_steps: Optional max episode length.
-
-    Returns:
-        A Gym environment ready for evaluation.
-    """
-    import gymnasium as gym
-    from Environment_Tooling.EnvironmentGeneration import OldGymCompatibility, CustomActionWrapper
-    from Environment_Tooling.BespokeEdits.FeatureExtractor import SelectiveObservationWrapper
-
-    # 1. Base environment
-    base_env = gym.make(env_id)
-
-    # 2. Enforce episode length
-    if max_episode_steps is not None:
-        env = gym.wrappers.TimeLimit(base_env, max_episode_steps=max_episode_steps)
-
-    # Seed environment
-    env.reset(seed=seed)
-
-    # 3. Add diagonal move actions
-    env = CustomActionWrapper(env, 0, 0)
-
-    # 4. Position-aware syncing
-    env = PositionAwareWrapper(env)
-
-    env = GoalAngleDistanceWrapper(env)
-    env = PartialObsWrapper(env, window_size)
-
-    # 5. Build CNN_input / MLP_input
-    env = SelectiveObservationWrapper(env, cnn_keys=cnn_keys or [], mlp_keys=mlp_keys or [])
 
     return env

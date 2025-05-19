@@ -14,9 +14,6 @@ print(f"Added to Python path: {project_root}")
 from Environment_Tooling.EnvironmentGeneration import make_env, make_final_eval_env
 from Environment_Tooling.BespokeEdits.FeatureExtractor import CustomCombinedExtractor
 
-# Import the new position-aware wrapper
-from Agent_Evaluation.EnvironmentTooling.position_aware_wrapper import PositionAwareWrapper
-
 # Import from stable_baselines3
 from stable_baselines3 import DQN, PPO, A2C
 

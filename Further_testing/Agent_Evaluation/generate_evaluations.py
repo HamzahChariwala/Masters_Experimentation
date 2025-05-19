@@ -114,15 +114,15 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
                 # Construct the full agent directory path including Agent_Storage
                 full_agent_dir = os.path.join(project_root, "Agent_Storage", original_agent_path)
             
-            agent_log_path = run_agent_evaluation(
-                agent=agent,
-                env=env,  # Use the same environment instance
-                env_id=env_id,
-                seed=seed,  # Use the same seed
-                num_episodes=DEFAULT_NUM_EPISODES,
-                agent_dir=full_agent_dir
-            )
-            print(f"Agent behavior data exported to: {agent_log_path}")
+            # agent_log_path = run_agent_evaluation(
+            #     agent=agent,
+            #     env=env,  # Use the same environment instance
+            #     env_id=env_id,
+            #     seed=seed,  # Use the same seed
+            #     num_episodes=DEFAULT_NUM_EPISODES,
+            #     agent_dir=full_agent_dir
+            # )
+            # print(f"Agent behavior data exported to: {agent_log_path}")
             
         except Exception as e:
             print(f"Error during environment tensor generation or agent evaluation: {e}")
