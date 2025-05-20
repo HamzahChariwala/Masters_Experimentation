@@ -21,15 +21,11 @@ from Behaviour_Specification.log import analyze_navigation_graphs, export_path_d
 from Agent_Evaluation.EnvironmentTooling.import_vars import (
     load_config,
     extract_env_config,
-    create_evaluation_env,
     extract_and_visualize_env,
     load_agent,
     DEFAULT_RANK,
     DEFAULT_NUM_EPISODES
 )
-
-# Import our agent logging functionality
-from Agent_Evaluation.AgentTooling.agent_logger import run_agent_evaluation
 
 
 def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: bool = True, debug: bool = False, force_dijkstra: bool = False):
@@ -67,7 +63,7 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
         
         # Create evaluation environment first so we can extract the actual layout
         print("Creating environment...")
-        env = create_evaluation_env(env_settings, seed=seed, override_rank=DEFAULT_RANK)
+        env = create_evaluation_env(env_settings, seed=seed, new_approach_bool=True)
         
         try:
             # Extract and visualize the environment tensor using the new method
@@ -99,30 +95,6 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
                 )
                 print(f"Path data exported to: {output_path}")
             
-            # Load agent - using the original path since config loading was successful
-            print("Loading agent...")
-            agent = load_agent(original_agent_path, config)
-            
-            # Run agent evaluation and log its behavior
-            # IMPORTANT: Use the same environment instance and seed we used for visualization
-            print(f"Evaluating agent in {original_agent_path} for {DEFAULT_NUM_EPISODES} episodes")
-            
-            # Check if the path is absolute or already includes Agent_Storage
-            if os.path.isabs(original_agent_path) or original_agent_path.startswith("Agent_Storage/"):
-                full_agent_dir = original_agent_path
-            else:
-                # Construct the full agent directory path including Agent_Storage
-                full_agent_dir = os.path.join(project_root, "Agent_Storage", original_agent_path)
-            
-            # agent_log_path = run_agent_evaluation(
-            #     agent=agent,
-            #     env=env,  # Use the same environment instance
-            #     env_id=env_id,
-            #     seed=seed,  # Use the same seed
-            #     num_episodes=DEFAULT_NUM_EPISODES,
-            #     agent_dir=full_agent_dir
-            # )
-            # print(f"Agent behavior data exported to: {agent_log_path}")
             
         except Exception as e:
             print(f"Error during environment tensor generation or agent evaluation: {e}")
@@ -138,19 +110,7 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
 
 
 def generate_complete_summary(agent_path: str, env_id: str, seed: int, num_envs: int, generate_plot: bool = True, debug: bool = False, force_dijkstra: bool = False):
-    """
-    Generate summary statistics for an agent in multiple environments.
-    First runs evaluations for each environment, then generates performance summaries.
-    
-    Args:
-        agent_path (str): Path to the agent folder in Agent_Storage
-        env_id (str): Environment ID to use for evaluation
-        seed (int): Random seed for reproducibility (starting seed for multiple environments)
-        num_envs (int): Number of environments to evaluate (with sequential seeds)
-        generate_plot (bool): Whether to generate matplotlib plots (default: True)
-        debug (bool): Whether to print detailed diagnostic information (default: False)
-        force_dijkstra (bool): Whether to force recalculation of Dijkstra's paths (default: False)
-    """
+
     # First, run evaluations for all environments if needed
     for i in range(num_envs):
         current_seed = seed + i
@@ -158,46 +118,7 @@ def generate_complete_summary(agent_path: str, env_id: str, seed: int, num_envs:
     
     # Then, generate performance summaries
     print("\nGenerating performance summaries...")
-    
-    # Import summary functions - use the original agent evaluation summary processor
-    from Agent_Evaluation.SummaryTooling.evaluation_summary import process_evaluation_logs
-    
-    # Determine the full agent path
-    if os.path.isabs(agent_path) or agent_path.startswith("Agent_Storage/"):
-        full_agent_dir = agent_path
-    else:
-        # Construct the full agent directory path including Agent_Storage
-        full_agent_dir = os.path.join(project_root, "Agent_Storage", agent_path)
-    
-    # Process the evaluation logs
-    summaries = process_evaluation_logs(
-        agent_dirs=[full_agent_dir],
-        save_results=True
-    )
-    
-    # Print summary of results
-    agent_name = os.path.basename(full_agent_dir)
-    if agent_name in summaries:
-        agent_data = summaries[agent_name]
-        total_logs = len(agent_data)
-        print(f"\nSummary: Processed {total_logs} evaluation logs for agent {agent_path}")
-        
-        # If a performance_summary.json was created, check for agent statistics
-        summary_path = os.path.join(full_agent_dir, "evaluation_logs", "performance_summary.json")
-        if os.path.exists(summary_path):
-            with open(summary_path, 'r') as f:
-                full_summary = json.load(f)
-                if "agent_statistics" in full_summary:
-                    stats = full_summary["agent_statistics"]
-                    print(f"  Success rate: {stats['success_rate']:.2f}%")
-                    print(f"  Lava avoidance rate: {stats['lava_avoidance_rate']:.2f}%")
-                    print(f"  Safe diagonal rate: {stats['safe_diagonal_rate']:.2f}%")
-                    print(f"  Average path length: {stats['avg_path_length']:.2f}")
-                    print(f"  Total states analyzed: {stats['total_states']}")
-    else:
-        print(f"No evaluation logs processed for agent {agent_path}")
-    
-    # Separately process the Dijkstra logs (if the new module is available)
+
     try:
         print("\nProcessing Dijkstra evaluation logs...")
         # Try to import the new Dijkstra log processor
@@ -222,129 +143,6 @@ def generate_complete_summary(agent_path: str, env_id: str, seed: int, num_envs:
     
     print(f"\nEvaluation and summary generation complete for agent {agent_path}")
 
-
-def check_environment_seed(config, env_id, seed_override=None):
-    """
-    Log a warning if the environment is being created with a different seed from the one used for Dijkstra.
-    This is a key fix for Issue 1 - environment layout mismatch.
-    
-    Args:
-        config: The agent config dictionary
-        env_id: The environment ID
-        seed_override: Optional seed override value
-    
-    Returns:
-        int: The correct seed to use
-    """
-    # If the seed_override is provided, use it
-    if seed_override is not None:
-        print(f"Using seed override value: {seed_override}")
-        return seed_override
-    
-    # Check if a specific evaluation seed was set in the config
-    if 'seeds' in config and 'evaluation' in config['seeds']:
-        eval_seed = config['seeds']['evaluation']
-        print(f"Using evaluation seed from config: {eval_seed}")
-        return eval_seed
-    
-    # Otherwise, fall back to a default seed
-    print("WARNING: No evaluation seed specified in config or override, using default seed 81102")
-    return 81102
-
-
-def generate_agent_evaluations_in_dir(agent_dir, base_env, env_id, num_episodes=1, seed=81102, verbose=False):
-    """
-    Generate evaluations for all agents in the specified directory.
-    
-    Args:
-        agent_dir: Path to the directory containing agent models
-        base_env: Base environment object (will be reset with proper seed for each evaluation)
-        env_id: Environment ID string
-        num_episodes: Number of episodes to run per evaluation
-        seed: Random seed to use for the evaluation
-        verbose: Whether to print verbose output
-    """
-    # Get agent paths
-    agent_subdirs = [d for d in os.listdir(agent_dir) if os.path.isdir(os.path.join(agent_dir, d))]
-    
-    for subdir in agent_subdirs:
-        agent_path = os.path.join(agent_dir, subdir)
-        
-        # Check if the agent file exists
-        model_file = os.path.join(agent_path, "agent.zip")
-        if not os.path.exists(model_file):
-            if verbose:
-                print(f"No agent file found at {model_file}")
-            continue
-        
-        # Check if config file exists to get the right evaluation seed
-        config_file = os.path.join(agent_path, "config.yaml")
-        evaluation_seed = seed  # Default
-        if os.path.exists(config_file):
-            try:
-                with open(config_file, 'r') as f:
-                    config = yaml.safe_load(f)
-                evaluation_seed = check_environment_seed(config, env_id, seed)
-            except Exception as e:
-                print(f"Failed to read config file: {e}")
-        
-        # Create environment with the correct seed from the config
-        env = create_evaluation_env(base_env, env_id, seed=evaluation_seed)
-        
-        # Generate evaluation
-        print(f"\nGenerating evaluation for agent: {agent_path}")
-        print(f"Using evaluation seed: {evaluation_seed}")
-        generate_agent_evaluation(agent_path, env, env_id, evaluation_seed, num_episodes, verbose)
-
-
-def generate_agent_evaluation(agent_path, env, env_id, seed, num_episodes=1, verbose=False):
-    """
-    Generate an evaluation for a single agent and save it to a JSON file.
-    
-    Args:
-        agent_path: Path to the agent directory
-        env: Environment to evaluate in
-        env_id: Environment ID string
-        seed: Random seed to use for the evaluation
-        num_episodes: Number of episodes to run
-        verbose: Whether to print verbose output
-    
-    Returns:
-        str: Path to the saved JSON file
-    """
-    print(f"Running agent evaluation for {agent_path} with seed {seed}...")
-    
-    try:
-        # Import agent model
-        from stable_baselines3 import DQN
-        from stable_baselines3.common.evaluation import evaluate_policy
-        
-        # Load the agent model from the agent.zip file
-        agent_file = os.path.join(agent_path, "agent.zip")
-        agent = DQN.load(agent_file)
-        
-        # Create agent evaluation logs directory
-        eval_logs_dir = os.path.join(agent_path, "evaluation_logs")
-        os.makedirs(eval_logs_dir, exist_ok=True)
-        
-        # Run agent evaluation and export to JSON
-        from Agent_Evaluation.AgentTooling.agent_logger import run_agent_evaluation
-        
-        # Run evaluation with real agent path generation
-        json_path = run_agent_evaluation(
-            agent, env, env_id, seed, num_episodes=num_episodes,
-            agent_dir=agent_path
-        )
-        
-        print(f"Agent evaluation saved to {json_path}")
-        return json_path
-        
-    except Exception as e:
-        print(f"Error generating agent evaluation: {e}")
-        if verbose:
-            import traceback
-            traceback.print_exc()
-        return None
 
 
 if __name__ == "__main__":

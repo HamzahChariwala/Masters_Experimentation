@@ -1,172 +1,38 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import gymnasium as gym
+import minigrid
 
-def extract_grid_from_env(env):
-    """
-    Extract grid layout from a MiniGrid environment.
-    
-    Args:
-        env: A MiniGrid environment instance
-        
-    Returns:
-        np.ndarray: A 2D array with string cell types ("floor", "wall", "lava", "goal")
-        with shape (height, width) where [0,0] is the top-left corner.
-        
-        The returned array is an array of rows, where each row is an array of cells.
-        This matches the format used in the Dijkstra logs.
-    """
-    # Reset the environment - don't provide a seed here, we assume the env was already created with the right seed
-    # This ensures we get the layout corresponding to the seed used to create the env
-    obs, _ = env.reset()
-    
-    # Try to access grid directly through environment unwrapping
-    grid = None
-    current_env = env
-    max_depth = 3
-    
-    # Try to find the grid by unwrapping the environment
-    for i in range(max_depth):
-        # Check current level
-        if hasattr(current_env, 'grid'):
-            grid = current_env.grid
-            break
-            
-        # Try env attribute
-        if hasattr(current_env, 'env'):
-            current_env = current_env.env
-            if hasattr(current_env, 'grid'):
-                grid = current_env.grid
-                break
-        # Try unwrapped attribute
-        elif hasattr(current_env, 'unwrapped'):
-            current_env = current_env.unwrapped
-            if hasattr(current_env, 'grid'):
-                grid = current_env.grid
-                break
-        else:
-            break
-    
-    # If grid was found, create a tensor from it
-    if grid is not None:
-        # Get grid dimensions
-        width, height = grid.width, grid.height
-        
-        # Create our output tensor - array of rows, each row is an array of cells
-        # This matches the orientation in Dijkstra logs where [0,0] is the top-left corner
-        env_tensor = np.full((height, width), "floor", dtype=object)
-        
-        # Fill the tensor based on the grid content
-        for y in range(height):
-            for x in range(width):
-                cell = grid.get(x, y)
-                
-                if cell is None:
-                    env_tensor[y, x] = "floor"
-                else:
-                    # Map cell types
-                    if hasattr(cell, 'type'):
-                        cell_type = cell.type
-                        
-                        # Map based on string type
-                        if cell_type == "wall":
-                            env_tensor[y, x] = "wall"
-                        elif cell_type == "lava":
-                            env_tensor[y, x] = "lava"
-                        elif cell_type == "goal":
-                            env_tensor[y, x] = "goal"
-                        elif cell_type == "empty":
-                            env_tensor[y, x] = "floor"
-                        else:
-                            env_tensor[y, x] = "floor"
-                            
-                    # If object has a numeric 'type_idx' attribute
-                    elif hasattr(cell, 'type_idx'):
-                        type_idx = cell.type_idx
-                        if type_idx == 0:  # Usually empty/floor
-                            env_tensor[y, x] = "floor"
-                        elif type_idx == 1:  # Usually wall
-                            env_tensor[y, x] = "wall"
-                        elif type_idx == 2:  # Usually door
-                            env_tensor[y, x] = "wall"
-                        elif type_idx == 8:  # Usually goal
-                            env_tensor[y, x] = "goal"
-                        elif type_idx == 9:  # Usually lava
-                            env_tensor[y, x] = "lava"
-                        else:
-                            env_tensor[y, x] = "floor"
-        
-        return env_tensor
-    
-    # If grid wasn't accessible, check if new_image exists in log_data
-    next_obs, reward, terminated, truncated, info = env.step(0)  # Take a no-op action
-    
-    if 'log_data' in info and 'new_image' in info['log_data']:
-        new_image = info['log_data']['new_image']
-        if len(new_image.shape) == 3 and new_image.shape[0] == 2:
-            # Extract the grid from new_image
-            grid_array = new_image[1]
-            height, width = grid_array.shape
-            
-            # Create tensor and map cell types - array of rows
-            env_tensor = np.full((height, width), "floor", dtype=object)
-            
-            # Corrected type mapping based on observed values
-            type_map = {
-                0: "wall",    # Walls
-                1: "floor",   # Floors
-                2: "lava",    # Lava
-                3: "goal",    # Goal
-                8: "goal",    # Alternative goal code
-                9: "lava"     # Alternative lava code
-            }
-            
-            for y in range(height):
-                for x in range(width):
-                    cell_value = grid_array[y, x]
-                    env_tensor[y, x] = type_map.get(cell_value, "unknown")
-            
-            return env_tensor
-    
-    # If all else fails, create default grid based on environment ID
-    env_id = str(env)
-    
-    # ADD A WARNING HERE
-    print(f"WARNING: Could not extract grid using direct access or new_image. Falling back to default grid for env_id: {env_id}")
 
-    # Default layout for LavaCrossing environments
-    if "LavaCrossing" in env_id:
-        width, height = 11, 11
-        env_tensor = np.full((height, width), "floor", dtype=object)
-        
-        # Add walls around the perimeter
-        env_tensor[0, :] = "wall"
-        env_tensor[-1, :] = "wall"
-        env_tensor[:, 0] = "wall"
-        env_tensor[:, -1] = "wall"
-        
-        # Add vertical lava strips
-        columns_with_lava = np.linspace(2, width-3, 5).astype(int)
-        for col in columns_with_lava:
-            env_tensor[1:-1, col] = "lava"
-        
-        # Add goal at bottom right
-        env_tensor[-2, -2] = "goal"
-    else:
-        # Generic grid for other environments
-        width, height = 11, 11
-        env_tensor = np.full((height, width), "floor", dtype=object)
-        
-        # Add walls around the perimeter
-        env_tensor[0, :] = "wall"
-        env_tensor[-1, :] = "wall" 
-        env_tensor[:, 0] = "wall"
-        env_tensor[:, -1] = "wall"
-        
-        # Add goal at bottom right
-        env_tensor[-2, -2] = "goal"
+def minigrid_render_simple(env_id, seed):
+
+    env = gym.make(env_id, render_mode='human')
+    obs, info = env.reset(seed=seed)
+
+    print(f"Environment: {env_id}, Seed: {seed}")
+    print(f"Observation space: {env.observation_space}")
+    print(f"Action space: {env.action_space}")
+
+    done = False
+    while not done:
+        env.render()
+        action = env.action_space.sample()  # Take random actions for demonstration
+        obs, reward, terminated, truncated, info = env.step(action)
+        done = terminated or truncated
+    env.close()
     
-    return env_tensor
+
+def extract_env_structure(env, seed):
+
+    obs, info = env.reset(seed=seed)
+    original = info['log_data']['new_image'][1]
+
+    mapping = {0: 'wall', 1: 'floor', 2: 'lava', 3: 'goal'}
+    result = [[mapping.get(cell, '?') for cell in row] for row in original]
+
+    return original, result
+
 
 def visualize_env_tensor(env_tensor, save_path="visualizations/env_layout.png", generate_plot=True):
     """

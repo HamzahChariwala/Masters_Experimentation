@@ -10,6 +10,9 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, project_root)
 print(f"Added to Python path: {project_root}")
 
+# Now we can import from both local modules and the main Environment_Tooling
+from position_override import make_custom_env
+
 # Import from Environment_Tooling
 from Environment_Tooling.EnvironmentGeneration import make_env
 from Environment_Tooling.BespokeEdits.FeatureExtractor import CustomCombinedExtractor
@@ -18,7 +21,7 @@ from Environment_Tooling.BespokeEdits.FeatureExtractor import CustomCombinedExtr
 from stable_baselines3 import DQN, PPO, A2C
 
 # Import our grid extraction utilities
-from Agent_Evaluation.EnvironmentTooling.extract_grid import extract_grid_from_env, visualize_env_tensor, print_env_tensor
+from Agent_Evaluation.EnvironmentTooling.extract_grid import extract_env_structure, visualize_env_tensor, print_env_tensor
 from Agent_Evaluation.EnvironmentTooling.position_override import ForceStartState
 
 # Default values for evaluation
@@ -137,8 +140,6 @@ def create_evaluation_env(env_settings: Dict[str, Any], seed: int = 42, override
         gym.Env: The configured environment
     """
 
-    from new_env_construction import make_custom_env
-
     if new_approach_bool == True:
         print("Using new approach")
         env = make_custom_env(
@@ -189,12 +190,6 @@ def create_evaluation_env(env_settings: Dict[str, Any], seed: int = 42, override
         
         # Wrap the environment with PositionAwareWrapper for accurate agent positioning
         env = ForceStartState(env)
-
-    # env = make_final_eval_env(env_settings['env_id'], 
-    #                           seed, env_settings['cnn_keys'], 
-    #                           env_settings['mlp_keys'], 
-    #                           env_settings['window_size'], 
-    #                           env_settings['max_episode_steps'])
     
     print(f"Created evaluation environment: {env_settings['env_id']}")
     print(f"Observation space: {env.observation_space}")
@@ -217,7 +212,7 @@ def extract_and_visualize_env(env, env_id=None, seed=42, generate_plot=True):
         np.ndarray: The extracted environment tensor
     """
     # Extract grid from environment
-    env_tensor = extract_grid_from_env(env)
+    env_tensor = extract_env_structure(env, seed)
     
     # Print the tensor
     print_env_tensor(env_tensor)

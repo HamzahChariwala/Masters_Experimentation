@@ -439,6 +439,8 @@ def export_path_data_to_json(
                                 visited_states.append(first_state)
                                 
                                 # Calculate cost, extract states, and count lava steps
+                                # Keep track of whether we're on the initial position
+                                is_initial_position = True
                                 for i in range(len(path_indices) - 1):
                                     src_idx = path_indices[i]
                                     dst_idx = path_indices[i + 1]
@@ -453,9 +455,12 @@ def export_path_data_to_json(
                                     dst_state = dst_node_data.state
                                     dst_x, dst_y, dst_orientation_dijkstra = dst_state
                                     
-                                    # Check if this step is on lava
-                                    if env_tensor[dst_y, dst_x] == "lava":
+                                    # Check if this step is on lava - but skip checking for the initial position
+                                    if env_tensor[dst_y, dst_x] == "lava" and not is_initial_position:
                                         lava_steps += 1
+                                    
+                                    # Set initial position flag to False after the first step
+                                    is_initial_position = False
                                     
                                     # Convert orientation to agent convention for the state key
                                     dst_orientation_agent = convert_dijkstra_to_agent_orientation(dst_orientation_dijkstra)
@@ -466,7 +471,7 @@ def export_path_data_to_json(
                                 # Update path data
                                 path_data["path_taken"] = visited_states
                                 path_data["summary_stats"]["path_cost"] = path_cost
-                                path_data["summary_stats"]["path_length"] = len(visited_states) - 1  # Subtract 1 since first state isn't a step
+                                path_data["summary_stats"]["path_length"] = len(visited_states) - 1
                                 path_data["summary_stats"]["lava_steps"] = lava_steps
                                 path_data["summary_stats"]["reachable"] = True
                                 
