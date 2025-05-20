@@ -271,8 +271,14 @@ def process_state(state_key: str, mode_data: Dict[str, Any], layout: List[List[s
         lava_steps = 0
         if path_length > 0:
             for i in range(1, len(path)):
-                step_coords = path[i].split(",")
-                step_x, step_y = int(step_coords[0]), int(step_coords[1])
+                # Handle both string-based paths ("x,y,orientation") and array-based paths ([x,y,orientation])
+                if isinstance(path[i], str):
+                    # Legacy format: "x,y,orientation"
+                    step_coords = path[i].split(",")
+                    step_x, step_y = int(step_coords[0]), int(step_coords[1])
+                else:
+                    # New format: [x, y, orientation]
+                    step_x, step_y = path[i][0], path[i][1]
                 
                 # Check dimensions to avoid index errors
                 if 0 <= step_y < len(layout[0]) and 0 <= step_x < len(layout):
@@ -292,6 +298,10 @@ def process_state(state_key: str, mode_data: Dict[str, Any], layout: List[List[s
         
         # Get target state
         target_state = next_step.get("target_state")
+        
+        # Convert array target_state to string if needed for backwards compatibility
+        if isinstance(target_state, list):
+            target_state = f"{target_state[0]},{target_state[1]},{target_state[2]}"
         
         # Get action taken
         action_taken = next_step.get("action")

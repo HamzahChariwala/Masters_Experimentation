@@ -133,7 +133,7 @@ def evauate_agent_on_single_env(env, model, seed, env_tensor):
                             "path_length": step_count,
                             "lava_steps": count_lava_steps(path, env_tensor),
                             "total_reward": float(total_reward),
-                            "reachable": step_count != env.spec.max_episode_steps
+                            "reachable": step_count < env.spec.max_episode_steps
                         }
                     }
 

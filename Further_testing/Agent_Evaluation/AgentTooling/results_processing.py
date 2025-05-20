@@ -1,7 +1,81 @@
 import os
 import json
 import numpy as np
-from typing import Dict, Any
+from typing import Dict, Any, Union, List
+
+
+def format_json_with_compact_arrays(data: Union[Dict, List, Any], indent: int = 2) -> str:
+    """
+    Custom JSON formatter that keeps arrays on a single line,
+    except for nested arrays in the environment layout which
+    are kept with each row on its own line.
+    
+    Args:
+        data (Union[Dict, List, Any]): The data to format
+        indent (int): Indentation level
+        
+    Returns:
+        str: Formatted JSON string
+    """
+    # Helper function to format arrays with special handling for layout and paths
+    def custom_format(obj, level=0):
+        if isinstance(obj, dict):
+            # Format dictionary
+            result = "{\n"
+            items = list(obj.items())
+            
+            for i, (key, value) in enumerate(items):
+                indent_str = " " * (level + 2)
+                result += f'{indent_str}"{key}": {custom_format(value, level + 2)}'
+                if i < len(items) - 1:
+                    result += ","
+                result += "\n"
+            
+            return result + (" " * level) + "}"
+            
+        elif isinstance(obj, list):
+            # Check if this is a matrix (2D array) - layout or mask
+            is_matrix = all(isinstance(x, list) for x in obj) and obj
+            is_layout = False
+            
+            # Check if this is a layout array
+            if is_matrix:
+                # We need to look up in the call stack to determine context
+                # This is not perfect but works for our specific use case
+                import inspect
+                stack = inspect.stack()
+                for frame in stack:
+                    if 'key' in frame.frame.f_locals:
+                        key = frame.frame.f_locals['key']
+                        if key in ["layout"]:
+                            is_layout = True
+                            break
+            
+            if is_matrix and is_layout:
+                # Format layout with each row on its own line
+                result = "[\n"
+                indent_str = " " * (level + 2)
+                
+                for i, row in enumerate(obj):
+                    # Format each row compactly
+                    row_str = json.dumps(row)
+                    result += indent_str + row_str
+                    if i < len(obj) - 1:
+                        result += ","
+                    result += "\n"
+                
+                return result + (" " * level) + "]"
+            else:
+                # Format regular arrays compactly on one line
+                return json.dumps(obj)
+                
+        else:
+            # Format primitives normally
+            return json.dumps(obj)
+    
+    # Apply our custom formatter
+    return custom_format(data)
+
 
 def export_agent_eval_data_to_json(
     results_dict: Dict[str, Any],
@@ -68,9 +142,9 @@ def export_agent_eval_data_to_json(
         "states": processed_results
     }
     
-    # Write to file
+    # Write to file using custom formatter for compact JSON
     with open(output_path, "w") as json_file:
-        json.dump(json_data, json_file, indent=2)
+        json_file.write(format_json_with_compact_arrays(json_data))
     
     print(f"Agent evaluation data exported to {output_path}")
     return output_path
