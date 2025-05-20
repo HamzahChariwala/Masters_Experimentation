@@ -125,6 +125,12 @@ def export_agent_eval_data_to_json(
         # Copy summary_stats as is
         processed_state["summary_stats"] = state_data["summary_stats"]
         
+        # Include model_inputs if present, converting numpy arrays to JSON serializable format
+        if "model_inputs" in state_data:
+            processed_state["model_inputs"] = {}
+            processed_state["model_inputs"]['lava_mask'] = numpy_to_json_serializable(state_data["model_inputs"]["lava_mask"])
+            processed_state["model_inputs"]['raw_input'] = numpy_to_json_serializable(state_data["model_inputs"]["raw_input"])
+        
         # Add to processed results
         processed_results[state_key] = processed_state
     
@@ -148,3 +154,43 @@ def export_agent_eval_data_to_json(
     
     print(f"Agent evaluation data exported to {output_path}")
     return output_path
+
+
+def numpy_to_json_serializable(arr: np.ndarray) -> Union[List, Dict, Any]:
+    """
+    Convert a NumPy ndarray to a JSON-serializable format.
+    
+    Args:
+        arr (np.ndarray): The NumPy array to convert
+        
+    Returns:
+        Union[List, Dict, Any]: A JSON-serializable representation of the array
+    """
+    # Handle None values
+    if arr is None:
+        return None
+    
+    # Handle scalar values
+    if np.isscalar(arr) or arr.ndim == 0:
+        # Convert numpy types to Python native types
+        if isinstance(arr, (np.integer, np.int64, np.int32, np.int16, np.int8)):
+            return int(arr)
+        elif isinstance(arr, (np.floating, np.float64, np.float32, np.float16)):
+            return float(arr)
+        elif isinstance(arr, (np.bool_)):
+            return bool(arr)
+        else:
+            return arr.item()
+    
+    # Convert to Python list (handles both 1D and multi-dimensional arrays)
+    arr_list = arr.tolist()
+    
+    # For masked arrays, convert mask to regular list
+    if isinstance(arr, np.ma.MaskedArray):
+        # Return dict with data and mask for more complex handling if needed
+        return {
+            "data": arr.data.tolist(),
+            "mask": arr.mask.tolist() if isinstance(arr.mask, np.ndarray) else bool(arr.mask)
+        }
+    
+    return arr_list

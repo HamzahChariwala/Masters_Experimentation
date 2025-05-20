@@ -158,7 +158,8 @@ def evauate_agent_on_single_env(env, model, seed, env_tensor):
                             "total_reward": float(total_reward),
                             "reachable": step_count < env.spec.max_episode_steps
                         },
-                        'model_inputs': mlp_keys['lava_mask'],
+                        'model_inputs': {'raw_input': mlp_input, 
+                                         'lava_mask': mlp_keys['lava_mask']},
                     }
 
     return results_dict
