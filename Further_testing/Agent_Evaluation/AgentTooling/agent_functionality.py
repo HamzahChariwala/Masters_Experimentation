@@ -1,5 +1,6 @@
 import os
 import sys
+import numpy as np
 
 # Add the root directory to sys.path to ensure proper imports
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
@@ -32,9 +33,39 @@ def load_agent_from_path(folder_path):
     return model
 
 
+def check_cell_type(env_tensor, pos):
+    x, y, _ = pos
+    return env_tensor[x, y]
+
+def count_lava_steps(path, env_tensor):
+    lava_steps = 0
+    steps = path[1:]
+    for pos in steps:
+        if check_cell_type(env_tensor, pos) == 'lava':
+            lava_steps += 1
+    return lava_steps
+
+def check_risky_diagonal(path, actions, env_tensor):
+    steps = path[1:]
+    for i in range(len(steps)):
+        if actions[i] == 3 or actions[i] == 4:
+            x, y, theta = steps[i]
+            position = np.array([x, y])
+            cw90 = np.array([[0, 1], [-1, 0]])
+            rotation = np.linalg.matrix_power(cw90, theta)
+            forward = (position + rotation @ np.array([1, 0])).tolist()
+            if actions[i] == 3:
+                side = (position + rotation @ np.array([0, -1])).tolist()
+            elif actions[i] == 4:
+                side = (position + rotation @ np.array([0, 1])).tolist()
+            if check_cell_type(env_tensor, forward.append(theta)) == 'lava' or check_cell_type(env_tensor, side.append(theta)) == 'lava':
+                return True
+    return False
+    
+
 def evauate_agent_on_single_env(env, model, seed, env_tensor):
 
-    empty_dict = {}
+    results_dict = {}
     base = env.unwrapped
     for x in range(base.width):
         for y in range(base.height):
@@ -73,35 +104,22 @@ def evauate_agent_on_single_env(env, model, seed, env_tensor):
                         step_count += 1
                         if step_count > env.spec.max_episode_steps:
                             break
-                    
 
-                    print(f"Path taken ({len(path)} steps): {path}")
-                    print(f"Total reward: {total_reward}, steps: {step_count}")
-
-                    def check_cell_type(env_tensor, pos):
-                        x, y, _ = pos
-                        return env_tensor[x, y]
-                    
-                    def count_lava_steps(path):
-                        lava_steps = 0
-                        for pos in path:
-                            if check_cell_type(env_tensor, pos) == 'lava':
-                                lava_steps += 1
-                        return lava_steps
-
-                    empty_dict[f"({x}, {y}, {theta})"] = {
+                    results_dict[f"({x}, {y}, {theta})"] = {
                         "path_taken": path,
                         "next_step": {
                             "action": action_list[0],
                             "target_state": path[1],
                             "type": check_cell_type(env_tensor, path[1]),
-                            "risky_diagonal": None
+                            "risky_diagonal": check_risky_diagonal(path, action_list, env_tensor)
                         },
                         "summary_stats": {
                             "path_length": step_count,
-                            "lava_steps": None,
-                            "reachable": None
+                            "lava_steps": count_lava_steps(path, env_tensor),
+                            "reachable": step_count != env.spec.max_episode_steps
                         }
                     }
+
+    return results_dict
 
 
