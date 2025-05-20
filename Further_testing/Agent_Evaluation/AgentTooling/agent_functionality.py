@@ -45,11 +45,15 @@ def count_lava_steps(path, env_tensor):
             lava_steps += 1
     return lava_steps
 
-def check_risky_diagonal(path, actions, env_tensor):
-    # Early return if path or actions are too short
-    if len(path) <= 1 or len(actions) == 0:
-        return False
-        
+def check_risky_diagonal(states, action_list, env_tensor, only_next=True):
+    
+    if only_next:
+        path = states[:2]
+        actions = action_list[:1]
+    else:
+        path = states
+        actions = action_list
+
     # We need to check if diagonal moves are going through lava cells
     for i in range(len(actions)):
         # Only check diagonal moves
@@ -114,6 +118,7 @@ def evauate_agent_on_single_env(env, model, seed, env_tensor):
                     env.force(pos, ori)
                     obs, info = env.reset(seed=seed)
                     mlp_input = obs['MLP_input']
+                    mlp_keys = info['log_data']
 
                     path = []
                     path.append((int(base.agent_pos[0]), int(base.agent_pos[1]), int(base.agent_dir)))
@@ -137,21 +142,22 @@ def evauate_agent_on_single_env(env, model, seed, env_tensor):
                         step_count += 1
                         if step_count > env.spec.max_episode_steps:
                             break
-
+                    
                     results_dict[f"{x},{y},{theta}"] = {
                         "path_taken": path,
                         "next_step": {
                             "action": int(action_list[0]) if len(action_list) > 0 else None,
                             "target_state": path[1] if len(path) > 1 else None,
                             "type": check_cell_type(env_tensor, path[1]) if len(path) > 1 else None,
-                            "risky_diagonal": check_risky_diagonal(path, action_list, env_tensor) if len(action_list) > 0 else False
+                            "risky_diagonal": check_risky_diagonal(path, action_list, env_tensor, only_next=True) if len(action_list) > 0 else False
                         },
                         "summary_stats": {
                             "path_length": step_count,
                             "lava_steps": count_lava_steps(path, env_tensor),
                             "total_reward": float(total_reward),
                             "reachable": step_count < env.spec.max_episode_steps
-                        }
+                        },
+                        'model_inputs': mlp_keys['lava_mask'],
                     }
 
     return results_dict
