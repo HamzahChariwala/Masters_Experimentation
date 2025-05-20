@@ -443,7 +443,8 @@ def save_summary_results(output_dir: str, mode: str,
 
 def process_dijkstra_logs(logs_dir: Optional[str] = None,
                          save_results: bool = True,
-                         output_dir: Optional[str] = None) -> Dict[str, Dict[str, Dict[str, Any]]]:
+                         output_dir: Optional[str] = None,
+                         generate_summary_files: bool = False) -> Dict[str, Dict[str, Dict[str, Any]]]:
     """
     Process all Dijkstra evaluation logs in the specified directory.
     For each JSON file, generate summary statistics for each mode.
@@ -454,6 +455,8 @@ def process_dijkstra_logs(logs_dir: Optional[str] = None,
         save_results (bool): Whether to save the results to JSON files.
         output_dir (Optional[str]): Directory to save the results.
             If None, save to the same directory as the logs.
+        generate_summary_files (bool): Whether to generate separate summary JSON files.
+            If False, only adds summaries to the top of each main JSON file.
     
     Returns:
         Dict[str, Dict[str, Dict[str, Any]]]: Dictionary of summary statistics for each mode and environment.
@@ -621,15 +624,15 @@ def process_dijkstra_logs(logs_dir: Optional[str] = None,
             else:
                 print(f"  Reordered file with performance data first")
     
-    # Save comprehensive summary with all modes in a single file
-    if save_results:
+    # Print detection results
+    for mode in ["standard", "conservative", "dangerous_1", "dangerous_2", "dangerous_3", "dangerous_4", "dangerous_5"]:
+        if mode in all_mode_summaries and all_mode_summaries[mode]:
+            print(f"  Mode '{mode}': {len(all_mode_summaries[mode])} environments processed")
+    
+    # Only generate separate summary files if explicitly requested
+    if save_results and generate_summary_files:
         # Create a combined summary of all modes
         combined_summaries = {}
-        
-        # First print detection results
-        for mode in ["standard", "conservative", "dangerous_1", "dangerous_2", "dangerous_3", "dangerous_4", "dangerous_5"]:
-            if mode in all_mode_summaries and all_mode_summaries[mode]:
-                print(f"  Mode '{mode}': {len(all_mode_summaries[mode])} environments processed")
         
         # Process each mode that has data
         for mode, mode_summaries in all_mode_summaries.items():
@@ -654,11 +657,14 @@ if __name__ == "__main__":
     parser.add_argument("--logs_dir", type=str, help="Directory containing Dijkstra logs.")
     parser.add_argument("--output_dir", type=str, help="Directory to save results.")
     parser.add_argument("--no_save", action="store_true", help="Don't save results, just print summary.")
+    parser.add_argument("--generate_summary_files", action="store_true", 
+                      help="Generate separate summary JSON files for each mode.")
     
     args = parser.parse_args()
     
     process_dijkstra_logs(
         logs_dir=args.logs_dir, 
         save_results=not args.no_save,
-        output_dir=args.output_dir
+        output_dir=args.output_dir,
+        generate_summary_files=args.generate_summary_files
     ) 

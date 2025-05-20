@@ -46,31 +46,48 @@ def count_lava_steps(path, env_tensor):
     return lava_steps
 
 def check_risky_diagonal(path, actions, env_tensor):
-    steps = path[1:]
-    for i in range(len(steps)):
-        if actions[i] == 3 or actions[i] == 4:
-            x, y, theta = steps[i]
+    # Early return if path or actions are too short
+    if len(path) <= 1 or len(actions) == 0:
+        return False
+        
+    # We need to check if diagonal moves are going through lava cells
+    for i in range(len(actions)):
+        # Only check diagonal moves
+        if actions[i] == 3 or actions[i] == 4:  # 3 = diagonal left, 4 = diagonal right
+            # We need the position BEFORE the move was made
+            if i >= len(path) - 1:  # Safety check
+                continue
+                
+            # Get the position before the move
+            x, y, theta = path[i]
+            
+            # Set up rotation matrix based on agent orientation
             position = np.array([x, y])
             cw90 = np.array([[0, 1], [-1, 0]])
             rotation = np.linalg.matrix_power(cw90, theta)
             
-            # Create forward position
-            forward_vec = (position + rotation @ np.array([1, 0])).tolist()
+            # Calculate the forward position (1 step forward in agent's orientation)
+            forward_vec = (position + rotation @ np.array([1, 0])).astype(int).tolist()
             forward_pos = forward_vec.copy()
-            forward_pos.append(theta)
+            forward_pos.append(theta)  # Add orientation for the check_cell_type function
             
-            # Create side position
+            # Calculate the side position based on the diagonal direction
+            side_vec = None
             if actions[i] == 3:  # diagonal left
-                side_vec = (position + rotation @ np.array([0, -1])).tolist()
+                side_vec = (position + rotation @ np.array([0, -1])).astype(int).tolist()
             elif actions[i] == 4:  # diagonal right
-                side_vec = (position + rotation @ np.array([0, 1])).tolist()
-            
+                side_vec = (position + rotation @ np.array([0, 1])).astype(int).tolist()
+                
             side_pos = side_vec.copy()
-            side_pos.append(theta)
+            side_pos.append(theta)  # Add orientation for the check_cell_type function
             
-            # Check if forward or side cells are lava
-            if check_cell_type(env_tensor, forward_pos) == 'lava' or check_cell_type(env_tensor, side_pos) == 'lava':
+            # Check if either the forward or side cell is lava
+            forward_cell = check_cell_type(env_tensor, forward_pos)
+            side_cell = check_cell_type(env_tensor, side_pos)
+            
+            if forward_cell == 'lava' or side_cell == 'lava':
                 return True
+                
     return False
     
 

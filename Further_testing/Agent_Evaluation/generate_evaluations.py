@@ -155,7 +155,8 @@ def generate_complete_summary(agent_path: str, env_id: str, seed: int, num_envs:
         dijkstra_mode_summaries = process_dijkstra_logs(
             logs_dir=evaluations_dir,
             save_results=True,
-            output_dir=evaluations_dir
+            output_dir=evaluations_dir,
+            generate_summary_files=False  # Disable generation of separate summary files
         )
         
         # Print summary of Dijkstra results
