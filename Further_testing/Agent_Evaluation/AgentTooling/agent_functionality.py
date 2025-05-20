@@ -35,7 +35,7 @@ def load_agent_from_path(folder_path):
 
 def check_cell_type(env_tensor, pos):
     x, y, _ = pos
-    return env_tensor[x, y]
+    return env_tensor[y, x]
 
 def count_lava_steps(path, env_tensor):
     lava_steps = 0
@@ -77,9 +77,9 @@ def check_risky_diagonal(states, action_list, env_tensor, only_next=True):
             
             # Calculate the side position based on the diagonal direction
             side_vec = None
-            if actions[i] == 3:  # diagonal left
+            if actions[i] == 4:  # diagonal left
                 side_vec = (position + rotation @ np.array([0, -1])).astype(int).tolist()
-            elif actions[i] == 4:  # diagonal right
+            elif actions[i] == 3:  # diagonal right
                 side_vec = (position + rotation @ np.array([0, 1])).astype(int).tolist()
                 
             side_pos = side_vec.copy()
@@ -112,13 +112,14 @@ def evauate_agent_on_single_env(env, model, seed, env_tensor):
                 elif x==base.width-2 and y==base.height-2:
                     continue
                 else:
-                    print(f"({x}, {y}, {theta})")
                     pos = (x,y)
                     ori = theta
                     env.force(pos, ori)
                     obs, info = env.reset(seed=seed)
                     mlp_input = obs['MLP_input']
                     mlp_keys = info['log_data']
+
+                    print(f"({x}, {y}, {theta}): {check_cell_type(env_tensor, (x,y,theta))}")
 
                     path = []
                     path.append((int(base.agent_pos[0]), int(base.agent_pos[1]), int(base.agent_dir)))
