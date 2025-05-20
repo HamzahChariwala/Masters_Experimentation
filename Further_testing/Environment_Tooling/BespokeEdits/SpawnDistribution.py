@@ -670,8 +670,7 @@ class FlexibleSpawnWrapper(gym.Wrapper):
             # Find all occupied cells and goal position
             for i in range(width):
                 for j in range(height):
-                    # i is y (row), j is x (column)
-                    cell = grid.get(j, i)
+                    cell = grid.get(i, j)
                     
                     # Track goal position
                     if cell and cell.type == 'goal':
@@ -1607,8 +1606,7 @@ def visualize_wrapper_distribution(wrapper, title="Current Spawn Distribution",
         grid_obj = wrapper.unwrapped.grid
         for i in range(grid_obj.width):
             for j in range(grid_obj.height):
-                # i is y (row), j is x (column)
-                cell = grid_obj.get(j, i)
+                cell = grid_obj.get(i, j)
                 if cell and cell.type == 'lava':
                     lava_positions.append((i, j))
     
