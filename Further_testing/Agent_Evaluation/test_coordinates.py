@@ -210,6 +210,7 @@ def test_coordinates(env_id="MiniGrid-LavaCrossingS11N5-v0", seed=81102):
         # Mark walls
         for i in range(base.height):
             for j in range(base.width):
+                # i is y (row), j is x (column)
                 if base.grid.get(j, i) is not None:
                     obj = base.grid.get(j, i)
                     if obj.type == 'wall':

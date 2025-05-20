@@ -251,19 +251,19 @@ class PartialObsWrapper(ObservationWrapper):
                 x, y = env_coords
 
                 if 0 <= x < width and 0 <= y < height:
-                    cell = grid.get(y, x)
+                    cell = grid.get(x, y)
                     if cell:
                         if cell.type == 'wall':
-                            wall_mask[i, j] = 1
+                            wall_mask[j, i] = 1
                         elif cell.type == 'empty':
-                            empty_mask[i, j] = 1
+                            empty_mask[j, i] = 1
                         elif cell.type == 'lava':
-                            lava_mask[i, j] = 1
+                            lava_mask[j, i] = 1
                         elif cell.type == 'goal':
-                            goal_mask[i, j] = 1
+                            goal_mask[j, i] = 1
                 else:
                     # Treat out-of-bounds as walls
-                    empty_mask[i, j] = 1
+                    empty_mask[j, i] = 1
 
         barrier_mask = wall_mask + empty_mask
         contains_goal = int(bool(np.any(goal_mask == 1)))
@@ -368,7 +368,7 @@ class PartialRGBObsWrapper(ObservationWrapper):
                 x, y = env_coords
 
                 if 0 <= x < width and 0 <= y < height:
-                    cell = grid.get(y, x)
+                    cell = grid.get(x, y)
                     if cell is None:
                         color = self.color_map['floor']
                     elif cell.type == 'wall':
@@ -383,7 +383,7 @@ class PartialRGBObsWrapper(ObservationWrapper):
                     # Out-of-bounds treated as walls
                     color = self.color_map['wall']
 
-                rgb_obs[i, j] = color
+                rgb_obs[j, i] = color
 
         # Mark the agent's position
         rgb_obs[self.agent_view_pos] = self.color_map['agent']
@@ -441,7 +441,7 @@ class PartialGrayObsWrapper(ObservationWrapper):
                 x, y = env_coords
 
                 if 0 <= x < width and 0 <= y < height:
-                    cell = grid.get(y, x)
+                    cell = grid.get(x, y)
                     if cell is None:
                         gray = self.gray_map['floor']
                     elif cell.type == 'wall':
@@ -456,7 +456,7 @@ class PartialGrayObsWrapper(ObservationWrapper):
                     # Out-of-bounds treated as walls
                     gray = self.gray_map['wall']
 
-                gray_obs[i, j] = gray
+                gray_obs[j, i] = gray
 
         # Mark the agent's position
         gray_obs[self.agent_view_pos] = self.gray_map['agent']

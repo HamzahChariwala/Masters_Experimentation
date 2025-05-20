@@ -23,7 +23,7 @@ class CustomActionWrapper(gym.ActionWrapper):
         if not (0 <= pos[0] < grid.width and 0 <= pos[1] < grid.height):
             return False
         
-        # Get cell at position
+        # pos[0] is x (column), pos[1] is y (row)
         cell = grid.get(pos[0], pos[1])
         
         # Cell is walkable if it's None or can be overlapped

@@ -84,6 +84,7 @@ class LavaStepCounterWrapper(gym.Wrapper):
         agent_pos = self.env.unwrapped.agent_pos
         
         if grid is not None and agent_pos is not None:
+            # agent_pos is (x, y): x is column, y is row
             cell = grid.get(*agent_pos)
             # Check if the cell is lava
             is_lava = cell is not None and cell.type == 'lava'
