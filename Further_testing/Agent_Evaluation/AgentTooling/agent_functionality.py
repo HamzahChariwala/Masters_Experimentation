@@ -159,7 +159,7 @@ def evauate_agent_on_single_env(env, model, seed, env_tensor):
                             "reachable": step_count < env.spec.max_episode_steps
                         },
                         'model_inputs': {'raw_input': mlp_input, 
-                                         'lava_mask': mlp_keys['lava_mask']},
+                                         'lava_mask': mlp_keys['new_image'][0]},
                     }
 
     return results_dict
