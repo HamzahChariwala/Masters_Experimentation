@@ -12,7 +12,7 @@ from stable_baselines3 import DQN
 
 # Now we can import from local modules
 from Agent_Evaluation.EnvironmentTooling.import_vars import create_evaluation_env, extract_env_config, load_config
-from Agent_Evaluation.EnvironmentTooling.position_override import make_custom_env
+from Agent_Evaluation.EnvironmentTooling.position_override import make_custom_env, ForceStartState
 from Agent_Evaluation.EnvironmentTooling.extract_grid import print_env_tensor
 
 # And from Environment_Tooling
@@ -53,12 +53,23 @@ def check_risky_diagonal(path, actions, env_tensor):
             position = np.array([x, y])
             cw90 = np.array([[0, 1], [-1, 0]])
             rotation = np.linalg.matrix_power(cw90, theta)
-            forward = (position + rotation @ np.array([1, 0])).tolist()
-            if actions[i] == 3:
-                side = (position + rotation @ np.array([0, -1])).tolist()
-            elif actions[i] == 4:
-                side = (position + rotation @ np.array([0, 1])).tolist()
-            if check_cell_type(env_tensor, forward.append(theta)) == 'lava' or check_cell_type(env_tensor, side.append(theta)) == 'lava':
+            
+            # Create forward position
+            forward_vec = (position + rotation @ np.array([1, 0])).tolist()
+            forward_pos = forward_vec.copy()
+            forward_pos.append(theta)
+            
+            # Create side position
+            if actions[i] == 3:  # diagonal left
+                side_vec = (position + rotation @ np.array([0, -1])).tolist()
+            elif actions[i] == 4:  # diagonal right
+                side_vec = (position + rotation @ np.array([0, 1])).tolist()
+            
+            side_pos = side_vec.copy()
+            side_pos.append(theta)
+            
+            # Check if forward or side cells are lava
+            if check_cell_type(env_tensor, forward_pos) == 'lava' or check_cell_type(env_tensor, side_pos) == 'lava':
                 return True
     return False
     
@@ -67,6 +78,11 @@ def evauate_agent_on_single_env(env, model, seed, env_tensor):
 
     results_dict = {}
     base = env.unwrapped
+    
+    # if not hasattr(env, 'force'):
+    #     env = ForceStartState(env)
+    #     print("Wrapped environment with ForceStartState to control agent position")
+    
     for x in range(base.width):
         for y in range(base.height):
             for theta in range(4):
@@ -105,21 +121,20 @@ def evauate_agent_on_single_env(env, model, seed, env_tensor):
                         if step_count > env.spec.max_episode_steps:
                             break
 
-                    results_dict[f"({x}, {y}, {theta})"] = {
+                    results_dict[f"{x},{y},{theta}"] = {
                         "path_taken": path,
                         "next_step": {
-                            "action": action_list[0],
-                            "target_state": path[1],
-                            "type": check_cell_type(env_tensor, path[1]),
-                            "risky_diagonal": check_risky_diagonal(path, action_list, env_tensor)
+                            "action": int(action_list[0]) if len(action_list) > 0 else None,
+                            "target_state": path[1] if len(path) > 1 else None,
+                            "type": check_cell_type(env_tensor, path[1]) if len(path) > 1 else None,
+                            "risky_diagonal": check_risky_diagonal(path, action_list, env_tensor) if len(action_list) > 0 else False
                         },
                         "summary_stats": {
                             "path_length": step_count,
                             "lava_steps": count_lava_steps(path, env_tensor),
+                            "total_reward": float(total_reward),
                             "reachable": step_count != env.spec.max_episode_steps
                         }
                     }
 
     return results_dict
-
-

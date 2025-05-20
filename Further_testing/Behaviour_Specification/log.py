@@ -435,8 +435,9 @@ def export_path_data_to_json(
                                 # Convert orientation to agent convention
                                 first_x, first_y, first_orientation_dijkstra = node_data.state
                                 first_orientation_agent = convert_dijkstra_to_agent_orientation(first_orientation_dijkstra)
-                                first_state = f"{first_x},{first_y},{first_orientation_agent}"
-                                visited_states.append(first_state)
+                                
+                                # Add state as an array instead of a string
+                                visited_states.append([first_x, first_y, first_orientation_agent])
                                 
                                 # Calculate cost, extract states, and count lava steps
                                 # Keep track of whether we're on the initial position
@@ -462,11 +463,11 @@ def export_path_data_to_json(
                                     # Set initial position flag to False after the first step
                                     is_initial_position = False
                                     
-                                    # Convert orientation to agent convention for the state key
+                                    # Convert orientation to agent convention for the state array
                                     dst_orientation_agent = convert_dijkstra_to_agent_orientation(dst_orientation_dijkstra)
                                     
-                                    # Add to visited states
-                                    visited_states.append(f"{dst_x},{dst_y},{dst_orientation_agent}")
+                                    # Add to visited states as an array
+                                    visited_states.append([dst_x, dst_y, dst_orientation_agent])
                                 
                                 # Update path data
                                 path_data["path_taken"] = visited_states
@@ -487,10 +488,10 @@ def export_path_data_to_json(
                                     src_state = src_node_data.state
                                     dst_state = dst_node_data.state
                                     
-                                    # Format the target state as a string with agent orientation
+                                    # Format the target state as an array with agent orientation
                                     dst_x, dst_y, dst_orientation_dijkstra = dst_state
                                     dst_orientation_agent = convert_dijkstra_to_agent_orientation(dst_orientation_dijkstra)
-                                    target_state_str = f"{dst_x},{dst_y},{dst_orientation_agent}"
+                                    target_state_array = [dst_x, dst_y, dst_orientation_agent]
                                     
                                     # Determine action type by comparing source and destination
                                     sx, sy, sori = src_state
@@ -534,7 +535,7 @@ def export_path_data_to_json(
                                     
                                     # Update next_step information
                                     path_data["next_step"]["action"] = action
-                                    path_data["next_step"]["target_state"] = target_state_str
+                                    path_data["next_step"]["target_state"] = target_state_array
                                     path_data["next_step"]["type"] = env_tensor[dst_y, dst_x]
                                     path_data["next_step"]["risky_diagonal"] = risky_diagonal
                     except Exception as e:

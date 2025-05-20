@@ -11,7 +11,7 @@ sys.path.insert(0, project_root)
 print(f"Added to Python path: {project_root}")
 
 # Now we can import from both local modules and the main Environment_Tooling
-from position_override import make_custom_env
+from .position_override import make_custom_env
 
 # Import from Environment_Tooling
 from Environment_Tooling.EnvironmentGeneration import make_env
@@ -22,7 +22,7 @@ from stable_baselines3 import DQN, PPO, A2C
 
 # Import our grid extraction utilities
 from Agent_Evaluation.EnvironmentTooling.extract_grid import extract_env_structure, visualize_env_tensor, print_env_tensor
-from Agent_Evaluation.EnvironmentTooling.position_override import ForceStartState
+from .position_override import ForceStartState
 
 # Default values for evaluation
 DEFAULT_RANK = 0

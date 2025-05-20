@@ -24,14 +24,31 @@ def minigrid_render_simple(env_id, seed):
     
 
 def extract_env_structure(env, seed):
-
+    """
+    Extract the grid structure from the environment using log_data.
+    
+    Args:
+        env: The MiniGrid environment
+        seed: Seed to reset the environment with
+        
+    Returns:
+        np.ndarray: A 2D numpy array with string cell types
+    """
     obs, info = env.reset(seed=seed)
-    original = info['log_data']['new_image'][1]
-
-    mapping = {0: 'wall', 1: 'floor', 2: 'lava', 3: 'goal'}
-    result = [[mapping.get(cell, '?') for cell in row] for row in original]
-
-    return original, result
+    
+    # Check if log_data and new_image exist in info
+    if 'log_data' in info and 'new_image' in info['log_data']:
+        original = info['log_data']['new_image'][1]
+        
+        # Convert numerical values to string cell types
+        mapping = {0: 'wall', 1: 'floor', 2: 'lava', 3: 'goal'}
+        result = np.array([[mapping.get(int(cell), '?') for cell in row] for row in original])
+        
+        return result
+    else:
+        print("Warning: log_data or new_image not found in environment info")
+        # Return an empty array or placeholder
+        return np.array([['?']])
 
 
 def visualize_env_tensor(env_tensor, save_path="visualizations/env_layout.png", generate_plot=True):

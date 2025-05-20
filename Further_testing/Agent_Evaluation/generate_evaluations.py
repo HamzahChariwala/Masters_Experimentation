@@ -17,6 +17,10 @@ print(f"Added to Python path: {project_root}")
 # Import from Behaviour_Specification
 from Behaviour_Specification.log import analyze_navigation_graphs, export_path_data_to_json
 
+# Import from Agent_Evaluation
+from Agent_Evaluation.AgentTooling.agent_functionality import evauate_agent_on_single_env, load_agent_from_path
+from Agent_Evaluation.AgentTooling.results_processing import export_agent_eval_data_to_json
+
 # Import from our import_vars.py file - updated to reflect new location
 from Agent_Evaluation.EnvironmentTooling.import_vars import (
     load_config,
@@ -95,6 +99,28 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
                 )
                 print(f"Path data exported to: {output_path}")
             
+            # Load the agent for evaluation
+            print("Loading agent for evaluation...")
+            model = load_agent_from_path(agent_path)
+            
+            # Run agent evaluation
+            print("Running agent evaluation on various starting positions...")
+            eval_results = evauate_agent_on_single_env(
+                env=env,
+                model=model,
+                seed=seed,
+                env_tensor=env_tensor
+            )
+            
+            # Export agent evaluation results to JSON
+            agent_output_path = export_agent_eval_data_to_json(
+                results_dict=eval_results,
+                env_tensor=env_tensor,
+                env_id=env_id,
+                seed=seed,
+                agent_folder=agent_path
+            )
+            print(f"Agent evaluation data exported to: {agent_output_path}")
             
         except Exception as e:
             print(f"Error during environment tensor generation or agent evaluation: {e}")
