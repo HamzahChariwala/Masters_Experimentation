@@ -254,16 +254,16 @@ class PartialObsWrapper(ObservationWrapper):
                     cell = grid.get(x, y)
                     if cell:
                         if cell.type == 'wall':
-                            wall_mask[j, i] = 1
+                            wall_mask[i, j] = 1
                         elif cell.type == 'empty':
-                            empty_mask[j, i] = 1
+                            empty_mask[i, j] = 1
                         elif cell.type == 'lava':
-                            lava_mask[j, i] = 1
+                            lava_mask[i, j] = 1
                         elif cell.type == 'goal':
-                            goal_mask[j, i] = 1
+                            goal_mask[i, j] = 1
                 else:
                     # Treat out-of-bounds as walls
-                    empty_mask[j, i] = 1
+                    empty_mask[i, j] = 1
 
         barrier_mask = wall_mask + empty_mask
         contains_goal = int(bool(np.any(goal_mask == 1)))
