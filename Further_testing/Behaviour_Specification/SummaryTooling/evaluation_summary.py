@@ -10,6 +10,7 @@ import glob
 import numpy as np
 import re
 from typing import Dict, List, Any, Optional, Tuple, Union
+from collections import defaultdict
 
 # Add the root directory to sys.path to ensure proper imports
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
@@ -650,21 +651,212 @@ def process_dijkstra_logs(logs_dir: Optional[str] = None,
     return all_mode_summaries
 
 
+def create_dijkstra_performance_summary(logs_dir: Optional[str] = None, overall_only: bool = False) -> str:
+    """
+    Create a summary of Dijkstra performance across all environments for each ruleset.
+    This function analyzes all JSON files in the Evaluations directory and creates a
+    summary file with statistics for each state and ruleset.
+    
+    Args:
+        logs_dir (Optional[str]): Path to evaluation logs directory. If None, uses default path.
+        overall_only (bool): If True, only include the overall summary without per-state statistics.
+        
+    Returns:
+        str: Path to the generated summary file
+    """
+    import glob
+    from collections import defaultdict
+    
+    # If no logs directory is provided, use default
+    if logs_dir is None:
+        logs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Evaluations")
+    
+    if not os.path.exists(logs_dir):
+        print(f"Logs directory not found: {logs_dir}")
+        return ""
+    
+    # Find all JSON files in the logs directory
+    json_files = glob.glob(os.path.join(logs_dir, "*.json"))
+    
+    if not json_files:
+        print(f"No JSON files found in {logs_dir}")
+        return ""
+    
+    print(f"Found {len(json_files)} JSON files to analyze")
+    
+    # List of rulesets to process
+    rulesets = ["standard", "conservative", "dangerous_1", "dangerous_2", "dangerous_3", "dangerous_4", "dangerous_5"]
+    
+    # Initialize data structures to store statistics for each ruleset
+    ruleset_stats = {}
+    for ruleset in rulesets:
+        ruleset_stats[ruleset] = {
+            "state_stats": defaultdict(lambda: {
+                "count": 0,
+                "lava_cell_count": 0,
+                "path_length_sum": 0,
+                "lava_steps_sum": 0,
+                "goal_reached_count": 0,
+                "next_cell_lava_count": 0,
+                "risky_diagonal_count": 0
+            }),
+            "overall_stats": {
+                "total_states": 0,
+                "lava_cell_count": 0,
+                "path_length_sum": 0,
+                "lava_steps_sum": 0,
+                "goal_reached_count": 0,
+                "next_cell_lava_count": 0,
+                "risky_diagonal_count": 0
+            }
+        }
+    
+    # Process each JSON file
+    for json_file in json_files:
+        file_name = os.path.basename(json_file)
+        print(f"Processing {file_name}")
+        
+        # Skip performance summary files
+        if file_name.startswith("performance_summary"):
+            print(f"  Skipping performance summary file")
+            continue
+        
+        # Load JSON data
+        try:
+            with open(json_file, 'r') as f:
+                data = json.load(f)
+        except json.JSONDecodeError:
+            print(f"  Error: Invalid JSON in {file_name}")
+            continue
+        
+        # Skip if no performance data
+        if "performance" not in data:
+            print(f"  No performance data found, skipping")
+            continue
+        
+        # Process each ruleset
+        for ruleset in rulesets:
+            if ruleset not in data["performance"]:
+                print(f"  No {ruleset} data found, skipping this ruleset")
+                continue
+            
+            perf_data = data["performance"][ruleset]
+            
+            # Process each state in the ruleset
+            for state_key, metrics in perf_data.items():
+                # Skip comment and mode keys
+                if state_key.startswith("__"):
+                    continue
+                
+                # Make sure metrics is an array and has enough elements
+                if not isinstance(metrics, list) or len(metrics) < 6:
+                    continue
+                
+                # Extract metrics from the array
+                # [cell_type, path_length, lava_steps, reaches_goal, next_cell_is_lava, risky_diagonal, target_state, action_taken]
+                cell_type = metrics[0]
+                path_length = metrics[1]
+                lava_steps = metrics[2]
+                reaches_goal = metrics[3]
+                next_cell_is_lava = metrics[4]
+                risky_diagonal = metrics[5]
+                
+                # Update per-state statistics
+                ruleset_stats[ruleset]["state_stats"][state_key]["count"] += 1
+                ruleset_stats[ruleset]["state_stats"][state_key]["lava_cell_count"] += 1 if cell_type == "lava" else 0
+                ruleset_stats[ruleset]["state_stats"][state_key]["path_length_sum"] += path_length
+                ruleset_stats[ruleset]["state_stats"][state_key]["lava_steps_sum"] += lava_steps
+                ruleset_stats[ruleset]["state_stats"][state_key]["goal_reached_count"] += 1 if reaches_goal else 0
+                ruleset_stats[ruleset]["state_stats"][state_key]["next_cell_lava_count"] += 1 if next_cell_is_lava else 0
+                ruleset_stats[ruleset]["state_stats"][state_key]["risky_diagonal_count"] += 1 if risky_diagonal else 0
+                
+                # Update overall statistics
+                ruleset_stats[ruleset]["overall_stats"]["total_states"] += 1
+                ruleset_stats[ruleset]["overall_stats"]["lava_cell_count"] += 1 if cell_type == "lava" else 0
+                ruleset_stats[ruleset]["overall_stats"]["path_length_sum"] += path_length
+                ruleset_stats[ruleset]["overall_stats"]["lava_steps_sum"] += lava_steps
+                ruleset_stats[ruleset]["overall_stats"]["goal_reached_count"] += 1 if reaches_goal else 0
+                ruleset_stats[ruleset]["overall_stats"]["next_cell_lava_count"] += 1 if next_cell_is_lava else 0
+                ruleset_stats[ruleset]["overall_stats"]["risky_diagonal_count"] += 1 if risky_diagonal else 0
+    
+    # Create summary data for each ruleset
+    summary_data = {}
+    
+    for ruleset in rulesets:
+        # Skip rulesets with no data
+        if ruleset_stats[ruleset]["overall_stats"]["total_states"] == 0:
+            continue
+        
+        # Calculate overall summary for this ruleset
+        total_states = ruleset_stats[ruleset]["overall_stats"]["total_states"]
+        overall_summary = {
+            "total_state_instances": total_states,
+            "unique_states": len(ruleset_stats[ruleset]["state_stats"]),
+            "lava_cell_proportion": ruleset_stats[ruleset]["overall_stats"]["lava_cell_count"] / total_states,
+            "avg_path_length": ruleset_stats[ruleset]["overall_stats"]["path_length_sum"] / total_states,
+            "avg_lava_steps": ruleset_stats[ruleset]["overall_stats"]["lava_steps_sum"] / total_states,
+            "goal_reached_proportion": ruleset_stats[ruleset]["overall_stats"]["goal_reached_count"] / total_states,
+            "next_cell_lava_proportion": ruleset_stats[ruleset]["overall_stats"]["next_cell_lava_count"] / total_states,
+            "risky_diagonal_proportion": ruleset_stats[ruleset]["overall_stats"]["risky_diagonal_count"] / total_states
+        }
+        
+        ruleset_data = {"overall_summary": overall_summary}
+        
+        # Add per-state statistics if requested
+        if not overall_only:
+            state_summary = {}
+            for state_key, stats in ruleset_stats[ruleset]["state_stats"].items():
+                count = stats["count"]
+                if count > 0:
+                    state_summary[state_key] = {
+                        "lava_cell_proportion": stats["lava_cell_count"] / count,
+                        "avg_path_length": stats["path_length_sum"] / count,
+                        "avg_lava_steps": stats["lava_steps_sum"] / count,
+                        "goal_reached_proportion": stats["goal_reached_count"] / count,
+                        "next_cell_lava_proportion": stats["next_cell_lava_count"] / count,
+                        "risky_diagonal_proportion": stats["risky_diagonal_count"] / count
+                    }
+            ruleset_data["statistics"] = state_summary
+            
+        summary_data[ruleset] = ruleset_data
+    
+    # Create the output filename
+    filename = "performance_summary_overall.json" if overall_only else "performance_summary.json"
+    output_file = os.path.join(logs_dir, filename)
+    
+    # Build the data to write
+    output_data = {
+        "summary_description": "This file contains summary statistics for Dijkstra performance across all environments and rulesets",
+        "rulesets": summary_data
+    }
+    
+    # Write the file
+    with open(output_file, 'w') as f:
+        f.write(format_json_with_compact_arrays(output_data))
+    
+    print(f"Created Dijkstra performance summary file: {output_file}")
+    return output_file
+
+
 if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description="Process Dijkstra evaluation logs and generate summaries.")
-    parser.add_argument("--logs_dir", type=str, help="Directory containing Dijkstra logs.")
-    parser.add_argument("--output_dir", type=str, help="Directory to save results.")
+    parser.add_argument("--logs_dir", type=str, help="Directory containing Dijkstra evaluation logs.")
     parser.add_argument("--no_save", action="store_true", help="Don't save results, just print summary.")
-    parser.add_argument("--generate_summary_files", action="store_true", 
-                      help="Generate separate summary JSON files for each mode.")
+    parser.add_argument("--create_summary", action="store_true", help="Create a performance summary file.")
+    parser.add_argument("--overall_only", action="store_true", help="Only include overall summary without per-state statistics.")
     
     args = parser.parse_args()
     
-    process_dijkstra_logs(
-        logs_dir=args.logs_dir, 
-        save_results=not args.no_save,
-        output_dir=args.output_dir,
-        generate_summary_files=args.generate_summary_files
-    ) 
+    if args.create_summary:
+        create_dijkstra_performance_summary(
+            logs_dir=args.logs_dir,
+            overall_only=args.overall_only
+        )
+    else:
+        process_dijkstra_logs(
+            logs_dir=args.logs_dir,
+            save_results=not args.no_save,
+            generate_summary_files=False
+        ) 

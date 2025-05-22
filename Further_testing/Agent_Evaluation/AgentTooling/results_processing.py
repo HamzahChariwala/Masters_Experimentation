@@ -1,7 +1,7 @@
 import os
 import json
 import numpy as np
-from typing import Dict, Any, Union, List
+from typing import Dict, Any, Union, List, Optional
 
 
 def format_json_with_compact_arrays(data: Union[Dict, List, Any], indent: int = 2) -> str:
@@ -194,3 +194,403 @@ def numpy_to_json_serializable(arr: np.ndarray) -> Union[List, Dict, Any]:
         }
     
     return arr_list
+
+def add_performance_summary_to_agent_logs(logs_dir: Optional[str] = None, save_results: bool = True) -> Dict[str, Any]:
+    """
+    Add a performance summary to agent log files, similar to the format used in Dijkstra logs.
+    This function processes each JSON file in the logs_dir, extracts performance metrics from
+    the agent paths, and adds a performance key at the top of each file.
+    
+    Args:
+        logs_dir (Optional[str]): Directory containing agent log files. If None, uses default path.
+        save_results (bool): Whether to save the updated files or just return the data.
+        
+    Returns:
+        Dict[str, Any]: Dictionary of performance summaries by file.
+    """
+    import glob
+    
+    # Dictionary to store performance summaries
+    performance_summaries = {}
+    
+    # If no logs directory specified, use default
+    if logs_dir is None:
+        # Look for agent logs in a standard location
+        possible_locations = [
+            "Agent_Storage/*/evaluation_logs",
+            "Agent_Evaluation/*/evaluation_logs"
+        ]
+        
+        for pattern in possible_locations:
+            log_dirs = glob.glob(pattern)
+            if log_dirs:
+                logs_dir = log_dirs[0]
+                print(f"Using log directory: {logs_dir}")
+                break
+    
+    if logs_dir is None or not os.path.exists(logs_dir):
+        print("No valid logs directory found")
+        return performance_summaries
+    
+    # Find all JSON files in the logs directory
+    json_files = glob.glob(os.path.join(logs_dir, "**", "*.json"), recursive=True)
+    
+    if not json_files:
+        print(f"No JSON files found in {logs_dir}")
+        return performance_summaries
+    
+    print(f"Found {len(json_files)} JSON files to process")
+    
+    # Process each JSON file
+    for json_file in json_files:
+        file_name = os.path.basename(json_file)
+        print(f"Processing {file_name}")
+        
+        # Skip performance summary files
+        if file_name.startswith("performance_summary"):
+            print(f"  Skipping performance summary file")
+            continue
+        
+        # Load JSON data
+        try:
+            with open(json_file, 'r') as f:
+                data = json.load(f)
+        except json.JSONDecodeError:
+            print(f"  Error: Invalid JSON in {file_name}")
+            continue
+        
+        # Skip if performance data already exists
+        if "performance" in data:
+            print(f"  File already has performance metrics")
+            performance_summaries[file_name] = data["performance"]
+            continue
+        
+        # Skip if no environment data
+        if "environment" not in data or "states" not in data:
+            print(f"  Error: Missing required data in {file_name}")
+            continue
+        
+        # Extract environment layout
+        env_layout = data["environment"]["layout"]
+        
+        # Initialize performance data
+        performance_data = {
+            "__comment": "Each state maps to an array with the following values in order: " +
+                        "[cell_type, path_length, lava_steps, reaches_goal, next_cell_is_lava, " +
+                        "risky_diagonal, target_state, action_taken]",
+            "__mode": "agent"  # Only one mode for agent, unlike Dijkstra's 7 rule sets
+        }
+        
+        # Process each state
+        for state_key, state_data in data["states"].items():
+            # Default values
+            cell_type = "unknown"
+            path_length = 0
+            lava_steps = 0
+            reaches_goal = False
+            next_cell_is_lava = False
+            risky_diagonal = False
+            target_state = None
+            action_taken = None
+            
+            # Parse state coordinates
+            try:
+                x, y, orientation = map(int, state_key.split(","))
+                
+                # Get cell type from environment layout
+                if 0 <= x < len(env_layout) and 0 <= y < len(env_layout[0]):
+                    cell_type = env_layout[x][y]
+            except (ValueError, IndexError):
+                # Skip keys that aren't in the expected format
+                continue
+            
+            # Extract performance metrics from the state data
+            
+            # Get path length and lava steps
+            if "path_taken" in state_data:
+                path = state_data["path_taken"]
+                path_length = len(path) - 1 if len(path) > 0 else 0
+                
+                # Count lava steps
+                if path_length > 0:
+                    for step in path:
+                        step_x, step_y = step[0], step[1]
+                        if 0 <= step_x < len(env_layout) and 0 <= step_y < len(env_layout[0]):
+                            if env_layout[step_x][step_y] == "lava":
+                                lava_steps += 1
+            
+            # Check if goal was reached
+            if "summary_stats" in state_data:
+                # Use the summary stats if available
+                if "reachable" in state_data["summary_stats"]:
+                    reaches_goal = state_data["summary_stats"]["reachable"]
+            
+            # Extract next step information
+            if "next_step" in state_data:
+                next_step = state_data["next_step"]
+                
+                # Check if next cell is lava
+                next_cell_is_lava = next_step.get("type") == "lava"
+                
+                # Check if the move is a risky diagonal
+                risky_diagonal = next_step.get("risky_diagonal", False)
+                
+                # Get target state and action
+                if next_step.get("target_state") is not None:
+                    target_x, target_y, target_o = next_step["target_state"]
+                    target_state = f"{target_x},{target_y},{target_o}"
+                
+                action_taken = next_step.get("action")
+            
+            # Package metrics into the format used by Dijkstra logs
+            state_metrics = [
+                cell_type,
+                path_length,
+                lava_steps,
+                reaches_goal,
+                next_cell_is_lava,
+                risky_diagonal,
+                target_state,
+                action_taken
+            ]
+            
+            # Add to performance data
+            performance_data[state_key] = state_metrics
+        
+        # Store the performance data
+        performance_summaries[file_name] = performance_data
+        
+        # Save the updated file if requested
+        if save_results:
+            # Create a new data structure with performance first
+            updated_data = {
+                "performance": {
+                    "agent": performance_data  # Use "agent" key to match the structure of Dijkstra logs
+                }
+            }
+            
+            # Add the rest of the data
+            for key, value in data.items():
+                updated_data[key] = value
+            
+            # Write the updated file
+            with open(json_file, 'w') as f:
+                f.write(format_json_with_compact_arrays(updated_data))
+            
+            print(f"  Added performance data to {file_name}")
+    
+    return performance_summaries
+
+def create_agent_performance_summary(agent_dir: Optional[str] = None, logs_dir: Optional[str] = None, overall_only: bool = False) -> str:
+    """
+    Create a summary of agent performance across all environments.
+    This function analyzes all JSON files in an agent's evaluation_logs directory
+    and creates a summary file with statistics for each state.
+    
+    Args:
+        agent_dir (Optional[str]): Path to agent directory. If None, tries to detect automatically.
+        logs_dir (Optional[str]): Path to evaluation logs directory. If None, uses agent_dir/evaluation_logs.
+        overall_only (bool): If True, only include the overall summary without per-state statistics.
+        
+    Returns:
+        str: Path to the generated summary file
+    """
+    import glob
+    from collections import defaultdict
+    
+    # If no agent directory is provided, try to detect it
+    if agent_dir is None:
+        # Try to infer from logs_dir if provided
+        if logs_dir is not None:
+            agent_dir = os.path.dirname(logs_dir)
+        else:
+            # Try to find agent directories
+            possible_dirs = glob.glob("Agent_Storage/*") + glob.glob("../Agent_Storage/*") + glob.glob("../../Agent_Storage/*")
+            if possible_dirs:
+                agent_dir = possible_dirs[0]
+                print(f"Using agent directory: {agent_dir}")
+    
+    # If no logs directory is provided, use agent_dir/evaluation_logs
+    if logs_dir is None:
+        if agent_dir is None:
+            print("No agent directory found and no logs directory provided")
+            return ""
+        logs_dir = os.path.join(agent_dir, "evaluation_logs")
+    
+    if not os.path.exists(logs_dir):
+        print(f"Logs directory not found: {logs_dir}")
+        return ""
+    
+    # Find all JSON files in the logs directory
+    json_files = glob.glob(os.path.join(logs_dir, "**", "*.json"), recursive=True)
+    
+    if not json_files:
+        print(f"No JSON files found in {logs_dir}")
+        return ""
+    
+    print(f"Found {len(json_files)} JSON files to analyze")
+    
+    # Initialize data structures to store statistics
+    state_stats = defaultdict(lambda: {
+        "count": 0,
+        "lava_cell_count": 0,
+        "path_length_sum": 0,
+        "lava_steps_sum": 0,
+        "goal_reached_count": 0,
+        "next_cell_lava_count": 0,
+        "risky_diagonal_count": 0
+    })
+    
+    # Track overall statistics as well
+    overall_stats = {
+        "total_states": 0,
+        "lava_cell_count": 0,
+        "path_length_sum": 0,
+        "lava_steps_sum": 0,
+        "goal_reached_count": 0,
+        "next_cell_lava_count": 0,
+        "risky_diagonal_count": 0
+    }
+    
+    # Process each JSON file
+    for json_file in json_files:
+        file_name = os.path.basename(json_file)
+        print(f"Processing {file_name}")
+        
+        # Skip performance summary files
+        if file_name.startswith("performance_summary"):
+            print(f"  Skipping performance summary file")
+            continue
+        
+        # Load JSON data
+        try:
+            with open(json_file, 'r') as f:
+                data = json.load(f)
+        except json.JSONDecodeError:
+            print(f"  Error: Invalid JSON in {file_name}")
+            continue
+        
+        # Skip if no performance data
+        if "performance" not in data:
+            print(f"  No performance data found, skipping")
+            continue
+        
+        # Get performance data - it could be directly or under 'agent' key
+        if "agent" in data["performance"]:
+            perf_data = data["performance"]["agent"]
+        else:
+            perf_data = data["performance"]
+        
+        # Process each state in the performance data
+        for state_key, metrics in perf_data.items():
+            # Skip comment and mode keys
+            if state_key.startswith("__"):
+                continue
+                
+            # Extract metrics from the array
+            # [cell_type, path_length, lava_steps, reaches_goal, next_cell_is_lava, risky_diagonal, target_state, action_taken]
+            if len(metrics) >= 6:  # Make sure we have at least the first 6 metrics
+                cell_type = metrics[0]
+                path_length = metrics[1]
+                lava_steps = metrics[2]
+                reaches_goal = metrics[3]
+                next_cell_is_lava = metrics[4]
+                risky_diagonal = metrics[5]
+                
+                # Update per-state statistics
+                state_stats[state_key]["count"] += 1
+                state_stats[state_key]["lava_cell_count"] += 1 if cell_type == "lava" else 0
+                state_stats[state_key]["path_length_sum"] += path_length
+                state_stats[state_key]["lava_steps_sum"] += lava_steps
+                state_stats[state_key]["goal_reached_count"] += 1 if reaches_goal else 0
+                state_stats[state_key]["next_cell_lava_count"] += 1 if next_cell_is_lava else 0
+                state_stats[state_key]["risky_diagonal_count"] += 1 if risky_diagonal else 0
+                
+                # Update overall statistics
+                overall_stats["total_states"] += 1
+                overall_stats["lava_cell_count"] += 1 if cell_type == "lava" else 0
+                overall_stats["path_length_sum"] += path_length
+                overall_stats["lava_steps_sum"] += lava_steps
+                overall_stats["goal_reached_count"] += 1 if reaches_goal else 0
+                overall_stats["next_cell_lava_count"] += 1 if next_cell_is_lava else 0
+                overall_stats["risky_diagonal_count"] += 1 if risky_diagonal else 0
+    
+    # Create summary data
+    summary_data = {}
+    if not overall_only:
+        for state_key, stats in state_stats.items():
+            count = stats["count"]
+            if count > 0:
+                summary_data[state_key] = {
+                    "lava_cell_proportion": stats["lava_cell_count"] / count,
+                    "avg_path_length": stats["path_length_sum"] / count,
+                    "avg_lava_steps": stats["lava_steps_sum"] / count,
+                    "goal_reached_proportion": stats["goal_reached_count"] / count,
+                    "next_cell_lava_proportion": stats["next_cell_lava_count"] / count,
+                    "risky_diagonal_proportion": stats["risky_diagonal_count"] / count
+                }
+    
+    # Calculate overall summary
+    total_states = overall_stats["total_states"]
+    overall_summary = {}
+    if total_states > 0:
+        overall_summary = {
+            "total_state_instances": total_states,
+            "unique_states": len(state_stats),
+            "lava_cell_proportion": overall_stats["lava_cell_count"] / total_states,
+            "avg_path_length": overall_stats["path_length_sum"] / total_states,
+            "avg_lava_steps": overall_stats["lava_steps_sum"] / total_states,
+            "goal_reached_proportion": overall_stats["goal_reached_count"] / total_states,
+            "next_cell_lava_proportion": overall_stats["next_cell_lava_count"] / total_states,
+            "risky_diagonal_proportion": overall_stats["risky_diagonal_count"] / total_states
+        }
+    
+    # Create the output filename based on the mode
+    filename = "performance_summary.json"
+    if overall_only:
+        filename = "performance_summary_overall.json"
+    
+    # Create summary file
+    output_file = os.path.join(agent_dir or os.path.dirname(logs_dir), filename)
+    
+    # Build the data to write
+    output_data = {
+        "summary_description": "This file contains summary statistics for agent performance across all environments",
+        "overall_summary": overall_summary
+    }
+    
+    # Add per-state statistics if requested
+    if not overall_only:
+        output_data["statistics"] = summary_data
+    
+    # Write the file
+    with open(output_file, 'w') as f:
+        f.write(format_json_with_compact_arrays(output_data))
+    
+    print(f"Created performance summary file: {output_file}")
+    return output_file
+
+
+if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Process agent evaluation logs and add performance summaries.")
+    parser.add_argument("--logs_dir", type=str, help="Directory containing agent logs.")
+    parser.add_argument("--no_save", action="store_true", help="Don't save results, just print summary.")
+    parser.add_argument("--create_summary", action="store_true", help="Create a performance summary file.")
+    parser.add_argument("--agent_dir", type=str, help="Agent directory for creating summary file.")
+    parser.add_argument("--overall_only", action="store_true", help="Only include overall summary without per-state statistics.")
+    
+    args = parser.parse_args()
+    
+    if args.create_summary:
+        create_agent_performance_summary(
+            agent_dir=args.agent_dir, 
+            logs_dir=args.logs_dir,
+            overall_only=args.overall_only
+        )
+    else:
+        add_performance_summary_to_agent_logs(
+            logs_dir=args.logs_dir,
+            save_results=not args.no_save
+        )
