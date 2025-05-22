@@ -9,10 +9,10 @@ import json
 import yaml
 import gymnasium as gym
 
-# Add the root directory to sys.path to ensure proper imports
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.insert(0, project_root)
-print(f"Added to Python path: {project_root}")
+# Add parent directory to Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+sys.path.append(project_root)
 
 # Import from Behaviour_Specification
 from Behaviour_Specification.log import analyze_navigation_graphs, export_path_data_to_json
@@ -30,6 +30,93 @@ from Agent_Evaluation.EnvironmentTooling.import_vars import (
     DEFAULT_RANK,
     DEFAULT_NUM_EPISODES
 )
+
+def generate_complete_summary(agent_path: str, env_id: str, seed: int, num_envs: int, generate_plot: bool = True, debug: bool = False, force_dijkstra: bool = False):
+
+    # First, run evaluations for all environments if needed
+    for i in range(num_envs):
+        current_seed = seed + i
+        single_env_evals(agent_path, env_id, current_seed, generate_plot, debug, force_dijkstra)
+    
+    # Then, generate performance summaries
+    print("\nGenerating performance summaries...")
+
+    try:
+        print("\nProcessing Dijkstra evaluation logs...")
+        # Try to import the Dijkstra summary processors
+        # Use proper imports with direct path to ensure modules are found
+        sys.path.insert(0, os.path.join(project_root, "Behaviour_Specification"))
+        from Behaviour_Specification.SummaryTooling.evaluation_summary import process_dijkstra_logs, create_dijkstra_performance_summary
+        
+        # Process Dijkstra logs and generate per-ruleset summary files with compact formatting
+        evaluations_dir = os.path.join(project_root, "Behaviour_Specification", "Evaluations")
+        print(f"Looking for Dijkstra logs in {evaluations_dir}")
+        
+        # Use process_dijkstra_logs with generate_summary_files=False to:
+        # 1. Process the Dijkstra logs but don't create separate per-ruleset summary files
+        # 2. Still add performance data to each log file
+        print("Processing Dijkstra logs (without per-ruleset summary files)...")
+        dijkstra_mode_summaries = process_dijkstra_logs(
+            logs_dir=evaluations_dir,
+            save_results=True,
+            output_dir=evaluations_dir,
+            generate_summary_files=False  # Do NOT generate separate per-ruleset summary files
+        )
+        
+        # Then use create_dijkstra_performance_summary to create the comprehensive performance summary
+        print("Creating comprehensive Dijkstra performance summary...")
+        dijkstra_summary_file = create_dijkstra_performance_summary(
+            logs_dir=evaluations_dir,
+            overall_only=False  # Include per-state statistics
+        )
+        
+        if dijkstra_summary_file:
+            print(f"Dijkstra performance summary created: {dijkstra_summary_file}")
+        
+        # Print summary of Dijkstra results
+        print(f"\nDijkstra log analysis results:")
+        for mode, env_summaries in dijkstra_mode_summaries.items():
+            if env_summaries:
+                env_count = len(env_summaries)
+                print(f"  Mode '{mode}': {env_count} environments processed")
+    except Exception as e:
+        print(f"Error processing Dijkstra evaluation logs: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    # Generate agent performance summaries
+    try:
+        print("\nProcessing Agent evaluation logs...")
+        
+        # Path to the agent's evaluation_logs directory
+        agent_logs_dir = os.path.join(agent_path, "evaluation_logs")
+        
+        # Step 1: Add performance data to each log file if not already present
+        print("Adding performance data to agent logs...")
+        add_performance_summary_to_agent_logs(
+            logs_dir=agent_logs_dir,
+            save_results=True
+        )
+        
+        # Step 2: Create the overall summary file for the agent
+        print("Creating agent performance summary...")
+        summary_file = create_agent_performance_summary(
+            agent_dir=agent_path,
+            logs_dir=agent_logs_dir,
+            overall_only=False
+        )
+        
+        if summary_file:
+            print(f"Agent performance summary created: {summary_file}")
+        else:
+            print("No agent performance summary created - check for errors or missing data")
+            
+    except Exception as e:
+        print(f"Error generating agent performance summaries: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    print(f"\nEvaluation and summary generation complete for agent {agent_path}")
 
 
 def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: bool = True, debug: bool = False, force_dijkstra: bool = False):
@@ -135,75 +222,6 @@ def single_env_evals(agent_path: str, env_id: str, seed: int, generate_plot: boo
         traceback.print_exc()
 
 
-def generate_complete_summary(agent_path: str, env_id: str, seed: int, num_envs: int, generate_plot: bool = True, debug: bool = False, force_dijkstra: bool = False):
-
-    # First, run evaluations for all environments if needed
-    for i in range(num_envs):
-        current_seed = seed + i
-        single_env_evals(agent_path, env_id, current_seed, generate_plot, debug, force_dijkstra)
-    
-    # Then, generate performance summaries
-    print("\nGenerating performance summaries...")
-
-    try:
-        print("\nProcessing Dijkstra evaluation logs...")
-        # Try to import the new Dijkstra log processor
-        from Behaviour_Specification.SummaryTooling import process_dijkstra_logs
-        
-        # Process Dijkstra logs but don't overwrite existing agent performance data
-        evaluations_dir = os.path.join(project_root, "Behaviour_Specification", "Evaluations")
-        dijkstra_mode_summaries = process_dijkstra_logs(
-            logs_dir=evaluations_dir,
-            save_results=True,
-            output_dir=evaluations_dir,
-            generate_summary_files=False  # Disable generation of separate summary files
-        )
-        
-        # Print summary of Dijkstra results
-        print(f"\nDijkstra log analysis results:")
-        for mode, env_summaries in dijkstra_mode_summaries.items():
-            if env_summaries:
-                env_count = len(env_summaries)
-                print(f"  Mode '{mode}': {env_count} environments processed")
-    except (ImportError, ModuleNotFoundError):
-        print("Note: Behaviour_Specification.SummaryTooling not available - skipping Dijkstra log processing")
-    
-    # Generate agent performance summaries
-    try:
-        print("\nProcessing Agent evaluation logs...")
-        
-        # Path to the agent's evaluation_logs directory
-        agent_logs_dir = os.path.join(agent_path, "evaluation_logs")
-        
-        # Step 1: Add performance data to each log file if not already present
-        print("Adding performance data to agent logs...")
-        add_performance_summary_to_agent_logs(
-            logs_dir=agent_logs_dir,
-            save_results=True
-        )
-        
-        # Step 2: Create the overall summary file for the agent
-        print("Creating agent performance summary...")
-        summary_file = create_agent_performance_summary(
-            agent_dir=agent_path,
-            logs_dir=agent_logs_dir,
-            overall_only=False
-        )
-        
-        if summary_file:
-            print(f"Agent performance summary created: {summary_file}")
-        else:
-            print("No agent performance summary created - check for errors or missing data")
-            
-    except Exception as e:
-        print(f"Error generating agent performance summaries: {e}")
-        import traceback
-        traceback.print_exc()
-    
-    print(f"\nEvaluation and summary generation complete for agent {agent_path}")
-
-
-
 if __name__ == "__main__":
     import argparse
     from Agent_Evaluation.EnvironmentTooling.import_vars import create_evaluation_env
@@ -217,7 +235,7 @@ if __name__ == "__main__":
     # Default values
     ENV_ID = "MiniGrid-LavaCrossingS11N5-v0"
     SEED = 81102
-    NUM = 5  # Number of different seeds to evaluate on
+    NUM = 1  # Number of different seeds to evaluate on
     NUM_EPISODES = 1  # Number of episodes per seed (usually 1 since evaluation is deterministic)
     
     # Generate complete summary which runs evaluations on multiple seeds
@@ -226,4 +244,4 @@ if __name__ == "__main__":
         generate_plot=True, 
         debug=False, 
         force_dijkstra=False
-    )
+    ) 
