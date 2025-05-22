@@ -298,13 +298,23 @@ def add_performance_summary_to_agent_logs(logs_dir: Optional[str] = None, save_r
                 x, y, orientation = map(int, state_key.split(","))
                 
                 # Get cell type from environment layout
-                if 0 <= x < len(env_layout) and 0 <= y < len(env_layout[0]):
-                    cell_type = env_layout[x][y]
+                if 0 <= x < len(env_layout[0]) and 0 <= y < len(env_layout):
+                    # IMPORTANT: Fix for coordinate system mismatch
+                    # Environment layout is stored as rows first, so access using [y][x]
+                    cell_type = env_layout[y][x]
             except (ValueError, IndexError):
                 # Skip keys that aren't in the expected format
                 continue
             
             # Extract performance metrics from the state data
+            
+            # Try to get cell type directly from the state data first
+            if "cell_type" in state_data:
+                cell_type = state_data["cell_type"]
+            # If not available, check next_step.type
+            elif "next_step" in state_data and "type" in state_data["next_step"]:
+                # Current cell type might be available in next_step data
+                cell_type = state_data["next_step"]["type"]
             
             # Get path length and lava steps
             if "path_taken" in state_data:
@@ -315,8 +325,9 @@ def add_performance_summary_to_agent_logs(logs_dir: Optional[str] = None, save_r
                 if path_length > 0:
                     for step in path:
                         step_x, step_y = step[0], step[1]
-                        if 0 <= step_x < len(env_layout) and 0 <= step_y < len(env_layout[0]):
-                            if env_layout[step_x][step_y] == "lava":
+                        if 0 <= step_x < len(env_layout[0]) and 0 <= step_y < len(env_layout):
+                            # Correct coordinate access: env_layout[y][x]
+                            if env_layout[step_y][step_x] == "lava":
                                 lava_steps += 1
             
             # Check if goal was reached
@@ -570,6 +581,163 @@ def create_agent_performance_summary(agent_dir: Optional[str] = None, logs_dir: 
     print(f"Created performance summary file: {output_file}")
     return output_file
 
+def compare_performance_summaries(agent_summary_file: str, dijkstra_summary_file: str, verbose: bool = False) -> Dict[str, Any]:
+    """
+    Compare agent and Dijkstra performance summaries to identify discrepancies.
+    
+    Args:
+        agent_summary_file (str): Path to agent performance summary file
+        dijkstra_summary_file (str): Path to Dijkstra performance summary file
+        verbose (bool): Whether to print detailed comparison information
+        
+    Returns:
+        Dict[str, Any]: Dictionary of discrepancies by metric
+    """
+    try:
+        # Load agent summary
+        with open(agent_summary_file, 'r') as f:
+            agent_data = json.load(f)
+        
+        # Load Dijkstra summary
+        with open(dijkstra_summary_file, 'r') as f:
+            dijkstra_data = json.load(f)
+        
+        # Extract overall summaries
+        agent_overall = agent_data.get("overall_summary", {})
+        
+        # Get Dijkstra rulesets
+        dijkstra_rulesets = dijkstra_data.get("rulesets", {})
+        
+        # Check if we have data to compare
+        if not agent_overall:
+            print(f"Error: No overall summary found in agent file {agent_summary_file}")
+            return {}
+        
+        if not dijkstra_rulesets:
+            print(f"Error: No rulesets found in Dijkstra file {dijkstra_summary_file}")
+            return {}
+        
+        # Print header
+        print("\nCOMPARING AGENT AND DIJKSTRA PERFORMANCE SUMMARIES\n")
+        print(f"Agent summary: {agent_summary_file}")
+        print(f"Dijkstra summary: {dijkstra_summary_file}")
+        print("\nOVERALL COMPARISON:\n")
+        
+        # Track discrepancies
+        discrepancies = {}
+        
+        # Compare overall metrics
+        metrics = ["total_state_instances", "unique_states", "lava_cell_proportion", 
+                  "avg_path_length", "avg_lava_steps", "goal_reached_proportion", 
+                  "next_cell_lava_proportion", "risky_diagonal_proportion"]
+        
+        # For each Dijkstra ruleset
+        for ruleset, ruleset_data in dijkstra_rulesets.items():
+            ruleset_overall = ruleset_data.get("overall_summary", {})
+            
+            if not ruleset_overall:
+                continue
+            
+            print(f"\nComparing Agent vs Dijkstra ({ruleset}):")
+            
+            # Compare each metric
+            ruleset_discrepancies = {}
+            for metric in metrics:
+                agent_value = agent_overall.get(metric, "N/A")
+                dijkstra_value = ruleset_overall.get(metric, "N/A")
+                
+                # Skip if either value is missing
+                if agent_value == "N/A" or dijkstra_value == "N/A":
+                    continue
+                
+                # Calculate difference
+                if isinstance(agent_value, (int, float)) and isinstance(dijkstra_value, (int, float)):
+                    diff = abs(agent_value - dijkstra_value)
+                    rel_diff = diff / max(abs(agent_value), abs(dijkstra_value), 1e-10) * 100
+                    
+                    # Record discrepancy if difference is significant
+                    if rel_diff > 1.0:  # More than 1% difference
+                        ruleset_discrepancies[metric] = {
+                            "agent_value": agent_value,
+                            "dijkstra_value": dijkstra_value,
+                            "absolute_diff": diff,
+                            "relative_diff_percent": rel_diff
+                        }
+                        
+                        # Print discrepancy
+                        print(f"  - {metric}: Agent={agent_value}, Dijkstra={dijkstra_value}, Diff={diff:.4f} ({rel_diff:.2f}%)")
+                    elif verbose:
+                        # Print all comparisons in verbose mode
+                        print(f"  - {metric}: Agent={agent_value}, Dijkstra={dijkstra_value} (similar)")
+            
+            # Add to overall discrepancies
+            if ruleset_discrepancies:
+                discrepancies[ruleset] = ruleset_discrepancies
+        
+        # Compare per-state metrics if available and verbose is True
+        if verbose and "statistics" in agent_data and any("statistics" in rd for rs, rd in dijkstra_rulesets.items()):
+            print("\nPER-STATE COMPARISON:\n")
+            
+            agent_stats = agent_data.get("statistics", {})
+            
+            # For each Dijkstra ruleset
+            for ruleset, ruleset_data in dijkstra_rulesets.items():
+                if "statistics" not in ruleset_data:
+                    continue
+                
+                dijkstra_stats = ruleset_data.get("statistics", {})
+                
+                # Find common states
+                common_states = set(agent_stats.keys()) & set(dijkstra_stats.keys())
+                
+                print(f"\nFound {len(common_states)} common states between Agent and Dijkstra ({ruleset})")
+                
+                # Track states with lava_cell_proportion discrepancies
+                lava_discrepancies = []
+                
+                # Check each common state
+                for state in common_states:
+                    agent_state = agent_stats[state]
+                    dijkstra_state = dijkstra_stats[state]
+                    
+                    # Check lava_cell_proportion specifically
+                    if "lava_cell_proportion" in agent_state and "lava_cell_proportion" in dijkstra_state:
+                        agent_lava = agent_state["lava_cell_proportion"]
+                        dijkstra_lava = dijkstra_state["lava_cell_proportion"]
+                        
+                        if abs(agent_lava - dijkstra_lava) > 0.01:  # More than 1% difference
+                            lava_discrepancies.append({
+                                "state": state,
+                                "agent_value": agent_lava,
+                                "dijkstra_value": dijkstra_lava,
+                                "diff": abs(agent_lava - dijkstra_lava)
+                            })
+                
+                # Print lava proportion discrepancies
+                if lava_discrepancies:
+                    print(f"\nFound {len(lava_discrepancies)} states with lava_cell_proportion discrepancies:")
+                    
+                    # Sort by difference
+                    lava_discrepancies.sort(key=lambda x: x["diff"], reverse=True)
+                    
+                    # Print top 10
+                    for i, disc in enumerate(lava_discrepancies[:10]):
+                        print(f"  {i+1}. State {disc['state']}: Agent={disc['agent_value']}, Dijkstra={disc['dijkstra_value']}, Diff={disc['diff']:.4f}")
+                    
+                    # Add to discrepancies
+                    if "state_lava_discrepancies" not in discrepancies:
+                        discrepancies["state_lava_discrepancies"] = {}
+                    
+                    discrepancies["state_lava_discrepancies"][ruleset] = lava_discrepancies
+        
+        return discrepancies
+    
+    except Exception as e:
+        print(f"Error comparing summaries: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {}
+
 
 if __name__ == "__main__":
     import argparse
@@ -580,10 +748,19 @@ if __name__ == "__main__":
     parser.add_argument("--create_summary", action="store_true", help="Create a performance summary file.")
     parser.add_argument("--agent_dir", type=str, help="Agent directory for creating summary file.")
     parser.add_argument("--overall_only", action="store_true", help="Only include overall summary without per-state statistics.")
+    parser.add_argument("--compare", action="store_true", help="Compare agent and Dijkstra summaries.")
+    parser.add_argument("--agent_summary", type=str, help="Path to agent summary file for comparison.")
+    parser.add_argument("--dijkstra_summary", type=str, help="Path to Dijkstra summary file for comparison.")
+    parser.add_argument("--verbose", action="store_true", help="Print detailed comparison information.")
     
     args = parser.parse_args()
     
-    if args.create_summary:
+    if args.compare:
+        if not args.agent_summary or not args.dijkstra_summary:
+            print("Error: --agent_summary and --dijkstra_summary must be provided for comparison")
+        else:
+            compare_performance_summaries(args.agent_summary, args.dijkstra_summary, args.verbose)
+    elif args.create_summary:
         create_agent_performance_summary(
             agent_dir=args.agent_dir, 
             logs_dir=args.logs_dir,

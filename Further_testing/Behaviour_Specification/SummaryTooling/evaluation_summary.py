@@ -250,62 +250,65 @@ def process_state(state_key: str, mode_data: Dict[str, Any], layout: List[List[s
     # Parse state coordinates
     try:
         x, y, orientation = map(int, state_key.split(","))
+        
+        # Get cell type with improved robustness
+        if "cell_type" in mode_data:
+            # Use cell_type directly from mode data when available
+            cell_type = mode_data["cell_type"]
+        elif layout and 0 <= x < len(layout[0]) and 0 <= y < len(layout):
+            # Access layout using [y][x] - rows first, then columns
+            cell_type = layout[y][x]
+        
+        # Check if the cell is a goal
+        reaches_goal = (cell_type == "goal")
+        
+        # Check if the state has path_taken data
+        if "path_taken" in mode_data:
+            path = mode_data["path_taken"]
+            path_length = len(path) - 1 if len(path) > 0 else 0
+            
+            # Count lava steps
+            lava_steps = 0
+            if path_length > 0:
+                for i in range(1, len(path)):
+                    # Handle both string-based paths ("x,y,orientation") and array-based paths ([x,y,orientation])
+                    if isinstance(path[i], str):
+                        # Legacy format: "x,y,orientation"
+                        step_coords = path[i].split(",")
+                        step_x, step_y = int(step_coords[0]), int(step_coords[1])
+                    else:
+                        # New format: [x, y, orientation]
+                        step_x, step_y = path[i][0], path[i][1]
+                    
+                    # Check dimensions to avoid index errors
+                    if 0 <= step_x < len(layout[0]) and 0 <= step_y < len(layout):
+                        # Access layout using [y][x] - rows first, then columns
+                        if layout[step_y][step_x] == "lava":
+                            lava_steps += 1
+    
+        # Extract next_step data if available
+        if "next_step" in mode_data:
+            next_step = mode_data["next_step"]
+            
+            # Check if next cell is lava
+            next_cell_is_lava = next_step.get("type") == "lava"
+            
+            # Check if the move is a risky diagonal
+            risky_diagonal = next_step.get("risky_diagonal", False)
+            
+            # Get target state
+            target_state = next_step.get("target_state")
+            
+            # Convert array target_state to string if needed for backwards compatibility
+            if isinstance(target_state, list):
+                target_state = f"{target_state[0]},{target_state[1]},{target_state[2]}"
+            
+            # Get action taken
+            action_taken = next_step.get("action")
     except ValueError:
         # Skip keys that aren't in the expected format
         return (cell_type, path_length, lava_steps, reaches_goal, 
                 next_cell_is_lava, risky_diagonal, target_state, action_taken)
-    
-    # Get cell type
-    if 0 <= y < len(layout[0]) and 0 <= x < len(layout):
-        # Remember that the layout is transposed
-        cell_type = layout[x][y]
-    
-    # Check if the cell is a goal
-    reaches_goal = (cell_type == "goal")
-    
-    # Check if the state has path_taken data
-    if "path_taken" in mode_data:
-        path = mode_data["path_taken"]
-        path_length = len(path) - 1 if len(path) > 0 else 0
-        
-        # Count lava steps
-        lava_steps = 0
-        if path_length > 0:
-            for i in range(1, len(path)):
-                # Handle both string-based paths ("x,y,orientation") and array-based paths ([x,y,orientation])
-                if isinstance(path[i], str):
-                    # Legacy format: "x,y,orientation"
-                    step_coords = path[i].split(",")
-                    step_x, step_y = int(step_coords[0]), int(step_coords[1])
-                else:
-                    # New format: [x, y, orientation]
-                    step_x, step_y = path[i][0], path[i][1]
-                
-                # Check dimensions to avoid index errors
-                if 0 <= step_y < len(layout[0]) and 0 <= step_x < len(layout):
-                    # Remember that the layout is transposed
-                    if layout[step_x][step_y] == "lava":
-                        lava_steps += 1
-    
-    # Extract next_step data if available
-    if "next_step" in mode_data:
-        next_step = mode_data["next_step"]
-        
-        # Check if next cell is lava
-        next_cell_is_lava = next_step.get("type") == "lava"
-        
-        # Check if the move is a risky diagonal
-        risky_diagonal = next_step.get("risky_diagonal", False)
-        
-        # Get target state
-        target_state = next_step.get("target_state")
-        
-        # Convert array target_state to string if needed for backwards compatibility
-        if isinstance(target_state, list):
-            target_state = f"{target_state[0]},{target_state[1]},{target_state[2]}"
-        
-        # Get action taken
-        action_taken = next_step.get("action")
     
     # If we couldn't extract target_state and action_taken from next_step,
     # try to extract from summary_stats
