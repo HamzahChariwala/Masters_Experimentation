@@ -233,9 +233,9 @@ class PartialObsWrapper(ObservationWrapper):
         # Rotation matrix for each direction (standard CCW)
         rotations = {
             0: np.array([[1, 0], [0, 1]]),    # Right → no rotation
-            1: np.array([[0, 1], [-1, 0]]),   # Down → rotate right
+            1: np.array([[0, -1], [1, 0]]),   # Down → rotate right
             2: np.array([[-1, 0], [0, -1]]),  # Left → rotate 180°
-            3: np.array([[0, -1], [1, 0]])    # Up → rotate left
+            3: np.array([[0, 1], [-1, 0]])    # Up → rotate left
         }
 
         rotation_matrix = rotations[agent_dir]
