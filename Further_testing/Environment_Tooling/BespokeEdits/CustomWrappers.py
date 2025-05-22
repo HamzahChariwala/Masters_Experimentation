@@ -243,7 +243,7 @@ class PartialObsWrapper(ObservationWrapper):
         for i in range(self.n):
             for j in range(self.n):
                 # Coordinates in view space
-                rel_pos = np.array([i - self.agent_view_pos[0], j - self.agent_view_pos[1]])
+                rel_pos = np.array([j - self.agent_view_pos[1], i - self.agent_view_pos[0]])
 
                 # Rotate to match agent orientation
                 env_offset = rotation_matrix @ rel_pos
