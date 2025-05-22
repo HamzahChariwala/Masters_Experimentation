@@ -675,9 +675,9 @@ def create_agent_performance_summary(agent_dir: Optional[str] = None, logs_dir: 
     os.makedirs(summary_dir, exist_ok=True)
     
     # Create the output filename based on the mode
-    filename = "performance_summary.json"
+    filename = "performance_all_states.json"
     if overall_only:
-        filename = "performance_summary_overall.json"
+        filename = "performance_all_states_overall.json"
     
     # Create summary file
     output_file = os.path.join(summary_dir, filename)
@@ -685,8 +685,7 @@ def create_agent_performance_summary(agent_dir: Optional[str] = None, logs_dir: 
     # Build the data to write
     output_data = {
         "summary_description": "This file contains summary statistics for agent performance across all environments",
-        "overall_summary": overall_summary,
-        "floor_only_summary": floor_only_summary
+        "overall_summary": overall_summary
     }
     
     # Add per-state statistics if requested
