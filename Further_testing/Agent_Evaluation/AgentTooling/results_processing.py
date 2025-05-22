@@ -366,6 +366,24 @@ def add_performance_summary_to_agent_logs(logs_dir: Optional[str] = None, save_r
                 if "reachable" in state_data["summary_stats"]:
                     reaches_goal = state_data["summary_stats"]["reachable"]
             
+            # Also check the cell type and path for goal reaching
+            # If current cell is goal, it's reached
+            if cell_type == "goal":
+                reaches_goal = True
+            # Check if the path includes the goal
+            elif "path_taken" in state_data and len(state_data["path_taken"]) > 0:
+                path = state_data["path_taken"]
+                
+                # Check if the last step in the path is the goal
+                if len(path) > 0:
+                    last_step = path[-1]
+                    last_x, last_y = last_step[0], last_step[1]
+                    
+                    # Check if the last position is the goal
+                    if 0 <= last_x < len(env_layout[0]) and 0 <= last_y < len(env_layout):
+                        if env_layout[last_y][last_x] == "goal":
+                            reaches_goal = True
+            
             # Extract next step information
             if "next_step" in state_data:
                 next_step = state_data["next_step"]

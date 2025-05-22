@@ -262,6 +262,39 @@ def process_state(state_key: str, mode_data: Dict[str, Any], layout: List[List[s
         # Check if the cell is a goal
         reaches_goal = (cell_type == "goal")
         
+        # If we're already at the goal, it's reached
+        if cell_type == "goal":
+            reaches_goal = True
+        else:
+            # If not at the goal, check if path_taken data contains the goal location
+            if "path_taken" in mode_data and len(mode_data["path_taken"]) > 0:
+                path = mode_data["path_taken"]
+                
+                # Check if the last step in the path is the goal
+                if len(path) > 0:
+                    last_step = path[-1]
+                    
+                    # Handle both string-based paths and array-based paths
+                    if isinstance(last_step, str):
+                        # Legacy format: "x,y,orientation"
+                        step_coords = last_step.split(",")
+                        last_x, last_y = int(step_coords[0]), int(step_coords[1])
+                    else:
+                        # New format: [x, y, orientation]
+                        last_x, last_y = last_step[0], last_step[1]
+                    
+                    # Check if the last position is the goal
+                    if 0 <= last_x < len(layout[0]) and 0 <= last_y < len(layout) and layout[last_y][last_x] == "goal":
+                        reaches_goal = True
+            
+            # Also check for successful goal reaching in the summary stats if available
+            if not reaches_goal and "summary_stats" in mode_data:
+                # Check if summary_stats contains information about goal reaching
+                if "reaches_goal" in mode_data["summary_stats"]:
+                    reaches_goal = mode_data["summary_stats"]["reaches_goal"]
+                elif "reachable" in mode_data["summary_stats"]:
+                    reaches_goal = mode_data["summary_stats"]["reachable"]
+        
         # Check if the state has path_taken data
         if "path_taken" in mode_data:
             path = mode_data["path_taken"]
