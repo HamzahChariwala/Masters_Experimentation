@@ -311,10 +311,7 @@ def add_performance_summary_to_agent_logs(logs_dir: Optional[str] = None, save_r
             # Try to get cell type directly from the state data first
             if "cell_type" in state_data:
                 cell_type = state_data["cell_type"]
-            # If not available, check next_step.type
-            elif "next_step" in state_data and "type" in state_data["next_step"]:
-                # Current cell type might be available in next_step data
-                cell_type = state_data["next_step"]["type"]
+            # We should not use next_step.type as it refers to the target cell, not the current cell
             
             # Get path length and lava steps
             if "path_taken" in state_data:

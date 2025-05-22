@@ -19,7 +19,7 @@ from Behaviour_Specification.log import analyze_navigation_graphs, export_path_d
 
 # Import from Agent_Evaluation
 from Agent_Evaluation.AgentTooling.agent_functionality import evauate_agent_on_single_env, load_agent_from_path
-from Agent_Evaluation.AgentTooling.results_processing import export_agent_eval_data_to_json
+from Agent_Evaluation.AgentTooling.results_processing import export_agent_eval_data_to_json, add_performance_summary_to_agent_logs, create_agent_performance_summary
 
 # Import from our import_vars.py file - updated to reflect new location
 from Agent_Evaluation.EnvironmentTooling.import_vars import (
@@ -167,6 +167,38 @@ def generate_complete_summary(agent_path: str, env_id: str, seed: int, num_envs:
                 print(f"  Mode '{mode}': {env_count} environments processed")
     except (ImportError, ModuleNotFoundError):
         print("Note: Behaviour_Specification.SummaryTooling not available - skipping Dijkstra log processing")
+    
+    # Generate agent performance summaries
+    try:
+        print("\nProcessing Agent evaluation logs...")
+        
+        # Path to the agent's evaluation_logs directory
+        agent_logs_dir = os.path.join(agent_path, "evaluation_logs")
+        
+        # Step 1: Add performance data to each log file if not already present
+        print("Adding performance data to agent logs...")
+        add_performance_summary_to_agent_logs(
+            logs_dir=agent_logs_dir,
+            save_results=True
+        )
+        
+        # Step 2: Create the overall summary file for the agent
+        print("Creating agent performance summary...")
+        summary_file = create_agent_performance_summary(
+            agent_dir=agent_path,
+            logs_dir=agent_logs_dir,
+            overall_only=False
+        )
+        
+        if summary_file:
+            print(f"Agent performance summary created: {summary_file}")
+        else:
+            print("No agent performance summary created - check for errors or missing data")
+            
+    except Exception as e:
+        print(f"Error generating agent performance summaries: {e}")
+        import traceback
+        traceback.print_exc()
     
     print(f"\nEvaluation and summary generation complete for agent {agent_path}")
 
