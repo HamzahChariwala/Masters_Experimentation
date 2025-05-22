@@ -17,7 +17,7 @@ experiment:
     model_save_path: "default_agent"
     
     # Total timesteps remains important
-    total_timesteps: 500000
+    total_timesteps: 1000000
 
 # ===== Environment Configuration =====
 environment:
@@ -180,7 +180,7 @@ model:
   
   # Core parameters
   buffer_size: 100000
-  learning_starts: 100_000
+  learning_starts: 50000
   batch_size: 64
   exploration_fraction: 0.5
   exploration_final_eps: 0.05
@@ -209,7 +209,7 @@ evaluation:
   # During training
   training:
     num_envs: 15
-    check_freq: 50000       # Changed from 1_000_000 to 500_000 to get more evaluation points
+    check_freq: 100000       # Changed from 1_000_000 to 500_000 to get more evaluation points
     target_reward_threshold: 2.0     # Unreachable target to disable early termination
     min_reward_threshold: -1.0       # Set to a very low value to disable early termination
     max_runtime: 0                   # 0 = no time limit (disable time-based termination)
