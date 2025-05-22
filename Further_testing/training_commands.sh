@@ -1,40 +1,25 @@
-# Exit script if any command fails
-set -e
+#!/bin/bash
 
-# Print each command before executing it
-set -x
+# Script to train all agents in Agent_Storage
 
-echo "Starting command sequence..."
+echo "Starting training for all agents..."
 
-# echo "Training default..."
-# python Agent_Training/train.py --path SpawnTests/default
+# Find all directories with config.yaml files
+agent_dirs=$(find Agent_Storage -name "config.yaml" -type f -exec dirname {} \; | sort)
 
-# echo "Training biased..."
-# python Agent_Training/train.py --path SpawnTests/biased
+# Loop through each agent directory and queue training
+for agent_dir in $agent_dirs; do
+  # Extract relative path from Agent_Storage
+  relative_path=${agent_dir#"Agent_Storage/"}
+  
+  echo "Queueing training for $relative_path"
+  
+  # Run the training command with the appropriate path
+  echo "python Agent_Training/train.py --path $relative_path"
+  python Agent_Training/train.py --path $relative_path
+  
+  # Add a small delay between trainings to allow for proper initialization
+  sleep 2
+done
 
-# echo "Training uniform..."
-# python Agent_Training/train.py --path SpawnTests/uniform
-
-echo "Training size 3..."
-python Agent_Training/train.py --path WindowSizing/size_3
-
-echo "Training size 5..."
-python Agent_Training/train.py --path WindowSizing/size_5
-
-echo "Training size 7..."
-python Agent_Training/train.py --path WindowSizing/size_7
-
-echo "Training size 9..."
-python Agent_Training/train.py --path WindowSizing/size_9
-
-echo "Training size 11..."
-python Agent_Training/train.py --path WindowSizing/size_11
-
-echo "Training size 13..."
-python Agent_Training/train.py --path WindowSizing/size_13
-
-echo "Training size 15..."
-python Agent_Training/train.py --path WindowSizing/size_15
-
-echo "Tuning hyperparameters..."
-python Agent_Training/hyperparam.py --base-config Agent_Storage/Hyperparameters/example_config.yaml --tuning-config Agent_Storage/Hyperparameters/optuna_config.yaml --method bayesian --samples 20
+echo "All training jobs have been queued!"
