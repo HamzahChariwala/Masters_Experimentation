@@ -2,6 +2,7 @@ import os
 import json
 import numpy as np
 from typing import Dict, Any, Union, List, Optional
+from collections import defaultdict
 
 
 def format_json_with_compact_arrays(data: Union[Dict, List, Any], indent: int = 2) -> str:
@@ -241,6 +242,38 @@ def add_performance_summary_to_agent_logs(logs_dir: Optional[str] = None, save_r
     
     print(f"Found {len(json_files)} JSON files to process")
     
+    # Initialize data structures to store statistics
+    state_stats = defaultdict(lambda: {
+        "count": 0,
+        "lava_cell_count": 0,
+        "path_length_sum": 0,
+        "lava_steps_sum": 0,
+        "goal_reached_count": 0,
+        "next_cell_lava_count": 0,
+        "risky_diagonal_count": 0
+    })
+    
+    # Track overall statistics as well
+    overall_stats = {
+        "total_states": 0,
+        "lava_cell_count": 0,
+        "path_length_sum": 0,
+        "lava_steps_sum": 0,
+        "goal_reached_count": 0,
+        "next_cell_lava_count": 0,
+        "risky_diagonal_count": 0
+    }
+    
+    # Track floor-only statistics
+    floor_only_stats = {
+        "total_states": 0,
+        "path_length_sum": 0,
+        "lava_steps_sum": 0,
+        "goal_reached_count": 0,
+        "next_cell_lava_count": 0,
+        "risky_diagonal_count": 0
+    }
+    
     # Process each JSON file
     for json_file in json_files:
         file_name = os.path.basename(json_file)
@@ -449,10 +482,30 @@ def create_agent_performance_summary(agent_dir: Optional[str] = None, logs_dir: 
         "risky_diagonal_count": 0
     })
     
+    # Initialize a separate dictionary to store floor-only state statistics
+    floor_state_stats = defaultdict(lambda: {
+        "count": 0,
+        "path_length_sum": 0,
+        "lava_steps_sum": 0,
+        "goal_reached_count": 0,
+        "next_cell_lava_count": 0,
+        "risky_diagonal_count": 0
+    })
+    
     # Track overall statistics as well
     overall_stats = {
         "total_states": 0,
         "lava_cell_count": 0,
+        "path_length_sum": 0,
+        "lava_steps_sum": 0,
+        "goal_reached_count": 0,
+        "next_cell_lava_count": 0,
+        "risky_diagonal_count": 0
+    }
+    
+    # Track floor-only statistics
+    floor_only_stats = {
+        "total_states": 0,
         "path_length_sum": 0,
         "lava_steps_sum": 0,
         "goal_reached_count": 0,
@@ -522,6 +575,23 @@ def create_agent_performance_summary(agent_dir: Optional[str] = None, logs_dir: 
                 overall_stats["goal_reached_count"] += 1 if reaches_goal else 0
                 overall_stats["next_cell_lava_count"] += 1 if next_cell_is_lava else 0
                 overall_stats["risky_diagonal_count"] += 1 if risky_diagonal else 0
+                
+                # Update floor-only statistics if this is a floor tile
+                if cell_type != "lava":
+                    floor_only_stats["total_states"] += 1
+                    floor_only_stats["path_length_sum"] += path_length
+                    floor_only_stats["lava_steps_sum"] += lava_steps
+                    floor_only_stats["goal_reached_count"] += 1 if reaches_goal else 0
+                    floor_only_stats["next_cell_lava_count"] += 1 if next_cell_is_lava else 0
+                    floor_only_stats["risky_diagonal_count"] += 1 if risky_diagonal else 0
+                    
+                    # Update floor-only per-state statistics
+                    floor_state_stats[state_key]["count"] += 1
+                    floor_state_stats[state_key]["path_length_sum"] += path_length
+                    floor_state_stats[state_key]["lava_steps_sum"] += lava_steps
+                    floor_state_stats[state_key]["goal_reached_count"] += 1 if reaches_goal else 0
+                    floor_state_stats[state_key]["next_cell_lava_count"] += 1 if next_cell_is_lava else 0
+                    floor_state_stats[state_key]["risky_diagonal_count"] += 1 if risky_diagonal else 0
     
     # Create summary data
     summary_data = {}
@@ -531,6 +601,20 @@ def create_agent_performance_summary(agent_dir: Optional[str] = None, logs_dir: 
             if count > 0:
                 summary_data[state_key] = {
                     "lava_cell_proportion": stats["lava_cell_count"] / count,
+                    "avg_path_length": stats["path_length_sum"] / count,
+                    "avg_lava_steps": stats["lava_steps_sum"] / count,
+                    "goal_reached_proportion": stats["goal_reached_count"] / count,
+                    "next_cell_lava_proportion": stats["next_cell_lava_count"] / count,
+                    "risky_diagonal_proportion": stats["risky_diagonal_count"] / count
+                }
+    
+    # Create floor-only summary data
+    floor_summary_data = {}
+    if not overall_only:
+        for state_key, stats in floor_state_stats.items():
+            count = stats["count"]
+            if count > 0:
+                floor_summary_data[state_key] = {
                     "avg_path_length": stats["path_length_sum"] / count,
                     "avg_lava_steps": stats["lava_steps_sum"] / count,
                     "goal_reached_proportion": stats["goal_reached_count"] / count,
@@ -553,18 +637,38 @@ def create_agent_performance_summary(agent_dir: Optional[str] = None, logs_dir: 
             "risky_diagonal_proportion": overall_stats["risky_diagonal_count"] / total_states
         }
     
+    # Calculate floor-only summary
+    floor_states = floor_only_stats["total_states"]
+    floor_only_summary = {}
+    if floor_states > 0:
+        floor_only_summary = {
+            "total_state_instances": floor_states,
+            "unique_states": len(floor_state_stats),
+            "avg_path_length": floor_only_stats["path_length_sum"] / floor_states,
+            "avg_lava_steps": floor_only_stats["lava_steps_sum"] / floor_states,
+            "goal_reached_proportion": floor_only_stats["goal_reached_count"] / floor_states,
+            "next_cell_lava_proportion": floor_only_stats["next_cell_lava_count"] / floor_states,
+            "risky_diagonal_proportion": floor_only_stats["risky_diagonal_count"] / floor_states
+        }
+    
+    # Create a dedicated summary directory
+    base_dir = agent_dir or os.path.dirname(logs_dir)
+    summary_dir = os.path.join(base_dir, "evaluation_summary")
+    os.makedirs(summary_dir, exist_ok=True)
+    
     # Create the output filename based on the mode
     filename = "performance_summary.json"
     if overall_only:
         filename = "performance_summary_overall.json"
     
     # Create summary file
-    output_file = os.path.join(agent_dir or os.path.dirname(logs_dir), filename)
+    output_file = os.path.join(summary_dir, filename)
     
     # Build the data to write
     output_data = {
         "summary_description": "This file contains summary statistics for agent performance across all environments",
-        "overall_summary": overall_summary
+        "overall_summary": overall_summary,
+        "floor_only_summary": floor_only_summary
     }
     
     # Add per-state statistics if requested
@@ -576,6 +680,27 @@ def create_agent_performance_summary(agent_dir: Optional[str] = None, logs_dir: 
         f.write(format_json_with_compact_arrays(output_data))
     
     print(f"Created performance summary file: {output_file}")
+    
+    # Create floor-only summary file
+    floor_filename = "performance_no_lava.json"
+    floor_output_file = os.path.join(summary_dir, floor_filename)
+    
+    # Build the floor-only data to write
+    floor_output_data = {
+        "summary_description": "This file contains summary statistics for agent performance only for floor tiles (non-lava cells)",
+        "overall_summary": floor_only_summary
+    }
+    
+    # Add per-state statistics if requested
+    if not overall_only:
+        floor_output_data["statistics"] = floor_summary_data
+    
+    # Write the floor-only file
+    with open(floor_output_file, 'w') as f:
+        f.write(format_json_with_compact_arrays(floor_output_data))
+    
+    print(f"Created floor-only summary file: {floor_output_file}")
+    
     return output_file
 
 def compare_performance_summaries(agent_summary_file: str, dijkstra_summary_file: str, verbose: bool = False) -> Dict[str, Any]:
