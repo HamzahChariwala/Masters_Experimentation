@@ -20,6 +20,7 @@ from Behaviour_Specification.log import analyze_navigation_graphs, export_path_d
 # Import from Agent_Evaluation
 from Agent_Evaluation.AgentTooling.agent_functionality import evauate_agent_on_single_env, load_agent_from_path
 from Agent_Evaluation.AgentTooling.results_processing import export_agent_eval_data_to_json, add_performance_summary_to_agent_logs, create_agent_performance_summary
+from Agent_Evaluation.SummaryTooling.comparison_evaluation import load_dijkstra_results, calculate_performance_difference, generate_comparison_evaluation, save_comparison_results
 
 # Import from our import_vars.py file - updated to reflect new location
 from Agent_Evaluation.EnvironmentTooling.import_vars import (
@@ -113,6 +114,23 @@ def generate_complete_summary(agent_path: str, env_id: str, seed: int, num_envs:
             
     except Exception as e:
         print(f"Error generating agent performance summaries: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    # Generate comparison evaluation between agent and Dijkstra results
+    try:
+        print("\nGenerating comparison evaluation between agent and Dijkstra results...")
+        
+        # Generate and save comparison evaluation
+        final_eval = generate_comparison_evaluation(agent_path)
+        if final_eval:
+            save_comparison_results(agent_path, final_eval)
+            print(f"Comparison evaluation generated and saved to {os.path.join(agent_path, 'final_eval.json')}")
+        else:
+            print("No comparison evaluation generated - check for errors or missing data")
+            
+    except Exception as e:
+        print(f"Error generating comparison evaluation: {e}")
         import traceback
         traceback.print_exc()
     
