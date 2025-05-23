@@ -344,9 +344,9 @@ class PartialRGBObsWrapper(ObservationWrapper):
         # Rotation matrices for each direction
         self.rotations = {
             0: np.array([[1, 0], [0, 1]]),    # Right
-            1: np.array([[0, 1], [-1, 0]]),   # Down
+            1: np.array([[0, -1], [1, 0]]),   # Down
             2: np.array([[-1, 0], [0, -1]]),  # Left
-            3: np.array([[0, -1], [1, 0]])    # Up
+            3: np.array([[0, 1], [-1, 0]])    # Up
         }
 
     def observation(self, obs):
@@ -361,7 +361,7 @@ class PartialRGBObsWrapper(ObservationWrapper):
         for i in range(self.n):
             for j in range(self.n):
                 # Relative position in the agent's view
-                rel_pos = np.array([i - self.agent_view_pos[0], j - self.agent_view_pos[1]])
+                rel_pos = np.array([j - self.agent_view_pos[1], i - self.agent_view_pos[0]])
                 # Rotate to align with agent's orientation
                 env_offset = rotation_matrix @ rel_pos
                 env_coords = agent_pos + env_offset
@@ -417,9 +417,9 @@ class PartialGrayObsWrapper(ObservationWrapper):
         # Rotation matrices for each direction
         self.rotations = {
             0: np.array([[1, 0], [0, 1]]),    # Right
-            1: np.array([[0, 1], [-1, 0]]),   # Down
+            1: np.array([[0, -1], [1, 0]]),   # Down
             2: np.array([[-1, 0], [0, -1]]),  # Left
-            3: np.array([[0, -1], [1, 0]])    # Up
+            3: np.array([[0, 1], [-1, 0]])    # Up
         }
 
     def observation(self, obs):
@@ -434,7 +434,7 @@ class PartialGrayObsWrapper(ObservationWrapper):
         for i in range(self.n):
             for j in range(self.n):
                 # Relative position in the agent's view
-                rel_pos = np.array([i - self.agent_view_pos[0], j - self.agent_view_pos[1]])
+                rel_pos = np.array([j - self.agent_view_pos[1], i - self.agent_view_pos[0]])
                 # Rotate to align with agent's orientation
                 env_offset = rotation_matrix @ rel_pos
                 env_coords = agent_pos + env_offset
