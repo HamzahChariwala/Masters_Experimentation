@@ -20,8 +20,24 @@ from Environment_Tooling.BespokeEdits.FeatureExtractor import CustomCombinedExtr
 
 
 def load_agent_from_path(folder_path):
-
-    agent_path = folder_path + "/agent.zip"
+    """
+    Load an agent model from the specified folder path
+    
+    Args:
+        folder_path (str): Path to the agent folder
+        
+    Returns:
+        model: Loaded agent model
+    """
+    # Check if folder_path already ends with agent.zip and handle it appropriately
+    if folder_path.endswith("agent.zip"):
+        agent_path = folder_path
+    else:
+        # Make sure the path doesn't have trailing slashes
+        folder_path = folder_path.rstrip('/')
+        agent_path = os.path.join(folder_path, "agent.zip")
+    
+    print(f"Loading agent from: {agent_path}")
     ModelClass = DQN
 
     model = ModelClass.load(
