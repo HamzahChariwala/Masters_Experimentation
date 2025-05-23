@@ -1,0 +1,30 @@
+# VAE State-Action Pairs Configuration
+
+# Data parameters
+data_path: "path/to/your/data.pkl"  # Path to pre-collected data (required)
+data_format: "pickle"  # Format of data file (pickle, numpy, etc.)
+
+# VAE parameters
+latent_dim: 32  # Dimension of latent space
+hidden_dim: 128  # Dimension of hidden layers
+beta: 1.0  # Weight of KL divergence term
+
+# Training parameters
+learning_rate: 0.001  # Learning rate
+batch_size: 128  # Batch size
+epochs: 100  # Number of epochs
+num_workers: 2  # Number of dataloader workers
+resume: null  # Path to checkpoint to resume from
+
+# Output parameters
+output_dir: "vae_output"  # Output directory
+visualize: true  # Whether to visualize latent space
+perplexity: 30  # Perplexity for t-SNE visualization
+
+# The following parameters are only used if data_path is null (not recommended)
+# For documentation purposes only - use pre-collected data instead
+env_id: "MiniGrid-Empty-8x8-v0"  # Environment ID for collecting data
+policy_path: null  # Path to trained policy model (null for random policy)
+episodes: 100  # Number of episodes to collect
+max_steps: 1000  # Maximum steps per episode
+save_data: true  # Whether to save collected data 
