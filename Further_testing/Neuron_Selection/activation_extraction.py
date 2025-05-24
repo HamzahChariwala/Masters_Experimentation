@@ -177,63 +177,68 @@ def process_observations_directly(feature_mlp, q_net, activations, observations_
             print("-" * 50)
 
 
-def save_activations(activations, output_path):
+def save_activations(activations, output_path, observation_ids, include_pre_activations=False):
     """
-    Save activations to both NPZ and JSON formats.
+    Save activations to both NPZ and JSON formats, organized by input ID.
     NPZ for efficient storage, JSON for human readability.
-    """
-    # Convert to numpy arrays for NPZ
-    raw_data = {}
-    json_data = {}
     
-    for name, values in activations.items():
-        if values and len(values) > 0:
-            try:
-                # For NPZ format
-                raw_data[name] = np.stack(values, axis=0)
-                print(f"{name} shape: {raw_data[name].shape}")
+    Args:
+        include_pre_activations: Whether to include pre-activation values for q_net layers
+    """
+    # Get the number of inputs processed
+    num_inputs = len(next(iter(activations.values())))
+    
+    # Skip pre-activation values if not requested
+    skip_keys = []
+    if not include_pre_activations:
+        skip_keys = ["q_net.0_pre_activation", "q_net.2_pre_activation"]
+    
+    # Reorganize data by input rather than by layer
+    input_organized = {}
+    npz_data = {}
+    
+    for input_idx in range(num_inputs):
+        input_id = observation_ids[input_idx]
+        input_organized[input_id] = {}
+        
+        for layer_name, values in activations.items():
+            # Skip pre-activation values if not requested
+            if layer_name in skip_keys:
+                continue
                 
-                # For JSON format - convert to list and round for readability
-                json_data[name] = {
-                    "shape": list(raw_data[name].shape),
-                    "mean": float(np.mean(raw_data[name])),
-                    "std": float(np.std(raw_data[name])),
-                    "min": float(np.min(raw_data[name])),
-                    "max": float(np.max(raw_data[name])),
-                    "values": raw_data[name].tolist()
-                }
+            if input_idx < len(values):
+                # Extract just this input's activation for this layer
+                layer_activation = values[input_idx]
                 
-            except Exception as e:
-                print(f"Error processing {name}: {e}")
-                raw_data[name] = np.array(values, dtype=object)
-                json_data[name] = {
-                    "error": str(e),
-                    "values": str(values)
-                }
-        else:
-            print(f"{name}: No activations collected")
-            json_data[name] = {"error": "No activations collected"}
+                # For JSON, convert NumPy arrays to lists
+                input_organized[input_id][layer_name] = layer_activation.tolist()
+                
+                # For NPZ format, create a key combining input ID and layer
+                npz_key = f"{input_id}_{layer_name}"
+                npz_data[npz_key] = layer_activation
     
     # Save NPZ format
     npz_path = output_path
-    np.savez(npz_path, **raw_data)
+    np.savez(npz_path, **npz_data)
     print(f"\nRaw activations saved to {npz_path}")
     
     # Save JSON format
     json_path = output_path.replace('.npz', '_readable.json')
     with open(json_path, 'w') as f:
-        json.dump(json_data, f, indent=2)
+        json.dump(input_organized, f, indent=2)
     print(f"Human-readable format saved to {json_path}")
     
     # Print summary statistics
     print("\nSummary of activations:")
-    for name, data in json_data.items():
-        if "shape" in data:
-            print(f"\n{name}:")
-            print(f"  Shape: {data['shape']}")
-            print(f"  Mean: {data['mean']:.4f}")
-            print(f"  Std: {data['std']:.4f}")
-            print(f"  Range: [{data['min']:.4f}, {data['max']:.4f}]")
+    for input_id, layers in input_organized.items():
+        print(f"\nInput: {input_id}")
+        for layer_name, data in layers.items():
+            data_array = np.array(data)
+            print(f"  {layer_name}:")
+            print(f"    Shape: {data_array.shape}")
+            print(f"    Mean: {np.mean(data_array):.4f}")
+            print(f"    Std: {np.std(data_array):.4f}")
+            print(f"    Range: [{np.min(data_array):.4f}, {np.max(data_array):.4f}]")
 
 
 def main():
@@ -245,10 +250,14 @@ def main():
                         help="Output file base name (will save both .npz and _readable.json)")
     parser.add_argument("--device", type=str, default="cpu",
                         help="Device to use (cpu or cuda)")
+    parser.add_argument("--inputs", type=str, required=True,
+                        help="Path to the input JSON file with observations (e.g., clean_inputs.json)")
+    parser.add_argument("--include_pre_activations", action="store_true",
+                        help="Include pre-activation values for q_net layers")
     args = parser.parse_args()
     
     # Load test observations
-    with open("example_inputs.json", "r") as f:
+    with open(args.inputs, "r") as f:
         observations_dict = json.load(f)
     
     print(f"Loaded {len(observations_dict)} test observations")
@@ -290,7 +299,7 @@ def main():
         remove_hooks(hooks)
     
     # Save activations
-    save_activations(activations, args.output)
+    save_activations(activations, args.output, list(observations_dict.keys()), args.include_pre_activations)
 
 
 if __name__ == "__main__":
