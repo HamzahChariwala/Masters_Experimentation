@@ -13,15 +13,18 @@ import tkinter as tk
 from tkinter import messagebox
 import numpy as np
 import argparse
+import sys
 from typing import Dict, List, Tuple, Set, Any
 
 class StateCorruptionTool:
     def __init__(self, agent_path: str, seed: int = 42):
         """Initialize the corruption tool with the agent path and random seed."""
-        self.agent_path = agent_path
-        self.filtered_states_path = os.path.join(agent_path, 'filtered_states.json')
-        self.clean_inputs_path = os.path.join(agent_path, 'clean_inputs.json')
-        self.corrupted_inputs_path = os.path.join(agent_path, 'corrupted_inputs.json')
+        self.agent_path = os.path.abspath(agent_path)
+        self.filtered_states_path = os.path.join(self.agent_path, 'filtered_states.json')
+        self.clean_inputs_path = os.path.join(self.agent_path, 'clean_inputs.json')
+        self.corrupted_inputs_path = os.path.join(self.agent_path, 'corrupted_inputs.json')
+        
+        print(f"Loading states from: {self.filtered_states_path}")
         
         # Initialize random generator with seed
         self.rng = random.Random(seed)
@@ -29,6 +32,8 @@ class StateCorruptionTool:
         # Load filtered states
         self.states = self._load_states()
         self.total_states = len(self.states)
+        
+        print(f"Loaded {self.total_states} states from filtered states file")
         
         # Keep track of seen states
         self.seen_states: Set[str] = set()
@@ -95,8 +100,12 @@ class StateCorruptionTool:
         self.header_frame = tk.Frame(main_frame)
         self.header_frame.pack(fill=tk.X, pady=(0, 10))
         
-        self.state_info_label = tk.Label(self.header_frame, text="", justify=tk.LEFT, anchor="w")
+        self.state_info_label = tk.Label(self.header_frame, text="", justify=tk.LEFT, anchor="w", font=("Arial", 10))
         self.state_info_label.pack(fill=tk.X)
+        
+        # Action number label
+        self.action_label = tk.Label(self.header_frame, text="", justify=tk.LEFT, anchor="w", font=("Arial", 10, "bold"))
+        self.action_label.pack(fill=tk.X)
         
         # Grids frame (contains both grids side by side)
         grids_frame = tk.Frame(main_frame)
@@ -123,6 +132,10 @@ class StateCorruptionTool:
         save_button = tk.Button(button_frame, text="✓", command=self.save_state, bg="green", fg="white")
         save_button.pack(side=tk.RIGHT)
         
+        # Progress indicator
+        self.progress_label = tk.Label(main_frame, text="", anchor="e")
+        self.progress_label.pack(fill=tk.X, pady=(5, 0))
+        
         # Load the first state
         self.load_next_state()
         
@@ -146,9 +159,13 @@ class StateCorruptionTool:
         self.current_key = key
         self.current_array = input_array
         
-        # Update header with first 8 values and key
-        header_text = f"Key: {key}\nFirst 8 values: {input_array[:8]}"
+        # Update header with state key
+        header_text = f"Key: {key}"
         self.state_info_label.config(text=header_text)
+        
+        # Extract and display action number (index 7 in the state array)
+        action_number = input_array[7] if len(input_array) > 7 else "Unknown"
+        self.action_label.config(text=f"Action: {action_number}")
         
         # Split the remaining array into two square grids
         remaining_values = input_array[8:]
@@ -171,6 +188,10 @@ class StateCorruptionTool:
         # Draw the grids
         self._draw_grid(self.left_grid_frame, grid1, 0)
         self._draw_grid(self.right_grid_frame, grid2, 1)
+        
+        # Update progress
+        progress = f"States: {len(self.seen_states)}/{self.total_states} | Saved: {len(self.clean_inputs)}"
+        self.progress_label.config(text=progress)
     
     def _draw_grid(self, frame, grid_data, grid_index):
         """Draw a grid in the specified frame."""
@@ -296,9 +317,16 @@ def main():
     
     args = parser.parse_args()
     
-    # Create and run the tool
-    tool = StateCorruptionTool(args.path, args.seed)
-    tool.run_gui()
+    try:
+        # Create and run the tool
+        tool = StateCorruptionTool(args.path, args.seed)
+        tool.run_gui()
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+        print(f"Error: {e}")
+        return 1
+    
+    return 0
 
 if __name__ == "__main__":
-    main() 
+    sys.exit(main()) 

@@ -11,6 +11,7 @@ import numpy as np
 import argparse
 import subprocess
 import random
+import sys
 
 def create_sample_data(output_dir: str, num_states: int = 10, grid_size: int = 5):
     """Create sample filtered_states.json with synthetic data."""
@@ -56,12 +57,25 @@ def main():
     
     args = parser.parse_args()
     
-    # Create sample data
-    create_sample_data(args.output, args.states, args.grid_size)
+    # Get absolute path for output directory
+    output_dir = os.path.abspath(args.output)
     
-    # Run the corruption tool
+    # Create sample data
+    create_sample_data(output_dir, args.states, args.grid_size)
+    
+    # Get directory of this script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Path to corruption_tool.py
+    corruption_tool_path = os.path.join(script_dir, 'corruption_tool.py')
+    
+    # Run the corruption tool with absolute paths
     print(f"Launching corruption tool with test data...")
-    subprocess.run(['python', 'corruption_tool.py', '--path', args.output])
+    print(f"Running: python {corruption_tool_path} --path {output_dir}")
+    
+    # Use the current Python executable
+    python_exe = sys.executable
+    subprocess.run([python_exe, corruption_tool_path, '--path', output_dir])
 
 if __name__ == "__main__":
     main() 

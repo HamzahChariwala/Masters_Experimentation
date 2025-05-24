@@ -77,9 +77,16 @@ def main():
     
     args = parser.parse_args()
     
+    # Convert to absolute path
+    agent_path = os.path.abspath(args.path)
+    
     # Define file paths
-    clean_path = os.path.join(args.path, 'clean_inputs.json')
-    corrupted_path = os.path.join(args.path, 'corrupted_inputs.json')
+    clean_path = os.path.join(agent_path, 'clean_inputs.json')
+    corrupted_path = os.path.join(agent_path, 'corrupted_inputs.json')
+    
+    print(f"Looking for files in: {agent_path}")
+    print(f"Clean inputs file: {clean_path}")
+    print(f"Corrupted inputs file: {corrupted_path}")
     
     # Check if files exist
     if not os.path.exists(clean_path):
