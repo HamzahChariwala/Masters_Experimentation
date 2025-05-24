@@ -21,10 +21,17 @@ class StateCorruptionTool:
         """Initialize the corruption tool with the agent path and random seed."""
         self.agent_path = os.path.abspath(agent_path)
         self.filtered_states_path = os.path.join(self.agent_path, 'filtered_states.json')
-        self.clean_inputs_path = os.path.join(self.agent_path, 'clean_inputs.json')
-        self.corrupted_inputs_path = os.path.join(self.agent_path, 'corrupted_inputs.json')
+        
+        # Create activation_inputs directory if it doesn't exist
+        self.activation_inputs_dir = os.path.join(self.agent_path, 'activation_inputs')
+        os.makedirs(self.activation_inputs_dir, exist_ok=True)
+        
+        # Set paths for output files in the activation_inputs directory
+        self.clean_inputs_path = os.path.join(self.activation_inputs_dir, 'clean_inputs.json')
+        self.corrupted_inputs_path = os.path.join(self.activation_inputs_dir, 'corrupted_inputs.json')
         
         print(f"Loading states from: {self.filtered_states_path}")
+        print(f"Output files will be saved to: {self.activation_inputs_dir}")
         
         # Initialize random generator with seed
         self.rng = random.Random(seed)
@@ -159,13 +166,24 @@ class StateCorruptionTool:
         self.current_key = key
         self.current_array = input_array
         
-        # Update header with state key
-        header_text = f"Key: {key}"
+        # Update header with state key and first 8 values
+        header_text = f"Key: {key}\nFirst 8 values: {input_array[:8]}"
         self.state_info_label.config(text=header_text)
         
-        # Extract and display action number (index 7 in the state array)
-        action_number = input_array[7] if len(input_array) > 7 else "Unknown"
-        self.action_label.config(text=f"Action: {action_number}")
+        # Get action and additional state info if available
+        state_data = self.states[key]
+        action_info = ""
+        
+        if "action_taken" in state_data:
+            action_info += f"Action: {state_data['action_taken']} | "
+        
+        if "risky_diagonal" in state_data:
+            action_info += f"Risky Diagonal: {'Yes' if state_data['risky_diagonal'] else 'No'} | "
+        
+        if "next_cell_is_lava" in state_data:
+            action_info += f"Next Cell is Lava: {'Yes' if state_data['next_cell_is_lava'] else 'No'}"
+        
+        self.action_label.config(text=action_info)
         
         # Split the remaining array into two square grids
         remaining_values = input_array[8:]

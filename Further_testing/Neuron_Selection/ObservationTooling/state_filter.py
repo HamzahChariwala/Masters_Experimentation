@@ -23,7 +23,10 @@ STATE_ARRAY_PROPERTIES = {
 
 # Default properties to extract - modify this list to change what gets extracted
 DEFAULT_PROPERTIES = [
-    'model_inputs.raw_input'  # Only report raw input by default
+    'model_inputs.raw_input',  # Raw input array
+    'risky_diagonal',         # Boolean indicating if the move is a risky diagonal
+    'next_cell_is_lava',      # Boolean indicating if the next cell is lava
+    'action_taken'            # Integer representing the action (0-4)
 ]
 
 def load_json_file(file_path: str) -> Dict:
@@ -164,9 +167,21 @@ def process_evaluation_file(
         
         # Check if state matches filter criteria
         if state_filter(state_array, state_data):
-            # For each matching state, store only the input array with a four-digit counter
+            # Create a result object with the input array and additional properties
             key = f"{env_name}-{state_key}-{counter:04d}"
-            results[key] = {"input": state_data['model_inputs']['raw_input']}
+            result = {"input": state_data['model_inputs']['raw_input']}
+            
+            # Add additional properties if they are in the default properties
+            if 'risky_diagonal' in properties or 'all' in properties:
+                result["risky_diagonal"] = bool(state_array[STATE_ARRAY_PROPERTIES['risky_diagonal']])
+            
+            if 'next_cell_is_lava' in properties or 'all' in properties:
+                result["next_cell_is_lava"] = bool(state_array[STATE_ARRAY_PROPERTIES['next_cell_is_lava']])
+            
+            if 'action_taken' in properties or 'all' in properties:
+                result["action_taken"] = int(state_array[STATE_ARRAY_PROPERTIES['action_taken']])
+            
+            results[key] = result
             counter += 1
     
     return results, counter
