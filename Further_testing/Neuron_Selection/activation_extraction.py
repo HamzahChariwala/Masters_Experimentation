@@ -108,10 +108,19 @@ def remove_hooks(hooks):
 def process_observations_directly(feature_mlp, q_net, activations, observations_dict, device):
     """
     Directly process observations through raw network layers.
+    Handles both direct array inputs and nested inputs from the corruption tool.
     """
-    for test_name, obs_vector in observations_dict.items():
+    for test_name, observation_data in observations_dict.items():
         print(f"\nProcessing test case: {test_name}")
         
+        # Handle both input formats:
+        # 1. Direct array format: {"test_name": [0, 1, 0, ...]}
+        # 2. Nested format from corruption tool: {"test_name": {"input": [0, 1, 0, ...]}}
+        if isinstance(observation_data, dict) and "input" in observation_data:
+            obs_vector = observation_data["input"]
+        else:
+            obs_vector = observation_data
+            
         # Convert to tensor
         obs_tensor = torch.FloatTensor(obs_vector).unsqueeze(0).to(device)
         print(f"Observation tensor shape: {obs_tensor.shape}")
@@ -158,13 +167,9 @@ def process_observations_directly(feature_mlp, q_net, activations, observations_
                     q_values = q_net.q_net(features)
                 except Exception as e:
                     print(f"Sequential q_net call failed: {e}")
-                    
-                    # Try a simpler approach
-                    # Just creating some dummy values at this point
-                    print("Creating dummy q_values")
-                    q_values = torch.randn(1, 5).to(device)  # Assuming 5 actions
+                    print("Could not compute q-values. This may indicate a model architecture issue.")
             
-            # Store Q-values
+            # Store Q-values if successfully computed
             if q_values is not None:
                 activations['final_q_values'].append(q_values.cpu().numpy())
                 print(f"Q-values shape: {q_values.shape}")
@@ -173,6 +178,8 @@ def process_observations_directly(feature_mlp, q_net, activations, observations_
                 # Get predicted action
                 action = q_values.argmax(dim=1).item()
                 print(f"Predicted action: {action}")
+            else:
+                print("WARNING: Failed to compute q-values for this observation")
             
             print("-" * 50)
 
@@ -244,33 +251,37 @@ def save_activations(activations, output_path, observation_ids, include_pre_acti
 def main():
     parser = argparse.ArgumentParser(
         description="Collect neural network activations from a trained DQN agent.")
-    parser.add_argument("--model", type=str, required=True,
-                        help="Path to the trained DQN model directory or .zip file")
-    parser.add_argument("--output", type=str, default="activations.npz",
-                        help="Output file base name (will save both .npz and _readable.json)")
+    parser.add_argument("--agent_path", type=str, required=True,
+                        help="Path to the agent directory (e.g., Agent_Storage/SpawnTests/biased/biased-v1)")
     parser.add_argument("--device", type=str, default="cpu",
                         help="Device to use (cpu or cuda)")
-    parser.add_argument("--inputs", type=str, required=True,
-                        help="Path to the input JSON file with observations (e.g., clean_inputs.json)")
     parser.add_argument("--include_pre_activations", action="store_true",
                         help="Include pre-activation values for q_net layers")
     args = parser.parse_args()
     
-    # Load test observations
-    with open(args.inputs, "r") as f:
-        observations_dict = json.load(f)
+    # Construct paths
+    agent_path = args.agent_path
+    model_path = os.path.join(agent_path, "agent.zip")
+    input_dir = os.path.join(agent_path, "activation_inputs")
+    output_dir = os.path.join(agent_path, "activation_logging")
     
-    print(f"Loaded {len(observations_dict)} test observations")
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
     
-    # Handle model path
-    model_path = args.model
-    if not model_path.endswith('.zip'):
-        # If a directory is provided, append agent.zip
-        model_path = os.path.join(model_path, 'agent.zip')
+    # Check if input directory exists
+    if not os.path.isdir(input_dir):
+        raise FileNotFoundError(f"Input directory not found: {input_dir}")
     
-    # Check if the model file exists
+    # Check if model file exists
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model file not found at: {model_path}")
+    
+    # Find all JSON files in the input directory
+    input_files = [f for f in os.listdir(input_dir) if f.endswith(".json")]
+    if not input_files:
+        raise ValueError(f"No JSON input files found in {input_dir}")
+    
+    print(f"Found {len(input_files)} input files in {input_dir}")
     
     # Load model
     print(f"Loading model from {model_path}")
@@ -288,18 +299,41 @@ def main():
     print(q_net_sequential)
     print("-" * 50)
     
-    # Register hooks
-    hooks, activations = register_hooks(feature_mlp, q_net, q_net_sequential)
+    # Process each input file
+    for input_file in input_files:
+        input_path = os.path.join(input_dir, input_file)
+        
+        # Determine output filename: replace "_inputs.json" with "_activations"
+        if "_inputs.json" in input_file:
+            output_file = input_file.replace("_inputs.json", "_activations.npz")
+        else:
+            # For other files, just remove .json and add _activations.npz
+            output_file = os.path.splitext(input_file)[0] + "_activations.npz"
+        
+        output_path = os.path.join(output_dir, output_file)
+        
+        print(f"\nProcessing {input_file} -> {output_file}")
+        
+        # Load observations from the input file
+        with open(input_path, "r") as f:
+            observations_dict = json.load(f)
+        
+        print(f"Loaded {len(observations_dict)} observations from {input_file}")
+        
+        # Register hooks
+        hooks, activations = register_hooks(feature_mlp, q_net, q_net_sequential)
+        
+        try:
+            # Process observations
+            process_observations_directly(feature_mlp, q_net, activations, observations_dict, args.device)
+        finally:
+            # Remove hooks
+            remove_hooks(hooks)
+        
+        # Save activations
+        save_activations(activations, output_path, list(observations_dict.keys()), args.include_pre_activations)
     
-    try:
-        # Process observations
-        process_observations_directly(feature_mlp, q_net, activations, observations_dict, args.device)
-    finally:
-        # Remove hooks
-        remove_hooks(hooks)
-    
-    # Save activations
-    save_activations(activations, args.output, list(observations_dict.keys()), args.include_pre_activations)
+    print(f"\nAll activations have been saved to {output_dir}")
 
 
 if __name__ == "__main__":
