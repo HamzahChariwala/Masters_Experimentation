@@ -147,17 +147,15 @@ def get_property_value(state_array: List, state_data: Dict[str, Any], prop: str)
 def process_evaluation_file(
     file_path: str,
     state_filter: Callable[[List, Dict[str, Any]], bool],
-    properties: List[str]
-) -> Dict[str, Any]:
+    properties: List[str],
+    counter: int = 1
+) -> Tuple[Dict[str, Any], int]:
     """Process a single evaluation log file and return matching states."""
     data = load_json_file(file_path)
     results = {}
     
     # Get environment name from filename (keeping seed)
     env_name = os.path.basename(file_path).replace('.json', '')
-    
-    # Counter for matching states
-    counter = 1
     
     # Process each state
     for state_key, state_data in data['states'].items():
@@ -171,7 +169,7 @@ def process_evaluation_file(
             results[key] = {"input": state_data['model_inputs']['raw_input']}
             counter += 1
     
-    return results
+    return results, counter
 
 def collect_matching_states(
     path: str,
@@ -184,10 +182,14 @@ def collect_matching_states(
         raise FileNotFoundError(f"Evaluation logs directory not found at {eval_logs_path}")
     
     results = {}
+    # Global counter for all states across all environments
+    counter = 1
+    
     for filename in os.listdir(eval_logs_path):
         if filename.endswith('.json'):
             file_path = os.path.join(eval_logs_path, filename)
-            results.update(process_evaluation_file(file_path, state_filter, properties))
+            file_results, counter = process_evaluation_file(file_path, state_filter, properties, counter)
+            results.update(file_results)
     
     return results
 
@@ -246,7 +248,7 @@ if __name__ == "__main__":
     # ===================================================
 
     # Set your criteria here
-    CRITERIA = ["reaches_goal:is:true", "risky_diagonal:is:true", "reaches_goal:is:true"]
+    CRITERIA = ["reaches_goal:is:true", "risky_diagonal:is:true" ]
 
     parser = argparse.ArgumentParser(description='Filter states from agent evaluation logs.')
     parser.add_argument('--path', help='Path to the agent directory')
