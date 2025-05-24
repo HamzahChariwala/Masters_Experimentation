@@ -2,9 +2,11 @@
 
 This guide explains how to use the activation patching system to analyze neural network behavior by patching specific neurons or layers.
 
-## Patch Specification Format
+## Patch Specification Formats
 
-The patching system uses a simple string format to specify which neurons to patch:
+The patching system supports two formats for specifying which neurons to patch:
+
+### 1. Command-line String Format
 
 ```
 "layer1:neurons;layer2:neurons;layer3:neurons"
@@ -21,11 +23,49 @@ Examples:
 - `"q_net.2:5,6,7"` - Patch only neurons 5, 6, and 7 in the third layer of the q-network
 - `"q_net.0:10,11;q_net.2:5"` - Patch neurons 10 and 11 in the first layer, and neuron 5 in the third layer
 
+### 2. JSON File Format for Batch Experiments
+
+For more complex experiments or to run multiple patching configurations in sequence, you can use a JSON file:
+
+```json
+[
+  {"q_net.0": [2, 4]},
+  {"q_net.2": [10, 11]},
+  {"q_net.0": [5, 6, 7], "q_net.2": [8, 9]},
+  {"q_net.2": "all"}
+]
+```
+
+Each object in the array represents a separate patching experiment:
+- Keys are layer names
+- Values are either a list of neuron indices or the string "all"
+
+This format allows for:
+- Running multiple experiments in sequence
+- Patching different combinations of neurons across layers
+- Comparing results across different patching strategies
+
 ## How to Identify Neurons to Patch
 
 Finding the right neurons to patch requires analysis of activations. Here are several approaches:
 
-### 1. Comparing Clean and Corrupted Activations
+### 1. Using the Neuron Analysis Tool
+
+The `find_different_neurons.py` script helps identify neurons with significant differences between conditions:
+
+```bash
+python find_different_neurons.py \
+    --clean path/to/clean_activations_readable.json \
+    --corrupted path/to/corrupted_activations_readable.json \
+    --layer q_net.2 \
+    --top_n 10 \
+    --threshold 0.1 \
+    --generate_patch_spec
+```
+
+This will analyze the activations and suggest neurons to patch based on activation differences.
+
+### 2. Comparing Clean and Corrupted Activations Manually
 
 To identify neurons that behave differently in clean vs. corrupted inputs:
 
@@ -40,7 +80,7 @@ To identify neurons that behave differently in clean vs. corrupted inputs:
    - Focus on neurons that change from active to inactive (or vice versa)
    - Pay attention to neurons that show consistent differences across multiple inputs
 
-3. Example analysis script (create a file called `find_different_neurons.py`):
+3. Example analysis script:
    ```python
    import numpy as np
    import json
@@ -67,7 +107,7 @@ To identify neurons that behave differently in clean vs. corrupted inputs:
    print(f"Top different neurons in {layer}: {top_different_neurons}")
    ```
 
-### 2. Analyzing ReLU Activations
+### 3. Analyzing ReLU Activations
 
 Identify neurons that are "dead" (outputting zero) in one condition but active in another:
 
@@ -80,7 +120,7 @@ neurons_of_interest = np.where(clean_active & corrupted_dead)[0]
 print(f"Neurons active in clean but dead in corrupted: {neurons_of_interest}")
 ```
 
-### 3. Systematic Exploration
+### 4. Systematic Exploration
 
 Try patching groups of neurons systematically to identify important ones:
 
@@ -90,9 +130,9 @@ Try patching groups of neurons systematically to identify important ones:
 
 ## Running Patching Experiments
 
-### Basic Command Format
+### Single Experiment with Command-line Format
 
-```
+```bash
 python activation_patching.py \
     --agent_path <path_to_agent> \
     --target_input <input_file.json> \
@@ -101,10 +141,21 @@ python activation_patching.py \
     --output_prefix <prefix_for_output>
 ```
 
+### Batch Experiments with JSON File
+
+```bash
+python activation_patching.py \
+    --agent_path <path_to_agent> \
+    --target_input <input_file.json> \
+    --source_activations <activation_file.npz> \
+    --patches_file <path_to_patches.json> \
+    --output_prefix <prefix_for_output>
+```
+
 ### Examples
 
 1. Patch specific neurons in multiple layers:
-   ```
+   ```bash
    python activation_patching.py \
        --agent_path ../Agent_Storage/SpawnTests/biased/biased-v1 \
        --target_input corrupted_inputs.json \
@@ -114,7 +165,7 @@ python activation_patching.py \
    ```
 
 2. Patch an entire layer:
-   ```
+   ```bash
    python activation_patching.py \
        --agent_path ../Agent_Storage/SpawnTests/biased/biased-v1 \
        --target_input corrupted_inputs.json \
@@ -124,7 +175,7 @@ python activation_patching.py \
    ```
 
 3. Focus on a specific input by providing its ID:
-   ```
+   ```bash
    python activation_patching.py \
        --agent_path ../Agent_Storage/SpawnTests/biased/biased-v1 \
        --target_input corrupted_inputs.json \
@@ -132,6 +183,16 @@ python activation_patching.py \
        --patch_spec "q_net.0:5,6,7" \
        --input_ids "MiniGrid-LavaCrossingS11N5-v0-81110-6,4,0-0763" \
        --output_prefix experiment3
+   ```
+
+4. Run a batch of experiments using a JSON file:
+   ```bash
+   python activation_patching.py \
+       --agent_path ../Agent_Storage/SpawnTests/biased/biased-v1 \
+       --target_input corrupted_inputs.json \
+       --source_activations clean_activations.npz \
+       --patches_file PatchingTooling/patches_sample.json \
+       --output_prefix batch_experiments
    ```
 
 ## Interpreting Results
@@ -143,6 +204,7 @@ The results of patching experiments are saved in JSON files in the `patching_res
 - `patched_output`: The output values after patching
 - `patched_action`: The action chosen after patching
 - `action_changed`: Whether the action changed due to patching
+- `patch_configuration`: The exact patch configuration used (added for reference)
 
 A successful patch typically results in the patched action matching the action from the source activations, indicating that those neurons are causally responsible for the decision.
 
@@ -158,6 +220,8 @@ A successful patch typically results in the patched action matching the action f
 
 5. **Consider ablation studies**: Try "zeroing out" specific neurons instead of patching them to see their importance.
 
+6. **Use batch experiments**: For systematic exploration, create a JSON file with multiple patch configurations to test different hypotheses in sequence.
+
 ## Advanced Analysis
 
 For more sophisticated analysis, you can use the Python classes directly in your own scripts:
@@ -166,7 +230,9 @@ For more sophisticated analysis, you can use the Python classes directly in your
 from Neuron_Selection.PatchingTooling import PatchingExperiment
 
 experiment = PatchingExperiment(agent_path="path/to/agent")
-results = experiment.run_patching_experiment(
+
+# Single patch experiment
+results1 = experiment.run_patching_experiment(
     target_input_file="inputs.json",
     source_activation_file="activations.npz",
     patch_spec={
@@ -174,6 +240,22 @@ results = experiment.run_patching_experiment(
         "q_net.2": "all"         # Entire layer
     }
 )
+
+# Multiple patches in a loop
+patch_configs = [
+    {"q_net.0": [2, 4]},
+    {"q_net.2": [10, 11]},
+    {"q_net.0": [5, 6, 7], "q_net.2": [8, 9]}
+]
+
+for i, patch in enumerate(patch_configs):
+    results = experiment.run_patching_experiment(
+        target_input_file="inputs.json",
+        source_activation_file="activations.npz",
+        patch_spec=patch
+    )
+    # Analyze results...
+    experiment.save_results(results, f"experiment_{i+1}_results.json")
 ```
 
 This allows for more customized experiments and analyses. 
