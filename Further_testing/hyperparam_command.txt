@@ -58,24 +58,4 @@ python activation_extraction.py --agent_path ../Agent_Storage/SpawnTests/biased/
 python find_different_neurons.py --clean ../Agent_Storage/SpawnTests/biased/biased-v1/activation_logging/clean_activations_readable.json --corrupted ../Agent_Storage/SpawnTests/biased/biased-v1/activation_logging/corrupted_activations_readable.json --layer q_net.2 --top_n 10 --threshold 0.1 --generate_patch_spec
 
 # 6. Run Bidirectional Patching
-python activation_patching.py --bidirectional \
-    --agent_path ../Agent_Storage/SpawnTests/biased/biased-v1 \
-    --clean_input clean_inputs.json \
-    --corrupted_input corrupted_inputs.json \
-    --clean_activations clean_activations.npz \
-    --corrupted_activations corrupted_activations.npz \
-    --patches_file PatchingTooling/patches_sample.json
-
-# 7. Regular (Denoising Only) Patching
-python activation_patching.py \
-    --agent_path ../Agent_Storage/SpawnTests/biased/biased-v1 \
-    --target_input corrupted_inputs.json \
-    --source_activations clean_activations.npz \
-    --patches_file PatchingTooling/patches_sample.json
-
-# 8. Noising Only Patching
-python activation_patching.py \
-    --agent_path ../Agent_Storage/SpawnTests/biased/biased-v1 \
-    --target_input clean_inputs.json \
-    --source_activations corrupted_activations.npz \
-    --patches_file PatchingTooling/patches_sample.json
+python Neuron_Selection/activation_patching.py --agent_path=Agent_Storage/SpawnTests/biased/biased-v1 --patches_file=Neuron_Selection/ExperimentTooling/Definitions/single_neuron_experiment.json

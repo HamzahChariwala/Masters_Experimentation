@@ -25,12 +25,19 @@ if not project_root in sys.path:
     print(f"Added project root to Python path: {project_root}")
 
 from Neuron_Selection.PatchingTooling.patching_experiment import PatchingExperiment
+# Import functions from AnalysisTooling for result analysis
+from Neuron_Selection.AnalysisTooling import (
+    process_result_file,
+    process_result_directory
+)
 
 # Hardcoded constants that don't change between runs
 DEFAULT_DEVICE = "cpu"
 DEFAULT_ORGANIZE_BY_INPUT = True
 DEFAULT_BIDIRECTIONAL = True  # Changed to True to make bidirectional the default
 DEFAULT_OUTPUT_PREFIX = ""
+DEFAULT_ANALYZE_RESULTS = True  # Default to analyzing results
+DEFAULT_METRICS = "output_logit_delta"  # Default metrics to calculate
 
 # Default file names and paths
 DEFAULT_CLEAN_INPUT = "clean_inputs.json"
@@ -89,6 +96,14 @@ def parse_args():
     parser.add_argument("--input_ids", 
                         help="Comma-separated list of input IDs to process (if not specified, all inputs are processed)")
     
+    # Analysis options
+    parser.add_argument("--analyze", action="store_true", default=DEFAULT_ANALYZE_RESULTS,
+                        help=f"Analyze results after patching. Default: {DEFAULT_ANALYZE_RESULTS}")
+    parser.add_argument("--no_analyze", action="store_false", dest="analyze",
+                        help="Don't analyze results after patching.")
+    parser.add_argument("--metrics", default=DEFAULT_METRICS,
+                        help=f"Comma-separated list of metrics to calculate. Default: {DEFAULT_METRICS}")
+    
     return parser.parse_args()
 
 def load_patches_from_file(file_path: str) -> List[Dict[str, Union[List[int], str]]]:
@@ -121,6 +136,77 @@ def create_patch_config_from_args(layer: str, neurons_str: str) -> Dict[str, Uni
     neurons = [int(n.strip()) for n in neurons_str.split(',')]
     return {layer: neurons}
 
+def analyze_patching_results(results_dir: str, metrics: List[str], analyze_subdirs: bool = True) -> None:
+    """
+    Analyze patching experiment results.
+    
+    Args:
+        results_dir: Directory containing result files
+        metrics: List of metrics to calculate
+        analyze_subdirs: Whether to analyze subdirectories (denoising, noising)
+    """
+    print(f"\nAnalyzing patching results in {results_dir}")
+    print(f"Calculating metrics: {', '.join(metrics)}")
+    
+    if not os.path.exists(results_dir):
+        print(f"Warning: Results directory not found: {results_dir}")
+        return
+    
+    # Check for denoising and noising subdirectories first
+    denoising_dir = os.path.join(results_dir, "denoising")
+    noising_dir = os.path.join(results_dir, "noising")
+    
+    # If bidirectional subdirectories exist, analyze them directly
+    if os.path.exists(denoising_dir) and os.path.exists(noising_dir) and analyze_subdirs:
+        print("\nDetected bidirectional patching structure. Analyzing subdirectories directly:")
+        
+        # Process denoising directory
+        print(f"\nAnalyzing denoising results in: {denoising_dir}")
+        denoising_results = process_result_directory(denoising_dir, metrics)
+        denoising_successes = sum(1 for status in denoising_results.values() if status == "success")
+        denoising_failures = len(denoising_results) - denoising_successes
+        print(f"Processed {len(denoising_results)} files in denoising: "
+              f"{denoising_successes} successful, {denoising_failures} failed.")
+        
+        # Process noising directory
+        print(f"\nAnalyzing noising results in: {noising_dir}")
+        noising_results = process_result_directory(noising_dir, metrics)
+        noising_successes = sum(1 for status in noising_results.values() if status == "success")
+        noising_failures = len(noising_results) - noising_successes
+        print(f"Processed {len(noising_results)} files in noising: "
+              f"{noising_successes} successful, {noising_failures} failed.")
+        
+        return
+    
+    # If no bidirectional structure, process the main directory
+    main_results = process_result_directory(results_dir, metrics)
+    
+    # Count successes and failures
+    successes = sum(1 for status in main_results.values() if status == "success")
+    failures = len(main_results) - successes
+    
+    print(f"Processed {len(main_results)} files: {successes} successful, {failures} failed.")
+    
+    # Process subdirectories if requested and not already processed
+    if analyze_subdirs:
+        subdirs = [d for d in os.listdir(results_dir) 
+                  if os.path.isdir(os.path.join(results_dir, d))]
+        
+        for subdir in subdirs:
+            subdir_path = os.path.join(results_dir, subdir)
+            print(f"\nAnalyzing subdirectory: {subdir_path}")
+            
+            subdir_results = process_result_directory(subdir_path, metrics)
+            
+            # Count successes and failures
+            subdir_successes = sum(1 for status in subdir_results.values() if status == "success")
+            subdir_failures = len(subdir_results) - subdir_successes
+            
+            print(f"Processed {len(subdir_results)} files in {subdir}: "
+                 f"{subdir_successes} successful, {subdir_failures} failed.")
+    
+    print("\nAnalysis completed.")
+
 def main():
     args = parse_args()
     
@@ -138,6 +224,12 @@ def main():
     input_ids = None
     if args.input_ids:
         input_ids = [id.strip() for id in args.input_ids.split(',')]
+    
+    # Parse metrics for analysis
+    metrics = [m.strip() for m in args.metrics.split(',') if m.strip()]
+    
+    # Track if we're doing bidirectional patching
+    bidirectional_patching = False
     
     # Determine patching mode and configurations
     if args.patches_file:
@@ -166,6 +258,9 @@ def main():
                 patch_configs,
                 input_ids
             )
+            
+            # Mark that we did bidirectional patching
+            bidirectional_patching = True
             
             print("\nResults:")
             print(f"  Clean → Corrupted: {len(clean_to_corrupted)} result files")
@@ -262,6 +357,9 @@ def main():
                 input_ids
             )
             
+            # Mark that we did bidirectional patching
+            bidirectional_patching = True
+            
             print("\nResults:")
             print(f"  Clean → Corrupted: {len(clean_to_corrupted)} result files")
             print(f"  Corrupted → Clean: {len(corrupted_to_clean)} result files")
@@ -290,6 +388,11 @@ def main():
         sys.exit(1)
     
     print("\nAll experiments completed.")
+    
+    # Analyze results if requested
+    if args.analyze:
+        results_dir = experiment.output_dir
+        analyze_patching_results(results_dir, metrics)
 
 if __name__ == "__main__":
     main()
