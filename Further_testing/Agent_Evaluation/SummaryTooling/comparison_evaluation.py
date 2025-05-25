@@ -77,11 +77,17 @@ def get_agent_evaluation_summaries(agent_path: str) -> Dict[str, Dict[str, Any]]
         file_name = os.path.basename(json_file)
         file_key = os.path.splitext(file_name)[0]  # Remove the extension
         
-        # Create a more descriptive key based on the file name
-        if "no_lava" in file_key.lower():
+        # Create a more descriptive key based on the exact file name
+        if file_name == "performance_lava_only.json":
+            summary_key = "lava_only"
+        elif file_name == "performance_no_lava.json":
             summary_key = "without_lava"
-        elif "all_states" in file_key.lower() or "with_lava" in file_key.lower():
+        elif file_name == "performance_all_states.json":
             summary_key = "with_lava"
+        elif file_name == "performance_reachable_paths.json":
+            summary_key = "reachable_paths"
+        elif file_name == "performance_unreachable_paths.json":
+            summary_key = "unreachable_paths"
         else:
             # If we can't determine a descriptive key, use the file name without extension
             summary_key = file_key

@@ -21,6 +21,9 @@ from Behaviour_Specification.log import analyze_navigation_graphs, export_path_d
 from Agent_Evaluation.AgentTooling.agent_functionality import evauate_agent_on_single_env, load_agent_from_path
 from Agent_Evaluation.AgentTooling.results_processing import export_agent_eval_data_to_json, add_performance_summary_to_agent_logs, create_agent_performance_summary
 from Agent_Evaluation.SummaryTooling.comparison_evaluation import load_dijkstra_results, calculate_performance_difference, generate_comparison_evaluation, save_comparison_results
+from Agent_Evaluation.SummaryTooling.reachable_path_evaluation import generate_reachable_path_summary
+from Agent_Evaluation.SummaryTooling.unreachable_path_evaluation import generate_unreachable_path_summary
+from Agent_Evaluation.SummaryTooling.lava_only_evaluation import generate_lava_only_summary
 
 # Import from our import_vars.py file - updated to reflect new location
 from Agent_Evaluation.EnvironmentTooling.import_vars import (
@@ -111,6 +114,33 @@ def generate_complete_summary(agent_path: str, env_id: str, seed: int, num_envs:
             print(f"Agent performance summary created: {summary_file}")
         else:
             print("No agent performance summary created - check for errors or missing data")
+            
+        # Step 3: Create the lava-only summary for states that start on lava
+        print("Creating lava-only summary...")
+        lava_summary_file = generate_lava_only_summary(agent_path)
+        
+        if lava_summary_file:
+            print(f"Lava-only summary created: {lava_summary_file}")
+        else:
+            print("No lava-only summary created - check for errors or missing data")
+            
+        # Step 4: Create the reachable-path summary for states that can reach goal without lava
+        print("Creating reachable-path summary...")
+        reachable_summary_file = generate_reachable_path_summary(agent_path)
+        
+        if reachable_summary_file:
+            print(f"Reachable-path summary created: {reachable_summary_file}")
+        else:
+            print("No reachable-path summary created - check for errors or missing data")
+            
+        # Step 5: Create the unreachable-path summary for states that cannot reach goal without lava
+        print("Creating unreachable-path summary...")
+        unreachable_summary_file = generate_unreachable_path_summary(agent_path)
+        
+        if unreachable_summary_file:
+            print(f"Unreachable-path summary created: {unreachable_summary_file}")
+        else:
+            print("No unreachable-path summary created - check for errors or missing data")
             
     except Exception as e:
         print(f"Error generating agent performance summaries: {e}")
