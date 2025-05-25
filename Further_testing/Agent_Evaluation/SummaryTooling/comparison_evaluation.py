@@ -83,7 +83,7 @@ def get_agent_evaluation_summaries(agent_path: str) -> Dict[str, Dict[str, Any]]
         elif file_name == "performance_no_lava.json":
             summary_key = "without_lava"
         elif file_name == "performance_all_states.json":
-            summary_key = "with_lava"
+            summary_key = "all_states"
         elif file_name == "performance_reachable_paths.json":
             summary_key = "reachable_paths"
         elif file_name == "performance_unreachable_paths.json":

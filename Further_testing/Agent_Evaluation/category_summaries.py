@@ -30,7 +30,7 @@ def load_evaluation_summary(agent_dir: str, summary_type: str) -> Optional[Dict[
         "lava_only": "performance_lava_only.json",
         "reachable_paths": "performance_reachable_paths.json",
         "unreachable_paths": "performance_unreachable_paths.json",
-        "with_lava": "performance_all_states.json"
+        "all_states": "performance_all_states.json"
     }
     
     if summary_type not in filename_map:
@@ -149,7 +149,7 @@ def generate_agent_category_summary(agent_type_dir: str) -> Optional[str]:
         print(f"Processing agent version: {agent_version}")
         
         # Try to load each summary type
-        for summary_type in ["lava_only", "reachable_paths", "unreachable_paths", "with_lava"]:
+        for summary_type in ["lava_only", "reachable_paths", "unreachable_paths", "all_states"]:
             summary = load_evaluation_summary(agent_dir, summary_type)
             if summary:
                 summary_counts[summary_type] += 1
