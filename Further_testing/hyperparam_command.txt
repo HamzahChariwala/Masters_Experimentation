@@ -13,3 +13,26 @@ git config pull.rebase true
 git pull origin main
 git stash pop
 git push origin main
+
+# Running category_summaries.py
+
+# Process a specific agent type:
+python Agent_Evaluation/category_summaries.py --agent Standard
+
+# Process a specific agent type in a specific base directory:
+python Agent_Evaluation/category_summaries.py --base LavaTests --agent Standard
+
+# Process all agent types in a specific base directory:
+python Agent_Evaluation/category_summaries.py --base LavaTests
+
+# Process all agent types across all directories:
+python Agent_Evaluation/category_summaries.py
+
+# To generate evaluations for all agent versions before running the summary script:
+# Run for each agent version:
+python Agent_Evaluation/generate_evaluations.py --path Agent_Storage/LavaTests/Standard/Standard-v1
+python Agent_Evaluation/generate_evaluations.py --path Agent_Storage/LavaTests/Standard/Standard-v2
+# ...and so on for each version
+
+# Then generate the category summary:
+python Agent_Evaluation/category_summaries.py --agent Standard
