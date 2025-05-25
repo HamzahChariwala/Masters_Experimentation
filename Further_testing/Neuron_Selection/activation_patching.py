@@ -12,296 +12,284 @@ import os
 import json
 from typing import Dict, List, Union, Optional
 
+# Add the Neuron_Selection directory to the path if needed
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if not script_dir in sys.path:
+    sys.path.insert(0, script_dir)
+    print(f"Added Neuron_Selection directory to Python path: {script_dir}")
+
+# Make sure the project root is in the path
+project_root = os.path.abspath(os.path.join(script_dir, ".."))
+if not project_root in sys.path:
+    sys.path.insert(0, project_root)
+    print(f"Added project root to Python path: {project_root}")
+
 from Neuron_Selection.PatchingTooling.patching_experiment import PatchingExperiment
 
+# Hardcoded constants that don't change between runs
+DEFAULT_DEVICE = "cpu"
+DEFAULT_ORGANIZE_BY_INPUT = True
+DEFAULT_BIDIRECTIONAL = True  # Changed to True to make bidirectional the default
+DEFAULT_OUTPUT_PREFIX = ""
 
-def parse_patch_spec(patch_spec_str: str) -> Dict[str, Union[List[int], str]]:
-    """
-    Parse the patch specification string.
-    
-    Format: "layer1:neuron1,neuron2;layer2:all"
-    
-    Args:
-        patch_spec_str: String specification of layers and neurons to patch
-        
-    Returns:
-        Dictionary mapping layer names to patching specifications
-    """
-    patch_spec = {}
-    
-    if not patch_spec_str:
-        return patch_spec
-    
-    # Split by semicolon to get layer specifications
-    layer_specs = patch_spec_str.split(';')
-    
-    for layer_spec in layer_specs:
-        if not layer_spec:
-            continue
-            
-        # Split by colon to get layer name and neuron indices
-        parts = layer_spec.split(':')
-        if len(parts) != 2:
-            print(f"Warning: Invalid layer specification: {layer_spec}")
-            continue
-            
-        layer_name = parts[0].strip()
-        neuron_spec = parts[1].strip()
-        
-        # Check if patching all neurons
-        if neuron_spec.lower() == 'all':
-            patch_spec[layer_name] = 'all'
-        else:
-            # Parse neuron indices
-            try:
-                neuron_indices = [int(idx) for idx in neuron_spec.split(',')]
-                patch_spec[layer_name] = neuron_indices
-            except ValueError:
-                print(f"Warning: Invalid neuron indices in {layer_spec}")
-                continue
-    
-    return patch_spec
+# Default file names and paths
+DEFAULT_CLEAN_INPUT = "clean_inputs.json"
+DEFAULT_CORRUPTED_INPUT = "corrupted_inputs.json"
+DEFAULT_CLEAN_ACTIVATIONS = "clean_activations.npz"
+DEFAULT_CORRUPTED_ACTIVATIONS = "corrupted_activations.npz"
+DEFAULT_RESULT_FILENAME = "patching_results.json"
 
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description="Run activation patching experiments.")
+    
+    # Required arguments
+    parser.add_argument("--agent_path", required=True,
+                        help="Path to the agent directory")
+    
+    # Optional arguments with reasonable defaults
+    parser.add_argument("--device", default=DEFAULT_DEVICE,
+                        help=f"Device to run on ('cpu' or 'cuda'). Default: {DEFAULT_DEVICE}")
+    
+    # Patching experiment mode
+    parser.add_argument("--patches_file", 
+                        help="Path to JSON file with patch specifications")
+    parser.add_argument("--layer", 
+                        help="Layer to patch (e.g., 'q_net.2')")
+    parser.add_argument("--neurons", 
+                        help="Comma-separated list of neuron indices to patch")
+    
+    # Bidirectional mode flag - now defaults to True
+    parser.add_argument("--unidirectional", action="store_true", 
+                        help="Run unidirectional patching experiment (only clean→corrupted). Default is bidirectional.")
+    parser.add_argument("--bidirectional", action="store_true", default=DEFAULT_BIDIRECTIONAL,
+                        help=f"Run bidirectional patching experiments (clean→corrupted and corrupted→clean). Default: {DEFAULT_BIDIRECTIONAL}")
+    
+    # Input file paths
+    parser.add_argument("--source_input", 
+                        help=f"Source input file (default: {DEFAULT_CLEAN_INPUT})")
+    parser.add_argument("--target_input", 
+                        help=f"Target input file (default: {DEFAULT_CORRUPTED_INPUT})")
+    
+    # Activation file paths
+    parser.add_argument("--source_activations", 
+                        help=f"Source activations file (default: {DEFAULT_CLEAN_ACTIVATIONS})")
+    parser.add_argument("--target_activations", 
+                        help=f"Target activations file (default: {DEFAULT_CORRUPTED_ACTIVATIONS})")
+    
+    # Output organization
+    parser.add_argument("--organize_by_input", action="store_true", default=DEFAULT_ORGANIZE_BY_INPUT,
+                        help=f"Organize results by input ID. Default: {DEFAULT_ORGANIZE_BY_INPUT}")
+    parser.add_argument("--output_prefix", default=DEFAULT_OUTPUT_PREFIX,
+                        help=f"Prefix for output files. Default: {DEFAULT_OUTPUT_PREFIX}")
+    parser.add_argument("--output_file", 
+                        help=f"Output file name (default: {DEFAULT_RESULT_FILENAME})")
+    
+    # Input IDs to process
+    parser.add_argument("--input_ids", 
+                        help="Comma-separated list of input IDs to process (if not specified, all inputs are processed)")
+    
+    return parser.parse_args()
 
 def load_patches_from_file(file_path: str) -> List[Dict[str, Union[List[int], str]]]:
     """
     Load patch configurations from a JSON file.
     
     Args:
-        file_path: Path to the JSON file with patch configurations
+        file_path: Path to JSON file with patch configurations
         
     Returns:
-        List of patch specifications
+        List of patch configurations
     """
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"Patches file not found: {file_path}")
-    
     with open(file_path, 'r') as f:
         patches = json.load(f)
     
-    # Validate the loaded patches
-    if not isinstance(patches, list):
-        raise ValueError("Patches file must contain a JSON array of patch configurations")
-    
+    print(f"Loaded {len(patches)} patch configurations from {file_path}")
     return patches
 
-
-def generate_output_filename(output_prefix: str, patch_index: int, patch_spec: Dict[str, Union[List[int], str]]) -> str:
+def create_patch_config_from_args(layer: str, neurons_str: str) -> Dict[str, Union[List[int], str]]:
     """
-    Generate a descriptive output filename based on the patch configuration.
+    Create a patch configuration from command-line arguments.
     
     Args:
-        output_prefix: Base prefix for the output file
-        patch_index: Index of the current patch in the batch
-        patch_spec: Current patch specification
+        layer: Layer name
+        neurons_str: Comma-separated list of neuron indices
         
     Returns:
-        Descriptive output filename
+        Patch configuration dictionary
     """
-    # Create a string representation of the patched layers
-    patched_layers = []
-    
-    for layer_name, neurons in patch_spec.items():
-        if neurons == "all":
-            patched_layers.append(f"{layer_name}_all")
-        else:
-            neuron_count = len(neurons)
-            patched_layers.append(f"{layer_name}_{neuron_count}n")
-    
-    layer_str = "-".join(patched_layers)
-    
-    return f"{output_prefix}_exp{patch_index+1}_{layer_str}.json"
-
+    neurons = [int(n.strip()) for n in neurons_str.split(',')]
+    return {layer: neurons}
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Perform activation patching experiments on trained agents.")
+    args = parse_args()
     
-    parser.add_argument("--agent_path", type=str, required=True,
-                       help="Path to the agent directory (e.g., Agent_Storage/SpawnTests/biased/biased-v1)")
+    # Initialize patching experiment
+    experiment = PatchingExperiment(args.agent_path, device=args.device)
     
-    parser.add_argument("--target_input", type=str, default=None,
-                       help="Target input file to patch (e.g., corrupted_inputs.json)")
-    
-    parser.add_argument("--source_activations", type=str, default=None,
-                       help="Source activation file to patch from (e.g., clean_activations.npz)")
-    
-    # Make patch_spec optional since we now have patches_file as an alternative
-    parser.add_argument("--patch_spec", type=str, default=None,
-                       help="Specification of layers and neurons to patch. Format: 'layer1:neuron1,neuron2;layer2:all'")
-    
-    # Add new argument for patches file
-    parser.add_argument("--patches_file", type=str, default=None,
-                       help="Path to JSON file containing multiple patch configurations")
-    
-    parser.add_argument("--input_ids", type=str, default=None,
-                       help="Comma-separated list of input IDs to process (if not specified, process all)")
-    
-    parser.add_argument("--output_prefix", type=str, default="",
-                       help="Prefix for output files")
-    
-    parser.add_argument("--device", type=str, default="cpu",
-                       help="Device to run on (cpu or cuda)")
-    
-    parser.add_argument("--organize_by_input", action="store_true", default=True,
-                       help="Organize results by input ID rather than by patch configuration")
-    
-    parser.add_argument("--bidirectional", action="store_true", default=False,
-                       help="Run patching in both directions (clean->corrupted and corrupted->clean)")
-    
-    parser.add_argument("--clean_input", type=str, default=None,
-                       help="Clean input file for bidirectional patching")
-    
-    parser.add_argument("--corrupted_input", type=str, default=None,
-                       help="Corrupted input file for bidirectional patching")
-    
-    parser.add_argument("--clean_activations", type=str, default=None,
-                       help="Clean activations file for bidirectional patching")
-    
-    parser.add_argument("--corrupted_activations", type=str, default=None,
-                       help="Corrupted activations file for bidirectional patching")
-    
-    args = parser.parse_args()
-    
-    # Ensure either patch_spec or patches_file is provided
-    if not args.patch_spec and not args.patches_file:
-        print("Error: Either --patch_spec or --patches_file must be provided.")
-        return 1
-    
-    # Load patches from file or parse patch_spec
-    if args.patches_file:
-        try:
-            patches = load_patches_from_file(args.patches_file)
-            print(f"Loaded {len(patches)} patch configurations from {args.patches_file}")
-        except Exception as e:
-            print(f"Error loading patches file: {e}")
-            return 1
-    else:
-        # Use single patch specification
-        patches = [parse_patch_spec(args.patch_spec)]
+    # Set default paths if not provided
+    source_input = args.source_input or DEFAULT_CLEAN_INPUT
+    target_input = args.target_input or DEFAULT_CORRUPTED_INPUT
+    source_activations = args.source_activations or DEFAULT_CLEAN_ACTIVATIONS
+    target_activations = args.target_activations or DEFAULT_CORRUPTED_ACTIVATIONS
+    output_file = args.output_file or DEFAULT_RESULT_FILENAME
     
     # Parse input IDs if provided
     input_ids = None
     if args.input_ids:
         input_ids = [id.strip() for id in args.input_ids.split(',')]
     
-    # Create experiment runner
-    experiment = PatchingExperiment(args.agent_path, device=args.device)
-    
-    # Check if bidirectional patching is requested
-    if args.bidirectional:
-        # Ensure all necessary files are provided for bidirectional patching
-        if not all([args.clean_input, args.corrupted_input, args.clean_activations, args.corrupted_activations]):
-            print("Error: Bidirectional patching requires all the following arguments:")
-            print("  --clean_input, --corrupted_input, --clean_activations, --corrupted_activations")
-            return 1
+    # Determine patching mode and configurations
+    if args.patches_file:
+        # Multiple patch configurations from file
+        patch_configs = load_patches_from_file(args.patches_file)
         
-        # Run bidirectional patching
-        print(f"\nRunning bidirectional patching experiments with {len(patches)} patch configurations")
-        denoising_files, noising_files = experiment.run_bidirectional_patching(
-            args.clean_input,
-            args.corrupted_input,
-            args.clean_activations,
-            args.corrupted_activations,
-            patches,
-            input_ids
-        )
+        # Default to bidirectional unless explicitly set to unidirectional
+        run_bidirectional = not args.unidirectional
         
-        print(f"\nAll bidirectional experiments completed.")
-        print(f"  Denoising results: {len(denoising_files)} files in {experiment.output_dir}/denoising/")
-        print(f"  Noising results: {len(noising_files)} files in {experiment.output_dir}/noising/")
-        
-        return 0
-    
-    # If not bidirectional, ensure target_input and source_activations are provided
-    if not args.target_input or not args.source_activations:
-        print("Error: Non-bidirectional patching requires --target_input and --source_activations.")
-        return 1
-    
-    # If organizing by input, we'll collect all results and save at the end
-    all_results = []
-    patch_configs = []
-    experiment_names = []
-    
-    # Process each patch configuration
-    for i, patch_spec in enumerate(patches):
-        if not patch_spec:
-            print(f"Warning: Empty patch specification at index {i}. Skipping.")
-            continue
-        
-        # Create descriptive experiment name
-        exp_name = f"exp_{i+1}"
-        if args.organize_by_input:
-            # Add more details to experiment name
-            layer_names = "-".join(patch_spec.keys())
-            exp_name = f"exp_{i+1}_{layer_names}"
-            experiment_names.append(exp_name)
+        if run_bidirectional:
+            # Run bidirectional patching (default behavior)
+            print("\nRunning bidirectional patching experiments:")
+            print(f"  Agent: {args.agent_path}")
+            print(f"  Clean input: {source_input}")
+            print(f"  Corrupted input: {target_input}")
+            print(f"  Clean activations: {source_activations}")
+            print(f"  Corrupted activations: {target_activations}")
+            print(f"  Number of patch configurations: {len(patch_configs)}")
+            print("--------------------------------------------------")
+            
+            clean_to_corrupted, corrupted_to_clean = experiment.run_bidirectional_patching(
+                source_input,
+                target_input,
+                source_activations,
+                target_activations,
+                patch_configs,
+                input_ids
+            )
+            
+            print("\nResults:")
+            print(f"  Clean → Corrupted: {len(clean_to_corrupted)} result files")
+            print(f"  Corrupted → Clean: {len(corrupted_to_clean)} result files")
+            
         else:
-            # Create descriptive output filename for patch-organized output
-            output_file = generate_output_filename(args.output_prefix, i, patch_spec)
+            # Run unidirectional patching
+            experiment_names = [f"patch_{i}" for i in range(len(patch_configs))]
+            
+            # Run experiments for each patch configuration
+            all_results = []
+            for i, patch_spec in enumerate(patch_configs):
+                print(f"\nRunning patching experiment {i+1}/{len(patch_configs)}:")
+                print(f"  Agent: {args.agent_path}")
+                print(f"  Target input: {target_input}")
+                print(f"  Source activations: {source_activations}")
+                print(f"  Patching: {patch_spec}")
+                print("--------------------------------------------------")
+                
+                try:
+                    results = experiment.run_patching_experiment(
+                        target_input,
+                        source_activations,
+                        patch_spec,
+                        input_ids
+                    )
+                    all_results.append(results)
+                    
+                    # Count action changes
+                    action_changes = sum(1 for input_id, result in results.items() if result["action_changed"])
+                    total_inputs = len(results)
+                    print(f"Experiment {i+1} completed.")
+                    print(f"Summary: {action_changes}/{total_inputs} actions changed due to patching\n")
+                    
+                except Exception as e:
+                    print(f"Error running experiment {i+1}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    all_results.append({})  # Add empty results to maintain index correspondence
+            
+            # Save results
+            if args.organize_by_input:
+                output_paths = experiment.save_results_by_input(
+                    all_results,
+                    patch_configs,
+                    experiment_names,
+                    args.output_prefix
+                )
+                print("\nSaving results organized by input ID...")
+                for input_id, path in output_paths.items():
+                    print(f"Results for input {input_id} saved to {path}")
+                print(f"Saved results for {len(output_paths)} inputs")
+            else:
+                # Save all results in a single file
+                all_experiment_results = {}
+                for i, (results, patch_spec) in enumerate(zip(all_results, patch_configs)):
+                    experiment_name = f"patch_{i}"
+                    all_experiment_results[experiment_name] = {
+                        "patch_config": patch_spec,
+                        "results": results
+                    }
+                
+                output_path = os.path.join(experiment.output_dir, output_file)
+                with open(output_path, 'w') as f:
+                    json.dump(all_experiment_results, f, indent=2)
+                print(f"\nAll results saved to {output_path}")
+    
+    elif args.layer and args.neurons:
+        # Single patch configuration from command-line arguments
+        patch_spec = create_patch_config_from_args(args.layer, args.neurons)
         
-        # Print experiment details
-        print(f"\nRunning patching experiment {i+1}/{len(patches)}:")
-        print(f"  Agent: {args.agent_path}")
-        print(f"  Target input: {args.target_input}")
-        print(f"  Source activations: {args.source_activations}")
-        print(f"  Patching: {patch_spec}")
-        if not args.organize_by_input:
-            print(f"  Output file: {output_file}")
-        print("-" * 50)
+        # Default to bidirectional unless explicitly set to unidirectional
+        run_bidirectional = not args.unidirectional
         
-        try:
-            # Run experiment
+        if run_bidirectional:
+            # Bidirectional patching with single patch configuration
+            patch_configs = [patch_spec]
+            
+            print("\nRunning bidirectional patching experiments:")
+            print(f"  Agent: {args.agent_path}")
+            print(f"  Clean input: {source_input}")
+            print(f"  Corrupted input: {target_input}")
+            print(f"  Clean activations: {source_activations}")
+            print(f"  Corrupted activations: {target_activations}")
+            print(f"  Patch configuration: {patch_spec}")
+            print("--------------------------------------------------")
+            
+            clean_to_corrupted, corrupted_to_clean = experiment.run_bidirectional_patching(
+                source_input,
+                target_input,
+                source_activations,
+                target_activations,
+                patch_configs,
+                input_ids
+            )
+            
+            print("\nResults:")
+            print(f"  Clean → Corrupted: {len(clean_to_corrupted)} result files")
+            print(f"  Corrupted → Clean: {len(corrupted_to_clean)} result files")
+        else:
+            # Single patch configuration, unidirectional
+            print("\nRunning patching experiment with command-line patch configuration:")
+            print(f"  Agent: {args.agent_path}")
+            print(f"  Target input: {target_input}")
+            print(f"  Source activations: {source_activations}")
+            print(f"  Patching: {patch_spec}")
+            print("--------------------------------------------------")
+            
             results = experiment.run_patching_experiment(
-                args.target_input,
-                args.source_activations,
+                target_input,
+                source_activations,
                 patch_spec,
                 input_ids
             )
             
-            # Add patch configuration to results for reference
-            for input_id in results:
-                results[input_id]["patch_configuration"] = patch_spec
-            
             # Save results
-            if args.organize_by_input:
-                # Collect results for later organization by input
-                all_results.append(results)
-                patch_configs.append(patch_spec)
-            else:
-                # Save results organized by patch
-                experiment.save_results(results, output_file)
-            
-            # Print summary
-            changed_count = sum(1 for result in results.values() if result.get("action_changed", False))
-            total_count = len(results)
-            
-            print(f"\nExperiment {i+1} completed.")
-            if not args.organize_by_input:
-                print(f"Results saved to {experiment.output_dir}/{output_file}")
-            print(f"Summary: {changed_count}/{total_count} actions changed due to patching")
-            
-        except Exception as e:
-            print(f"Error running experiment {i+1}: {e}")
-            import traceback
-            traceback.print_exc()
-            # Continue with next patch
-            continue
+            output_path = experiment.save_results(results, output_file)
+            print(f"Results saved to {output_path}")
     
-    # If organizing by input, save all results now
-    if args.organize_by_input and all_results:
-        print("\nSaving results organized by input ID...")
-        output_files = experiment.save_results_by_input(
-            all_results,
-            patch_configs,
-            experiment_names,
-            args.output_prefix
-        )
-        print(f"Saved results for {len(output_files)} inputs")
+    else:
+        print("Error: You must specify either --patches_file or --layer and --neurons")
+        sys.exit(1)
     
-    print(f"\nAll experiments completed.")
-    return 0
-
+    print("\nAll experiments completed.")
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

@@ -1,11 +1,27 @@
 import os
+import sys
 import torch
 import numpy as np
 import json
 from typing import Dict, List, Union, Optional, Tuple, Any, Set
+
+# Add the project root to the Python path to ensure Environment_Tooling is importable
+script_dir = os.path.dirname(os.path.abspath(__file__))
+neuron_selection_dir = os.path.dirname(script_dir)
+project_root = os.path.abspath(os.path.join(neuron_selection_dir, ".."))
+
+# Add both directories to path if they're not already there
+for path in [neuron_selection_dir, project_root]:
+    if not path in sys.path:
+        sys.path.insert(0, path)
+        print(f"Added to Python path: {path}")
+
 from stable_baselines3 import DQN
 from .activation_loader import ActivationLoader
 from .advanced_patcher import AdvancedPatcher
+
+# Import custom feature extractor - now accessible since we've added project_root to sys.path
+from Environment_Tooling.BespokeEdits.FeatureExtractor import CustomCombinedExtractor
 
 class PatchingExperiment:
     """
@@ -21,6 +37,12 @@ class PatchingExperiment:
             agent_path: Path to the agent directory
             device: Device to run the experiment on ("cpu" or "cuda")
         """
+        # Ensure agent_path is absolute
+        if not os.path.isabs(agent_path):
+            # Convert relative path to absolute based on current working directory
+            agent_path = os.path.abspath(agent_path)
+            print(f"Using absolute agent path: {agent_path}")
+            
         self.agent_path = agent_path
         self.device = device
         self.agent = None
@@ -47,7 +69,13 @@ class PatchingExperiment:
             raise FileNotFoundError(f"Model file not found at: {model_path}")
         
         print(f"Loading agent from {model_path}")
-        self.agent = DQN.load(model_path, device=self.device)
+        
+        # Load the agent with the custom feature extractor
+        self.agent = DQN.load(
+            model_path, 
+            device=self.device,
+            custom_objects={"features_extractor_class": CustomCombinedExtractor}
+        )
         self.q_net = self.agent.policy.q_net
         
         # Initialize the patcher
@@ -66,7 +94,26 @@ class PatchingExperiment:
         Returns:
             Dictionary of activations organized by input_id and layer_name
         """
-        file_path = os.path.join(self.activation_dir, file_name)
+        # Handle various path formats for source activation file
+        if os.path.isabs(file_name):
+            # Absolute path is provided directly
+            file_path = file_name
+        elif file_name.startswith("../"):
+            # Path is relative to the current script's location
+            file_path = os.path.abspath(file_name)
+        else:
+            # Path is relative to the agent_path/activation_logging directory
+            # Check if "activation_logging" is already in the path
+            if "activation_logging" in file_name:
+                file_path = os.path.join(self.agent_path, file_name)
+            else:
+                file_path = os.path.join(self.activation_dir, file_name)
+        
+        # Verify the file exists
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Activation file not found: {file_path}")
+            
+        # Use the activation loader to load the activations
         return ActivationLoader.load_activations(file_path)
     
     def run_patching_experiment(self, 
@@ -90,8 +137,26 @@ class PatchingExperiment:
         if self.agent is None:
             self.load_agent()
         
+        # Handle various path formats for target input file
+        if os.path.isabs(target_input_file):
+            # Absolute path is provided directly
+            input_file_path = target_input_file
+        elif target_input_file.startswith("../"):
+            # Path is relative to the current script's location
+            input_file_path = os.path.abspath(target_input_file)
+        else:
+            # Path is relative to the agent_path/activation_inputs directory
+            # Check if "activation_inputs" is already in the path
+            if "activation_inputs" in target_input_file:
+                input_file_path = os.path.join(self.agent_path, target_input_file)
+            else:
+                input_file_path = os.path.join(self.agent_path, "activation_inputs", target_input_file)
+        
+        # Verify the input file exists
+        if not os.path.exists(input_file_path):
+            raise FileNotFoundError(f"Target input file not found: {input_file_path}")
+        
         # Load target inputs
-        input_file_path = os.path.join(self.agent_path, "activation_inputs", target_input_file)
         with open(input_file_path, "r") as f:
             target_inputs = json.load(f)
         
