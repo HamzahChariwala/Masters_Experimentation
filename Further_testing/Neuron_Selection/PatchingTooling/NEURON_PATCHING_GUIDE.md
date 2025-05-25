@@ -49,22 +49,6 @@ This format allows for:
 
 Finding the right neurons to patch requires analysis of activations. Here are several approaches:
 
-### 1. Using the Neuron Analysis Tool
-
-The `find_different_neurons.py` script helps identify neurons with significant differences between conditions:
-
-```bash
-python find_different_neurons.py \
-    --clean path/to/clean_activations_readable.json \
-    --corrupted path/to/corrupted_activations_readable.json \
-    --layer q_net.2 \
-    --top_n 10 \
-    --threshold 0.1 \
-    --generate_patch_spec
-```
-
-This will analyze the activations and suggest neurons to patch based on activation differences.
-
 ### 2. Comparing Clean and Corrupted Activations Manually
 
 To identify neurons that behave differently in clean vs. corrupted inputs:
