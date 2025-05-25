@@ -251,6 +251,94 @@ class PatchingExperiment:
         print(f"Results saved to {output_path}")
         return output_path
     
+    def save_results_by_input(self, all_results: List[Dict[str, Dict[str, Any]]], 
+                             patch_configs: List[Dict[str, Union[List[int], str]]],
+                             experiment_names: List[str],
+                             output_prefix: str,
+                             output_dir: Optional[str] = None) -> Dict[str, str]:
+        """
+        Save results organized by input ID rather than by patch configuration.
+        Each input gets its own file containing results from all patch experiments.
+        
+        Args:
+            all_results: List of results from multiple patching experiments
+            patch_configs: List of patch configurations used for each experiment
+            experiment_names: List of names for each experiment
+            output_prefix: Prefix for output files
+            output_dir: Optional directory to save results in (defaults to self.output_dir)
+            
+        Returns:
+            Dictionary mapping input IDs to their output file paths
+        """
+        # First, collect all unique input IDs across all experiments
+        all_input_ids = set()
+        for results in all_results:
+            all_input_ids.update(results.keys())
+        
+        # Create a new structure organized by input ID
+        input_organized_results = {}
+        output_files = {}
+        
+        # Use the specified output directory or default
+        save_dir = output_dir if output_dir else self.output_dir
+        os.makedirs(save_dir, exist_ok=True)
+        
+        for input_id in all_input_ids:
+            input_organized_results[input_id] = {}
+            
+            # Add results from each experiment for this input
+            for i, (results, patch_config, exp_name) in enumerate(zip(all_results, patch_configs, experiment_names)):
+                if input_id in results:
+                    # Store the result with experiment metadata
+                    input_organized_results[input_id][exp_name] = {
+                        "patch_configuration": patch_config,
+                        "results": results[input_id]
+                    }
+            
+            # Create a sanitized input ID for the filename (remove special chars)
+            safe_input_id = "".join(c if c.isalnum() else "_" for c in input_id)
+            # Directly use the sanitized input ID as the filename without prefix
+            if output_prefix:
+                output_file = f"{safe_input_id}.json"
+            else:
+                output_file = f"{safe_input_id}.json"
+            
+            output_path = os.path.join(save_dir, output_file)
+            
+            # Save this input's results to its own file
+            with open(output_path, "w") as f:
+                # Convert any non-serializable types
+                serializable_results = self._make_serializable(input_organized_results[input_id])
+                json.dump(serializable_results, f, indent=2)
+            
+            output_files[input_id] = output_path
+            print(f"Results for input {input_id} saved to {output_path}")
+        
+        return output_files
+    
+    def _make_serializable(self, data: Any) -> Any:
+        """
+        Recursively convert data to JSON-serializable types.
+        
+        Args:
+            data: Data to convert
+            
+        Returns:
+            JSON-serializable version of the data
+        """
+        if isinstance(data, dict):
+            return {k: self._make_serializable(v) for k, v in data.items()}
+        elif isinstance(data, (list, tuple)):
+            return [self._make_serializable(item) for item in data]
+        elif isinstance(data, np.ndarray):
+            return data.tolist()
+        elif isinstance(data, bool):
+            return bool(data)
+        elif isinstance(data, (int, float, str, type(None))):
+            return data
+        else:
+            return str(data)
+    
     def save_all_activations(self, 
                            input_id: str, 
                            baseline_activations: Dict[str, torch.Tensor],
@@ -285,4 +373,169 @@ class PatchingExperiment:
         np.savez(output_path, **save_dict)
         
         print(f"Activations saved to {output_path}")
-        return output_path 
+        return output_path
+    
+    def run_bidirectional_patching(self,
+                                  clean_input_file: str,
+                                  corrupted_input_file: str,
+                                  clean_activations_file: str,
+                                  corrupted_activations_file: str,
+                                  patch_configs: List[Dict[str, Union[List[int], str]]],
+                                  input_ids: Optional[List[str]] = None) -> Tuple[Dict[str, str], Dict[str, str]]:
+        """
+        Run patching experiments in both directions:
+        1. Denoising: Clean activations patched into corrupted inputs
+        2. Noising: Corrupted activations patched into clean inputs
+        
+        Args:
+            clean_input_file: Path to the clean inputs JSON file
+            corrupted_input_file: Path to the corrupted inputs JSON file
+            clean_activations_file: Path to the clean activations NPZ file
+            corrupted_activations_file: Path to the corrupted activations NPZ file
+            patch_configs: List of patch configurations to test
+            input_ids: Optional list of input IDs to process (if None, process all)
+            
+        Returns:
+            Tuple of (denoising_output_files, noising_output_files)
+        """
+        # Create denoising and noising directories
+        denoising_dir = os.path.join(self.output_dir, "denoising")
+        noising_dir = os.path.join(self.output_dir, "noising")
+        os.makedirs(denoising_dir, exist_ok=True)
+        os.makedirs(noising_dir, exist_ok=True)
+        
+        print("\n==== Running DENOISING experiments (clean activations → corrupted inputs) ====")
+        # Run denoising experiments (clean activations → corrupted inputs)
+        denoising_results = []
+        patch_configs_list = []
+        experiment_names = []
+        
+        for i, patch_spec in enumerate(patch_configs):
+            if not patch_spec:
+                print(f"Warning: Empty patch specification at index {i}. Skipping.")
+                continue
+                
+            # Create descriptive experiment name
+            layer_names = "-".join(patch_spec.keys())
+            exp_name = f"exp_{i+1}_{layer_names}"
+            experiment_names.append(exp_name)
+            
+            # Print experiment details
+            print(f"\nRunning denoising experiment {i+1}/{len(patch_configs)}:")
+            print(f"  Target input: {corrupted_input_file}")
+            print(f"  Source activations: {clean_activations_file}")
+            print(f"  Patching: {patch_spec}")
+            print("-" * 50)
+            
+            try:
+                # Run experiment
+                results = self.run_patching_experiment(
+                    corrupted_input_file,
+                    clean_activations_file,
+                    patch_spec,
+                    input_ids
+                )
+                
+                # Add patch configuration to results for reference
+                for input_id in results:
+                    results[input_id]["patch_configuration"] = patch_spec
+                
+                # Collect results for later organization by input
+                denoising_results.append(results)
+                patch_configs_list.append(patch_spec)
+                
+                # Print summary
+                changed_count = sum(1 for result in results.values() if result.get("action_changed", False))
+                total_count = len(results)
+                print(f"\nDenoising experiment {i+1} completed.")
+                print(f"Summary: {changed_count}/{total_count} actions changed due to patching")
+                
+            except Exception as e:
+                print(f"Error running denoising experiment {i+1}: {e}")
+                import traceback
+                traceback.print_exc()
+                continue
+        
+        # Save denoising results
+        if denoising_results:
+            print("\nSaving denoising results organized by input ID...")
+            denoising_output_files = self.save_results_by_input(
+                denoising_results,
+                patch_configs_list,
+                experiment_names,
+                "",  # No prefix
+                denoising_dir
+            )
+            print(f"Saved denoising results for {len(denoising_output_files)} inputs")
+        else:
+            denoising_output_files = {}
+        
+        # Reset experiment names for noising experiments
+        experiment_names = []
+        patch_configs_list = []
+        
+        print("\n==== Running NOISING experiments (corrupted activations → clean inputs) ====")
+        # Run noising experiments (corrupted activations → clean inputs)
+        noising_results = []
+        
+        for i, patch_spec in enumerate(patch_configs):
+            if not patch_spec:
+                print(f"Warning: Empty patch specification at index {i}. Skipping.")
+                continue
+                
+            # Create descriptive experiment name
+            layer_names = "-".join(patch_spec.keys())
+            exp_name = f"exp_{i+1}_{layer_names}"
+            experiment_names.append(exp_name)
+            
+            # Print experiment details
+            print(f"\nRunning noising experiment {i+1}/{len(patch_configs)}:")
+            print(f"  Target input: {clean_input_file}")
+            print(f"  Source activations: {corrupted_activations_file}")
+            print(f"  Patching: {patch_spec}")
+            print("-" * 50)
+            
+            try:
+                # Run experiment
+                results = self.run_patching_experiment(
+                    clean_input_file,
+                    corrupted_activations_file,
+                    patch_spec,
+                    input_ids
+                )
+                
+                # Add patch configuration to results for reference
+                for input_id in results:
+                    results[input_id]["patch_configuration"] = patch_spec
+                
+                # Collect results for later organization by input
+                noising_results.append(results)
+                patch_configs_list.append(patch_spec)
+                
+                # Print summary
+                changed_count = sum(1 for result in results.values() if result.get("action_changed", False))
+                total_count = len(results)
+                print(f"\nNoising experiment {i+1} completed.")
+                print(f"Summary: {changed_count}/{total_count} actions changed due to patching")
+                
+            except Exception as e:
+                print(f"Error running noising experiment {i+1}: {e}")
+                import traceback
+                traceback.print_exc()
+                continue
+        
+        # Save noising results
+        if noising_results:
+            print("\nSaving noising results organized by input ID...")
+            noising_output_files = self.save_results_by_input(
+                noising_results,
+                patch_configs_list,
+                experiment_names,
+                "",  # No prefix
+                noising_dir
+            )
+            print(f"Saved noising results for {len(noising_output_files)} inputs")
+        else:
+            noising_output_files = {}
+        
+        return denoising_output_files, noising_output_files 

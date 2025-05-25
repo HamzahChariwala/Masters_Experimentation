@@ -12,7 +12,7 @@ import os
 import json
 from typing import Dict, List, Union, Optional
 
-from Neuron_Selection.PatchingTooling import PatchingExperiment
+from Neuron_Selection.PatchingTooling.patching_experiment import PatchingExperiment
 
 
 def parse_patch_spec(patch_spec_str: str) -> Dict[str, Union[List[int], str]]:
@@ -120,10 +120,10 @@ def main():
     parser.add_argument("--agent_path", type=str, required=True,
                        help="Path to the agent directory (e.g., Agent_Storage/SpawnTests/biased/biased-v1)")
     
-    parser.add_argument("--target_input", type=str, required=True,
+    parser.add_argument("--target_input", type=str, default=None,
                        help="Target input file to patch (e.g., corrupted_inputs.json)")
     
-    parser.add_argument("--source_activations", type=str, required=True,
+    parser.add_argument("--source_activations", type=str, default=None,
                        help="Source activation file to patch from (e.g., clean_activations.npz)")
     
     # Make patch_spec optional since we now have patches_file as an alternative
@@ -137,11 +137,29 @@ def main():
     parser.add_argument("--input_ids", type=str, default=None,
                        help="Comma-separated list of input IDs to process (if not specified, process all)")
     
-    parser.add_argument("--output_prefix", type=str, default="patching_result",
+    parser.add_argument("--output_prefix", type=str, default="",
                        help="Prefix for output files")
     
     parser.add_argument("--device", type=str, default="cpu",
                        help="Device to run on (cpu or cuda)")
+    
+    parser.add_argument("--organize_by_input", action="store_true", default=True,
+                       help="Organize results by input ID rather than by patch configuration")
+    
+    parser.add_argument("--bidirectional", action="store_true", default=False,
+                       help="Run patching in both directions (clean->corrupted and corrupted->clean)")
+    
+    parser.add_argument("--clean_input", type=str, default=None,
+                       help="Clean input file for bidirectional patching")
+    
+    parser.add_argument("--corrupted_input", type=str, default=None,
+                       help="Corrupted input file for bidirectional patching")
+    
+    parser.add_argument("--clean_activations", type=str, default=None,
+                       help="Clean activations file for bidirectional patching")
+    
+    parser.add_argument("--corrupted_activations", type=str, default=None,
+                       help="Corrupted activations file for bidirectional patching")
     
     args = parser.parse_args()
     
@@ -170,14 +188,57 @@ def main():
     # Create experiment runner
     experiment = PatchingExperiment(args.agent_path, device=args.device)
     
+    # Check if bidirectional patching is requested
+    if args.bidirectional:
+        # Ensure all necessary files are provided for bidirectional patching
+        if not all([args.clean_input, args.corrupted_input, args.clean_activations, args.corrupted_activations]):
+            print("Error: Bidirectional patching requires all the following arguments:")
+            print("  --clean_input, --corrupted_input, --clean_activations, --corrupted_activations")
+            return 1
+        
+        # Run bidirectional patching
+        print(f"\nRunning bidirectional patching experiments with {len(patches)} patch configurations")
+        denoising_files, noising_files = experiment.run_bidirectional_patching(
+            args.clean_input,
+            args.corrupted_input,
+            args.clean_activations,
+            args.corrupted_activations,
+            patches,
+            input_ids
+        )
+        
+        print(f"\nAll bidirectional experiments completed.")
+        print(f"  Denoising results: {len(denoising_files)} files in {experiment.output_dir}/denoising/")
+        print(f"  Noising results: {len(noising_files)} files in {experiment.output_dir}/noising/")
+        
+        return 0
+    
+    # If not bidirectional, ensure target_input and source_activations are provided
+    if not args.target_input or not args.source_activations:
+        print("Error: Non-bidirectional patching requires --target_input and --source_activations.")
+        return 1
+    
+    # If organizing by input, we'll collect all results and save at the end
+    all_results = []
+    patch_configs = []
+    experiment_names = []
+    
     # Process each patch configuration
     for i, patch_spec in enumerate(patches):
         if not patch_spec:
             print(f"Warning: Empty patch specification at index {i}. Skipping.")
             continue
         
-        # Create descriptive output filename
-        output_file = generate_output_filename(args.output_prefix, i, patch_spec)
+        # Create descriptive experiment name
+        exp_name = f"exp_{i+1}"
+        if args.organize_by_input:
+            # Add more details to experiment name
+            layer_names = "-".join(patch_spec.keys())
+            exp_name = f"exp_{i+1}_{layer_names}"
+            experiment_names.append(exp_name)
+        else:
+            # Create descriptive output filename for patch-organized output
+            output_file = generate_output_filename(args.output_prefix, i, patch_spec)
         
         # Print experiment details
         print(f"\nRunning patching experiment {i+1}/{len(patches)}:")
@@ -185,7 +246,8 @@ def main():
         print(f"  Target input: {args.target_input}")
         print(f"  Source activations: {args.source_activations}")
         print(f"  Patching: {patch_spec}")
-        print(f"  Output file: {output_file}")
+        if not args.organize_by_input:
+            print(f"  Output file: {output_file}")
         print("-" * 50)
         
         try:
@@ -202,13 +264,21 @@ def main():
                 results[input_id]["patch_configuration"] = patch_spec
             
             # Save results
-            experiment.save_results(results, output_file)
+            if args.organize_by_input:
+                # Collect results for later organization by input
+                all_results.append(results)
+                patch_configs.append(patch_spec)
+            else:
+                # Save results organized by patch
+                experiment.save_results(results, output_file)
             
             # Print summary
             changed_count = sum(1 for result in results.values() if result.get("action_changed", False))
             total_count = len(results)
             
-            print(f"\nExperiment {i+1} completed. Results saved to {experiment.output_dir}/{output_file}")
+            print(f"\nExperiment {i+1} completed.")
+            if not args.organize_by_input:
+                print(f"Results saved to {experiment.output_dir}/{output_file}")
             print(f"Summary: {changed_count}/{total_count} actions changed due to patching")
             
         except Exception as e:
@@ -217,6 +287,17 @@ def main():
             traceback.print_exc()
             # Continue with next patch
             continue
+    
+    # If organizing by input, save all results now
+    if args.organize_by_input and all_results:
+        print("\nSaving results organized by input ID...")
+        output_files = experiment.save_results_by_input(
+            all_results,
+            patch_configs,
+            experiment_names,
+            args.output_prefix
+        )
+        print(f"Saved results for {len(output_files)} inputs")
     
     print(f"\nAll experiments completed.")
     return 0

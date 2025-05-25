@@ -36,3 +36,46 @@ python Agent_Evaluation/generate_evaluations.py --path Agent_Storage/LavaTests/S
 
 # Then generate the category summary:
 python Agent_Evaluation/category_summaries.py --agent Standard
+
+
+
+
+## Activation Patching Workflow Commands
+
+# 1. Generate Clean Inputs
+python ObservationTooling/generate_inputs.py --agent_path ../Agent_Storage/SpawnTests/biased/biased-v1 --num_inputs 20 --output_file clean_inputs.json
+
+# 2. Generate Corrupted Inputs
+python CorruptionTooling/corrupt_inputs.py --agent_path ../Agent_Storage/SpawnTests/biased/biased-v1 --input_file clean_inputs.json --output_file corrupted_inputs.json --corruption_type noise --strength 0.2
+
+# 3. Extract Clean Activations
+python activation_extraction.py --agent_path ../Agent_Storage/SpawnTests/biased/biased-v1 --inputs clean_inputs.json --output clean_activations --readable
+
+# 4. Extract Corrupted Activations
+python activation_extraction.py --agent_path ../Agent_Storage/SpawnTests/biased/biased-v1 --inputs corrupted_inputs.json --output corrupted_activations --readable
+
+# 5. Find Different Neurons (Optional, helps identify what to patch)
+python find_different_neurons.py --clean ../Agent_Storage/SpawnTests/biased/biased-v1/activation_logging/clean_activations_readable.json --corrupted ../Agent_Storage/SpawnTests/biased/biased-v1/activation_logging/corrupted_activations_readable.json --layer q_net.2 --top_n 10 --threshold 0.1 --generate_patch_spec
+
+# 6. Run Bidirectional Patching
+python activation_patching.py --bidirectional \
+    --agent_path ../Agent_Storage/SpawnTests/biased/biased-v1 \
+    --clean_input clean_inputs.json \
+    --corrupted_input corrupted_inputs.json \
+    --clean_activations clean_activations.npz \
+    --corrupted_activations corrupted_activations.npz \
+    --patches_file PatchingTooling/patches_sample.json
+
+# 7. Regular (Denoising Only) Patching
+python activation_patching.py \
+    --agent_path ../Agent_Storage/SpawnTests/biased/biased-v1 \
+    --target_input corrupted_inputs.json \
+    --source_activations clean_activations.npz \
+    --patches_file PatchingTooling/patches_sample.json
+
+# 8. Noising Only Patching
+python activation_patching.py \
+    --agent_path ../Agent_Storage/SpawnTests/biased/biased-v1 \
+    --target_input clean_inputs.json \
+    --source_activations corrupted_activations.npz \
+    --patches_file PatchingTooling/patches_sample.json
