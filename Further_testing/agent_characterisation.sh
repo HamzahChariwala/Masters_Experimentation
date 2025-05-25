@@ -54,4 +54,27 @@ for agent_dir in $agent_dirs; do
   fi
 done
 
+# Loop through each agent directory for reachable-path evaluation
+echo "=== Starting Reachable-Path Evaluation Phase ==="
+for agent_dir in $agent_dirs; do
+  # Check if evaluation_logs directory exists and performance_reachable_paths.json doesn't exist
+  if [ -d "$agent_dir/evaluation_logs" ] && [ ! -f "$agent_dir/evaluation_summary/performance_reachable_paths.json" ]; then
+    echo "========================================================================================="
+    echo "Generating reachable-path evaluation for: $agent_dir"
+    echo "========================================================================================="
+    
+    # Run the reachable-path evaluation command
+    python Agent_Evaluation/SummaryTooling/reachable_path_evaluation.py --agent "$(basename "$agent_dir")"
+    
+    echo "Reachable-path evaluation complete for $agent_dir"
+    echo ""
+  else
+    if [ ! -d "$agent_dir/evaluation_logs" ]; then
+      echo "Skipping reachable-path evaluation for $agent_dir - no evaluation_logs directory"
+    else
+      echo "Skipping reachable-path evaluation for $agent_dir - performance_reachable_paths.json exists"
+    fi
+  fi
+done
+
 echo "All necessary agents have been trained and evaluated!" 
