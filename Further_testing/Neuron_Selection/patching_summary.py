@@ -139,56 +139,77 @@ def process_experiment_results(results: Dict[str, Dict[str, Any]]) -> Dict[str, 
                 "count": len(numeric_values)
             }
     
-    # Normalize metrics across all experiments
-    normalize_metrics(summary_stats)
+    # Calculate standardized and normalized values across all experiments
+    calculate_metrics_statistics(summary_stats)
     
     return summary_stats
 
 
-def normalize_metrics(summary_stats: Dict[str, Dict[str, Any]]) -> None:
+def calculate_metrics_statistics(summary_stats: Dict[str, Dict[str, Any]]) -> None:
     """
-    Normalize metrics across all experiments in-place.
+    Calculate standardized and normalized values across all experiments.
     
     Args:
-        summary_stats: Dictionary with summary statistics to be normalized
+        summary_stats: Dictionary with summary statistics to be processed
     """
     # First, collect all mean values for each metric across experiments
     metric_means = defaultdict(list)
+    metric_mins = defaultdict(list)
+    metric_maxs = defaultdict(list)
     
     for experiment_key, exp_data in summary_stats.items():
         for metric_name, metric_stats in exp_data["metrics"].items():
             metric_means[metric_name].append(metric_stats["mean"])
+            metric_mins[metric_name].append(metric_stats["min"])
+            metric_maxs[metric_name].append(metric_stats["max"])
     
-    # Calculate global mean and std dev for each metric
+    # Calculate global statistics for each metric
     metric_globals = {}
     for metric_name, means in metric_means.items():
         if not means:
             continue
             
         means_array = np.array(means)
+        min_value = min(metric_mins[metric_name])
+        max_value = max(metric_maxs[metric_name])
+        
         metric_globals[metric_name] = {
             "global_mean": float(np.mean(means_array)),
-            "global_std_dev": float(np.std(means_array))
+            "global_std_dev": float(np.std(means_array)),
+            "global_min": float(min_value),
+            "global_max": float(max_value)
         }
     
-    # Add normalized values to each metric
+    # Add standardized and normalized values to each metric
     for experiment_key, exp_data in summary_stats.items():
         for metric_name, metric_stats in exp_data["metrics"].items():
             if metric_name in metric_globals:
                 global_mean = metric_globals[metric_name]["global_mean"]
                 global_std_dev = metric_globals[metric_name]["global_std_dev"]
+                global_min = metric_globals[metric_name]["global_min"]
+                global_max = metric_globals[metric_name]["global_max"]
                 
-                # Avoid division by zero
+                # Avoid division by zero for standardization
                 if global_std_dev != 0:
-                    # Z-score normalization
-                    metric_stats["normalized_value"] = (metric_stats["mean"] - global_mean) / global_std_dev
+                    # Z-score standardization
+                    metric_stats["standardized_value"] = (metric_stats["mean"] - global_mean) / global_std_dev
                 else:
                     # If std dev is 0, use difference from mean
-                    metric_stats["normalized_value"] = metric_stats["mean"] - global_mean
+                    metric_stats["standardized_value"] = metric_stats["mean"] - global_mean
+                
+                # Avoid division by zero for normalization
+                if global_max != global_min:
+                    # Min-max normalization to [0, 1] range
+                    metric_stats["normalized_value"] = (metric_stats["mean"] - global_min) / (global_max - global_min)
+                else:
+                    # If all values are the same, normalized value is 0.5
+                    metric_stats["normalized_value"] = 0.5
                 
                 # Add global stats for reference
                 metric_stats["global_mean"] = global_mean
                 metric_stats["global_std_dev"] = global_std_dev
+                metric_stats["global_min"] = global_min
+                metric_stats["global_max"] = global_max
 
 
 def save_summary_results(summary_stats: Dict[str, Dict[str, Any]], output_file: str) -> None:
