@@ -31,6 +31,8 @@ from Neuron_Selection.AnalysisTooling import (
     process_result_directory,
     METRIC_FUNCTIONS
 )
+# Import function for calculating summary statistics
+from Neuron_Selection.patching_summary import process_patching_results
 
 # Hardcoded constants that don't change between runs
 DEFAULT_DEVICE = "cpu"
@@ -394,6 +396,15 @@ def main():
     if args.analyze:
         results_dir = experiment.output_dir
         analyze_patching_results(results_dir, metrics)
+        
+        # Generate summary statistics across inputs
+        print("\nGenerating summary statistics across inputs...")
+        summary_files = process_patching_results(results_dir)
+        
+        if summary_files:
+            print("Summary files generated:")
+            for result_type, file_path in summary_files.items():
+                print(f"  {result_type}: {file_path}")
 
 if __name__ == "__main__":
     main()
