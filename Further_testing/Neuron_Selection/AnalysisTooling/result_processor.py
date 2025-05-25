@@ -125,16 +125,10 @@ def analyze_experiment_results(experiment_data: Dict[str, Any], metric_names: Li
         metric_func = METRIC_FUNCTIONS[metric_name]
         
         try:
-            # Check function signature to determine if action is needed
-            if metric_name in ["output_logit_delta", "action_probability_delta"]:
+            # Check which metrics need the baseline_action parameter
+            if metric_name in ["output_logit_delta", "action_probability_delta", "logit_proportion_change"]:
                 metrics[metric_name] = metric_func(baseline_output, patched_output, baseline_action)
-            elif metric_name == "top_action_probability_gap":
-                gap, base_top, patched_top = metric_func(baseline_output, patched_output)
-                metrics[metric_name] = {
-                    "gap": gap,
-                    "baseline_top_action": base_top,
-                    "patched_top_action": patched_top
-                }
+            # All other metrics don't need the baseline_action parameter
             else:
                 metrics[metric_name] = metric_func(baseline_output, patched_output)
                 

@@ -10,7 +10,16 @@ from .metrics import (
     logit_difference_norm,
     action_probability_delta,
     kl_divergence,
+    reverse_kl_divergence,
     top_action_probability_gap,
+    logit_proportion_change,
+    euclidean_distance,
+    chebyshev_distance_excluding_top,
+    cosine_similarity,
+    confidence_margin_change,
+    pearson_correlation,
+    hellinger_distance,
+    mahalanobis_distance,
     METRIC_FUNCTIONS
 )
 
@@ -28,7 +37,16 @@ __all__ = [
     'logit_difference_norm',
     'action_probability_delta',
     'kl_divergence',
+    'reverse_kl_divergence',
     'top_action_probability_gap',
+    'logit_proportion_change',
+    'euclidean_distance',
+    'chebyshev_distance_excluding_top',
+    'cosine_similarity',
+    'confidence_margin_change',
+    'pearson_correlation',
+    'hellinger_distance',
+    'mahalanobis_distance',
     'METRIC_FUNCTIONS',
     
     # Result processing

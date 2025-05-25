@@ -28,7 +28,8 @@ from Neuron_Selection.PatchingTooling.patching_experiment import PatchingExperim
 # Import functions from AnalysisTooling for result analysis
 from Neuron_Selection.AnalysisTooling import (
     process_result_file,
-    process_result_directory
+    process_result_directory,
+    METRIC_FUNCTIONS
 )
 
 # Hardcoded constants that don't change between runs
@@ -37,7 +38,7 @@ DEFAULT_ORGANIZE_BY_INPUT = True
 DEFAULT_BIDIRECTIONAL = True  # Changed to True to make bidirectional the default
 DEFAULT_OUTPUT_PREFIX = ""
 DEFAULT_ANALYZE_RESULTS = True  # Default to analyzing results
-DEFAULT_METRICS = "output_logit_delta"  # Default metrics to calculate
+DEFAULT_METRICS = ",".join(METRIC_FUNCTIONS.keys())  # All available metrics
 
 # Default file names and paths
 DEFAULT_CLEAN_INPUT = "clean_inputs.json"

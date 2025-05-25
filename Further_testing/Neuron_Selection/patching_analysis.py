@@ -9,7 +9,7 @@ import argparse
 import os
 import sys
 from typing import List, Optional
-from AnalysisTooling import process_result_directory, process_result_file
+from AnalysisTooling import process_result_directory, process_result_file, METRIC_FUNCTIONS
 
 
 def main():
@@ -25,8 +25,8 @@ def main():
     parser.add_argument("--file", type=str, default=None,
                        help="Process a specific result file instead of all files in the directory")
     
-    parser.add_argument("--metrics", type=str, default="output_logit_delta",
-                       help="Comma-separated list of metrics to calculate (default: output_logit_delta)")
+    parser.add_argument("--metrics", type=str, default=",".join(METRIC_FUNCTIONS.keys()),
+                       help="Comma-separated list of metrics to calculate (default: all available metrics)")
     
     parser.add_argument("--subdirs", action="store_true", default=False,
                        help="Process subdirectories (e.g., denoising, noising) if they exist")
