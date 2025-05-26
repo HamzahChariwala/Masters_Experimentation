@@ -413,8 +413,8 @@ class StateCorruptionTool:
         tables_frame = tk.Frame(logits_outer_frame)
         tables_frame.pack(fill=tk.X, padx=5, pady=5)
         
-        # Dark gray color for headers
-        header_color = "#333333"
+        # Lighter gray color for headers (changed from #333333 to #666666)
+        header_color = "#666666"
         
         # Original Q-values column (LEFT)
         orig_frame = tk.Frame(tables_frame)
@@ -463,6 +463,9 @@ class StateCorruptionTool:
                                    wrap=tk.WORD, bg="white", fg="black", borderwidth=1, relief=tk.SOLID)
         self.corrupted_text.pack(fill=tk.BOTH)
         self.corrupted_text.insert(tk.END, "Initializing...\n")
+        
+        # Initialize flag for best action change
+        self.best_action_changed = False
         
         # Button frame
         button_frame = tk.Frame(main_frame)
@@ -615,11 +618,19 @@ class StateCorruptionTool:
         for widget in self.left_grid_frame.winfo_children():
             if isinstance(widget, tk.Canvas):
                 widget.destroy()
+            elif not isinstance(widget, tk.Label):  # Keep the title label
+                widget.destroy()
+                
         for widget in self.center_grid_frame.winfo_children():
             if isinstance(widget, tk.Canvas):
                 widget.destroy()
+            elif not isinstance(widget, tk.Label):
+                widget.destroy()
+                
         for widget in self.right_grid_frame.winfo_children():
             if isinstance(widget, tk.Canvas):
+                widget.destroy()
+            elif not isinstance(widget, tk.Label):
                 widget.destroy()
         
         # Draw the grids
@@ -680,6 +691,283 @@ class StateCorruptionTool:
                 canvas.tag_bind(rect_id, "<Button-1>", 
                                lambda event, g=grid_index, r=i, c=j, rect=rect_id, canv=canvas: 
                                self._on_cell_click(g, r, c, rect, canv))
+        
+        # Add a static right-facing arrow in the middle-left cell of grid 1 and 2
+        if grid_index == 0 or grid_index == 1:
+            # Find middle row index
+            middle_row = grid_size // 2
+            left_col = 0
+            
+            # Calculate cell center
+            center_x = left_col * cell_size + cell_size/2
+            center_y = middle_row * cell_size + cell_size/2
+            
+            # Arrow parameters
+            arrow_length = cell_size * 0.7  # 70% of cell size
+            
+            # Right-facing arrow (from left to right)
+            start_x = center_x - arrow_length/2
+            start_y = center_y
+            end_x = center_x + arrow_length/2
+            end_y = center_y
+            
+            # Draw the arrow in black
+            canvas.create_line(
+                start_x, start_y, end_x, end_y, 
+                fill="black", 
+                width=max(2, int(cell_size/7)), 
+                arrow=tk.LAST,
+                arrowshape=(cell_size/4, cell_size/3, cell_size/6)
+            )
+        
+        # Draw action indicator if we have logits
+        self._draw_action_indicator(canvas, grid_index, grid_size, cell_size)
+        
+        return canvas
+    
+    def _draw_action_indicator(self, canvas, grid_index, grid_size, cell_size):
+        """Draw an indicator for the predicted next action on the grid."""
+        # Only draw if we have logits
+        if self.original_logits is None:
+            return
+        
+        # Get best action from original logits
+        orig_best_action = np.argmax(self.original_logits)
+        
+        # For the observation grids (0 and 1), the agent is ALWAYS:
+        # - In the far left column, middle row
+        # - Facing right (direction 0)
+        # For the environment grid (2), use actual agent position and orientation
+        if grid_index == 0 or grid_index == 1:
+            # Agent is always in far left column, middle row in observation grids
+            center_row = grid_size // 2
+            center_col = 0  # Far left column
+            agent_dir = 0   # Always facing right
+        else:  # Environment grid
+            # Use actual agent position and orientation
+            if self.agent_pos is not None:
+                center_row = self.agent_pos[1]  # y coordinate
+                center_col = self.agent_pos[0]  # x coordinate
+            else:
+                # Default to middle of grid if agent position unknown
+                center_row = grid_size // 2
+                center_col = grid_size // 2
+            
+            agent_dir = self.agent_dir if self.agent_dir is not None else 0
+        
+        # Draw the arrow for the original best action
+        self._draw_next_state_arrow(canvas, grid_size, cell_size, center_row, center_col, 
+                                   agent_dir, orig_best_action, "#aaaaaa")  # Light gray
+        
+        # If the best action changed and we have corrupted logits, draw a second arrow
+        if hasattr(self, 'best_action_changed') and self.best_action_changed and self.corrupted_logits is not None:
+            corrupt_best_action = np.argmax(self.corrupted_logits)
+            # Draw the corrupted action arrow in white with gray border
+            self._draw_next_state_arrow_with_border(canvas, grid_size, cell_size, center_row, center_col, 
+                                                  agent_dir, corrupt_best_action)
+    
+    def _draw_next_state_arrow(self, canvas, grid_size, cell_size, center_row, center_col, 
+                              agent_dir, action, color):
+        """Helper method to draw an arrow showing the next state after taking an action."""
+        # Calculate the next state (position and orientation) based on the action
+        # Default to current position and orientation
+        next_col, next_row, next_dir = center_col, center_row, agent_dir
+        
+        # MiniGrid actions: 0=turn left, 1=turn right, 2=move forward, 3/4=special moves
+        if action == 0:  # Turn left
+            # Just change orientation (90° counter-clockwise)
+            next_dir = (agent_dir + 3) % 4
+        elif action == 1:  # Turn right
+            # Just change orientation (90° clockwise)
+            next_dir = (agent_dir + 1) % 4
+        elif action == 2:  # Move forward
+            # Move one cell in the current direction
+            if agent_dir == 0:  # Right
+                next_col = center_col + 1
+            elif agent_dir == 1:  # Down
+                next_row = center_row + 1
+            elif agent_dir == 2:  # Left
+                next_col = center_col - 1
+            elif agent_dir == 3:  # Up
+                next_row = center_row - 1
+        elif action == 3:  # Diagonal right
+            # Move one cell diagonally to the right of current direction
+            if agent_dir == 0:  # Right -> Down-Right
+                next_col = center_col + 1
+                next_row = center_row + 1
+            elif agent_dir == 1:  # Down -> Down-Left
+                next_col = center_col - 1
+                next_row = center_row + 1
+            elif agent_dir == 2:  # Left -> Up-Left
+                next_col = center_col - 1
+                next_row = center_row - 1
+            elif agent_dir == 3:  # Up -> Up-Right
+                next_col = center_col + 1
+                next_row = center_row - 1
+        elif action == 4:  # Diagonal left
+            # Move one cell diagonally to the left of current direction
+            if agent_dir == 0:  # Right -> Up-Right
+                next_col = center_col + 1
+                next_row = center_row - 1
+            elif agent_dir == 1:  # Down -> Down-Right
+                next_col = center_col + 1
+                next_row = center_row + 1
+            elif agent_dir == 2:  # Left -> Down-Left
+                next_col = center_col - 1
+                next_row = center_row + 1
+            elif agent_dir == 3:  # Up -> Up-Left
+                next_col = center_col - 1
+                next_row = center_row - 1
+        
+        # Check if next position is within grid bounds
+        if next_col < 0 or next_col >= grid_size or next_row < 0 or next_row >= grid_size:
+            # If out of bounds, don't draw anything
+            return
+            
+        # Calculate pixel coordinates of next cell center
+        next_center_x = next_col * cell_size + cell_size/2
+        next_center_y = next_row * cell_size + cell_size/2
+        
+        # Arrow parameters
+        arrow_length = cell_size * 0.6  # Slightly smaller than agent arrow
+        arrow_width = max(1, int(cell_size/9))  # Thinner than agent arrow
+        
+        # Calculate arrow endpoints based on next orientation
+        # Direction mapping: 0=right, 1=down, 2=left, 3=up
+        if next_dir == 0:  # Right
+            start_x = next_center_x - arrow_length/2
+            start_y = next_center_y
+            end_x = next_center_x + arrow_length/2
+            end_y = next_center_y
+        elif next_dir == 1:  # Down
+            start_x = next_center_x
+            start_y = next_center_y - arrow_length/2
+            end_x = next_center_x
+            end_y = next_center_y + arrow_length/2
+        elif next_dir == 2:  # Left
+            start_x = next_center_x + arrow_length/2
+            start_y = next_center_y
+            end_x = next_center_x - arrow_length/2
+            end_y = next_center_y
+        else:  # Up
+            start_x = next_center_x
+            start_y = next_center_y + arrow_length/2
+            end_x = next_center_x
+            end_y = next_center_y - arrow_length/2
+        
+        # Draw the arrow
+        canvas.create_line(
+            start_x, start_y, end_x, end_y,
+            fill=color, width=arrow_width,
+            arrow=tk.LAST,
+            arrowshape=(cell_size/5, cell_size/4, cell_size/8)
+        )
+    
+    def _draw_next_state_arrow_with_border(self, canvas, grid_size, cell_size, center_row, center_col, 
+                                          agent_dir, action):
+        """Helper method to draw a white arrow with gray border for the corrupted action."""
+        # Calculate the next state (position and orientation) based on the action
+        # Default to current position and orientation
+        next_col, next_row, next_dir = center_col, center_row, agent_dir
+        
+        # MiniGrid actions: 0=turn left, 1=turn right, 2=move forward, 3/4=special moves
+        if action == 0:  # Turn left
+            # Just change orientation (90° counter-clockwise)
+            next_dir = (agent_dir + 3) % 4
+        elif action == 1:  # Turn right
+            # Just change orientation (90° clockwise)
+            next_dir = (agent_dir + 1) % 4
+        elif action == 2:  # Move forward
+            # Move one cell in the current direction
+            if agent_dir == 0:  # Right
+                next_col = center_col + 1
+            elif agent_dir == 1:  # Down
+                next_row = center_row + 1
+            elif agent_dir == 2:  # Left
+                next_col = center_col - 1
+            elif agent_dir == 3:  # Up
+                next_row = center_row - 1
+        elif action == 3:  # Diagonal right
+            # Move one cell diagonally to the right of current direction
+            if agent_dir == 0:  # Right -> Down-Right
+                next_col = center_col + 1
+                next_row = center_row + 1
+            elif agent_dir == 1:  # Down -> Down-Left
+                next_col = center_col - 1
+                next_row = center_row + 1
+            elif agent_dir == 2:  # Left -> Up-Left
+                next_col = center_col - 1
+                next_row = center_row - 1
+            elif agent_dir == 3:  # Up -> Up-Right
+                next_col = center_col + 1
+                next_row = center_row - 1
+        elif action == 4:  # Diagonal left
+            # Move one cell diagonally to the left of current direction
+            if agent_dir == 0:  # Right -> Up-Right
+                next_col = center_col + 1
+                next_row = center_row - 1
+            elif agent_dir == 1:  # Down -> Down-Right
+                next_col = center_col + 1
+                next_row = center_row + 1
+            elif agent_dir == 2:  # Left -> Down-Left
+                next_col = center_col - 1
+                next_row = center_row + 1
+            elif agent_dir == 3:  # Up -> Up-Left
+                next_col = center_col - 1
+                next_row = center_row - 1
+        
+        # Check if next position is within grid bounds
+        if next_col < 0 or next_col >= grid_size or next_row < 0 or next_row >= grid_size:
+            # If out of bounds, don't draw anything
+            return
+            
+        # Calculate pixel coordinates of next cell center
+        next_center_x = next_col * cell_size + cell_size/2
+        next_center_y = next_row * cell_size + cell_size/2
+        
+        # Arrow parameters
+        arrow_length = cell_size * 0.65  # Slightly larger arrow
+        border_width = max(4, int(cell_size/6))  # Much thicker border for visibility
+        arrow_width = max(2, int(cell_size/9))  # Slightly thicker inner arrow
+        
+        # Calculate arrow endpoints based on next orientation
+        # Direction mapping: 0=right, 1=down, 2=left, 3=up
+        if next_dir == 0:  # Right
+            start_x = next_center_x - arrow_length/2
+            start_y = next_center_y
+            end_x = next_center_x + arrow_length/2
+            end_y = next_center_y
+        elif next_dir == 1:  # Down
+            start_x = next_center_x
+            start_y = next_center_y - arrow_length/2
+            end_x = next_center_x
+            end_y = next_center_y + arrow_length/2
+        elif next_dir == 2:  # Left
+            start_x = next_center_x + arrow_length/2
+            start_y = next_center_y
+            end_x = next_center_x - arrow_length/2
+            end_y = next_center_y
+        else:  # Up
+            start_x = next_center_x
+            start_y = next_center_y + arrow_length/2
+            end_x = next_center_x
+            end_y = next_center_y - arrow_length/2
+        
+        # First draw a darker grey border
+        canvas.create_line(
+            start_x, start_y, end_x, end_y,
+            fill="#666666", width=border_width,
+            arrow=tk.LAST,
+            arrowshape=(cell_size/4, cell_size/3, cell_size/7)
+        )
+        
+        # Then draw the inner arrow in the same light grey as the original arrow
+        canvas.create_line(
+            start_x, start_y, end_x, end_y,
+            fill="#aaaaaa", width=arrow_width,
+            arrow=tk.LAST,
+            arrowshape=(cell_size/5, cell_size/4, cell_size/8)
+        )
     
     def _draw_environment_grid(self, frame):
         """Draw the environment grid showing agent and goal positions."""
@@ -775,6 +1063,11 @@ class StateCorruptionTool:
                 )
             else:
                 print(f"Warning: Agent position {agent_x}, {agent_y} is outside the environment bounds {env_size}x{env_size}")
+        
+        # Draw action indicator
+        self._draw_action_indicator(canvas, 2, env_size, cell_size)
+        
+        return canvas
     
     def _on_cell_click(self, grid_index, row, col, rect_id, canvas):
         """Handle cell click event for the input grids."""
@@ -1060,8 +1353,17 @@ class StateCorruptionTool:
             # Compute logits for corrupted input
             self.corrupted_logits = self._compute_logits(corrupted_array)
             
+            # Store whether the best action has changed
+            if self.original_logits is not None and self.corrupted_logits is not None:
+                self.best_action_changed = (np.argmax(self.original_logits) != np.argmax(self.corrupted_logits))
+            else:
+                self.best_action_changed = False
+            
             # Update the display
             self._display_logits()
+            
+            # Redraw grids to update action indicators
+            self.load_current_state()
     
     def _display_logits(self):
         """Update the display to show Q-values from the model."""
