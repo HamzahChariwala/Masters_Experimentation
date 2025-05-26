@@ -12,6 +12,13 @@ from torch import nn
 from stable_baselines3 import DQN
 import json
 import os
+import sys
+
+# Add the parent directory to the Python path to find Environment_Tooling
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Now imports should work
+import Environment_Tooling
 
 
 def extract_layers(model):

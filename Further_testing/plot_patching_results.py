@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 import glob
 
 # Paths to result directories
-noising_dir = "Agent_Storage/SpawnTests/biased/biased-v1/patching_results/noising"
-denoising_dir = "Agent_Storage/SpawnTests/biased/biased-v1/patching_results/denoising"
+noising_dir = "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6/patching_results/noising"
+denoising_dir = "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6/patching_results/denoising"
 
 # Function to extract metrics from experiment files
 def extract_metrics_from_files(directory_path, metrics_list):

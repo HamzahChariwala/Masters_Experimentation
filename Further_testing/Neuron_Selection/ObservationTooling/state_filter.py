@@ -263,7 +263,7 @@ if __name__ == "__main__":
     # ===================================================
 
     # Set your criteria here
-    CRITERIA = ["reaches_goal:is:true", "next_cell_is_lava:is:true" ]
+    CRITERIA = ["reaches_goal:is:true", "next_cell_is_lava:is:true", "cell_type:eq:floor"]
 
     parser = argparse.ArgumentParser(description='Filter states from agent evaluation logs.')
     parser.add_argument('--path', help='Path to the agent directory')
