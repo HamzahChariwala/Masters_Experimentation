@@ -49,6 +49,47 @@ class OptunaOptimizer:
         tuning_config_path = os.path.join(self.tuning_config.base_output_dir, "tuning_config.yaml")
         self.tuning_config.to_yaml(tuning_config_path)
     
+    def load_best_trials_from_results(self, results_file: str, top_n: int = 5) -> None:
+        """
+        Load the best trials from a previous optimization results file
+        and enqueue them to inform the new study.
+        
+        Args:
+            results_file (str): Path to the optimization_results.json file
+            top_n (int): Number of best trials to enqueue
+        """
+        if not os.path.exists(results_file):
+            self.logger.warning(f"Results file not found: {results_file}")
+            return False
+            
+        try:
+            with open(results_file, 'r') as f:
+                results = json.load(f)
+                
+            # Get Pareto front trials
+            pareto_trials = results.get('pareto_front', [])
+            if not pareto_trials:
+                self.logger.warning("No Pareto front trials found in results file")
+                return False
+                
+            # Sort trials by goal proportion (first objective, maximize)
+            pareto_trials.sort(key=lambda t: t['values'][0], reverse=True)
+            
+            # Take top N trials
+            top_trials = pareto_trials[:top_n]
+            self.logger.info(f"Loaded {len(top_trials)} best trials from previous study")
+            
+            # Enqueue each trial
+            for trial in top_trials:
+                self.study.enqueue_trial(trial['params'])
+                self.logger.info(f"Enqueued trial with params: {trial['params']}")
+                
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error loading best trials: {e}")
+            return False
+    
     def _suggest_params(self, trial: optuna.Trial) -> Dict[str, Any]:
         """Suggest parameters for a trial."""
         params = {}
