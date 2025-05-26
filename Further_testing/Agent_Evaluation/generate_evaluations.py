@@ -283,7 +283,7 @@ if __name__ == "__main__":
     # Default values
     ENV_ID = "MiniGrid-LavaCrossingS11N5-v0"
     SEED = 81102
-    NUM = 10  # Number of different seeds to evaluate on
+    NUM = 5  # Number of different seeds to evaluate on
     NUM_EPISODES = 1  # Number of episodes per seed (usually 1 since evaluation is deterministic)
     
     # Generate complete summary which runs evaluations on multiple seeds
