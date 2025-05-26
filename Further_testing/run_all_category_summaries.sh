@@ -7,31 +7,58 @@ echo "Running category summaries for all agent groups..."
 
 # Read the all_agent_dirs.txt file to get all agent groups
 while IFS= read -r line; do
-  # Extract the agent group and base directory
-  AGENT_BASE_DIR=$(dirname "$line")
+  # Extract the agent group and path components
+  FULL_PATH=$(dirname "$line")
   AGENT_GROUP=$(basename "$line")
   
-  # Display which group we're processing
-  if [[ "$AGENT_BASE_DIR" == *"EpisodeEnd/Exponential"* ]]; then
+  # Example line: Agent_Storage/LavaTests/Standard
+  # We need to identify the main category (LavaTests) and the agent type (Standard)
+  
+  # Extract parts of the path
+  CATEGORY=$(echo "$FULL_PATH" | cut -d'/' -f2)
+  
+  # For deeper paths like LavaTests/EpisodeEnd/Exponential/1_penalty
+  # we need to combine the subcategories
+  if [[ "$FULL_PATH" == *"EpisodeEnd/Exponential"* ]]; then
     DISPLAY_NAME="${AGENT_GROUP} Exponential"
-  elif [[ "$AGENT_BASE_DIR" == *"EpisodeEnd/Linear"* ]]; then
+    BASE_DIR="LavaTests/EpisodeEnd/Exponential"
+  elif [[ "$FULL_PATH" == *"EpisodeEnd/Linear"* ]]; then
     DISPLAY_NAME="${AGENT_GROUP} Linear"
-  elif [[ "$AGENT_BASE_DIR" == *"EpisodeEnd/Sigmoid"* ]]; then
+    BASE_DIR="LavaTests/EpisodeEnd/Linear"
+  elif [[ "$FULL_PATH" == *"EpisodeEnd/Sigmoid"* ]]; then
     DISPLAY_NAME="${AGENT_GROUP} Sigmoid"
-  elif [[ "$AGENT_BASE_DIR" == *"NoDeath"* ]]; then
+    BASE_DIR="LavaTests/EpisodeEnd/Sigmoid"
+  elif [[ "$FULL_PATH" == *"NoDeath"* ]]; then
     DISPLAY_NAME="${AGENT_GROUP} NoDeath"
-  elif [[ "$AGENT_BASE_DIR" == *"WindowSizing"* ]]; then
+    BASE_DIR="LavaTests/NoDeath"
+  elif [[ "$FULL_PATH" == *"LavaTests/Standard"* ]]; then
     DISPLAY_NAME="${AGENT_GROUP}"
+    BASE_DIR="LavaTests"
+  elif [[ "$FULL_PATH" == *"LavaTests/Standard2"* ]]; then
+    DISPLAY_NAME="${AGENT_GROUP}"
+    BASE_DIR="LavaTests"
+  elif [[ "$FULL_PATH" == *"LavaTests/Standard3"* ]]; then
+    DISPLAY_NAME="${AGENT_GROUP}"
+    BASE_DIR="LavaTests"
+  elif [[ "$FULL_PATH" == *"SpawnTests"* ]]; then
+    DISPLAY_NAME="${AGENT_GROUP}"
+    BASE_DIR="SpawnTests"
+  elif [[ "$FULL_PATH" == *"WindowSizing"* ]]; then
+    DISPLAY_NAME="${AGENT_GROUP}"
+    BASE_DIR="WindowSizing"
   else
     DISPLAY_NAME="${AGENT_GROUP}"
+    BASE_DIR="$CATEGORY"
   fi
   
   echo "========================================================================================="
   echo "Processing category summaries for: ${DISPLAY_NAME}"
+  echo "Base directory: ${BASE_DIR}"
+  echo "Agent type: ${AGENT_GROUP}"
   echo "========================================================================================="
   
   # Run the category_summaries.py script for this agent group
-  python Agent_Evaluation/SummaryTooling/category_summaries.py --agent_type "${AGENT_GROUP}"
+  python ./Agent_Evaluation/category_summaries.py --base "${BASE_DIR}" --agent "${AGENT_GROUP}"
   
   echo "Completed category summaries for ${DISPLAY_NAME}"
   echo ""
