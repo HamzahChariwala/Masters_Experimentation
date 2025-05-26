@@ -81,9 +81,6 @@ The system supports two ways to specify which neurons to patch:
 2. **Data Loading and Management**
    - `ActivationLoader`: Utilities for loading and processing activation data
 
-3. **Helper Tools**
-   - `find_different_neurons.py`: Utility for identifying neurons with significant differences
-
 ## Success Criteria
 
 The system will be considered successful if it can:

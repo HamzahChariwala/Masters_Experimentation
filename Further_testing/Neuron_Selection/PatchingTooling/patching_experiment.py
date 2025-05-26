@@ -64,8 +64,37 @@ class PatchingExperiment:
     
     def load_agent(self) -> None:
         """Load the agent model from the agent path."""
-        model_path = os.path.join(self.agent_path, "agent.zip")
+        # Use the project root to find the agent if it's a relative path from the project root
+        print(f"Agent path: {self.agent_path}")
+        print(f"Agent path exists: {os.path.exists(self.agent_path)}")
+        
+        if not os.path.isabs(self.agent_path):
+            # First try assuming the path is relative to the project root
+            project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+            print(f"Project root: {project_root}")
+            model_path = os.path.join(project_root, self.agent_path, "agent.zip")
+            print(f"Trying model path: {model_path}")
+            print(f"Model path exists: {os.path.exists(model_path)}")
+            
+            if not os.path.exists(model_path):
+                # If not found, try the path as provided
+                model_path = os.path.join(self.agent_path, "agent.zip")
+                print(f"Trying alternative model path: {model_path}")
+                print(f"Model path exists: {os.path.exists(model_path)}")
+        else:
+            # Absolute path
+            model_path = os.path.join(self.agent_path, "agent.zip")
+            print(f"Using absolute model path: {model_path}")
+            print(f"Model path exists: {os.path.exists(model_path)}")
+            
         if not os.path.exists(model_path):
+            # Try to list the contents of the agent directory to see what's there
+            try:
+                agent_dir_contents = os.listdir(self.agent_path)
+                print(f"Agent directory contents: {agent_dir_contents}")
+            except Exception as e:
+                print(f"Error listing agent directory: {e}")
+                
             raise FileNotFoundError(f"Model file not found at: {model_path}")
         
         print(f"Loading agent from {model_path}")

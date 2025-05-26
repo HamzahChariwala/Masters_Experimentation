@@ -468,6 +468,48 @@ def mahalanobis_distance(baseline_output: List[List[float]],
     return float(mahalanobis)
 
 
+def chebyshev_ratio(baseline_output: List[List[float]], 
+                   patched_output: List[List[float]]) -> Dict[str, Any]:
+    """
+    Calculate the ratio of the change in top logit to Chebyshev distance excluding top.
+    This metric provides both magnitude and direction information:
+    - Positive values indicate the top action's logit increased after patching
+    - Negative values indicate the top action's logit decreased after patching
+    - Magnitude shows the relative importance of the top action change vs. other actions
+    
+    Args:
+        baseline_output: Baseline model output logits
+        patched_output: Patched model output logits
+        
+    Returns:
+        Dictionary with the ratio, top logit change, and Chebyshev distance excluding top
+    """
+    # Convert to numpy arrays
+    baseline_array = np.array(baseline_output[0])
+    patched_array = np.array(patched_output[0])
+    
+    # Find the top action in the baseline
+    top_action = np.argmax(baseline_array)
+    
+    # Calculate the actual change in the top logit (can be positive or negative)
+    top_logit_change = float(patched_array[top_action] - baseline_array[top_action])
+    
+    # Get Chebyshev distance excluding top
+    chebyshev_excl_top_result = chebyshev_distance_excluding_top(baseline_output, patched_output)
+    chebyshev_excl_top = chebyshev_excl_top_result["distance"]
+    
+    # Calculate ratio with small epsilon for stability
+    epsilon = 1e-10
+    ratio = top_logit_change / (chebyshev_excl_top + epsilon)
+    
+    return {
+        "ratio": ratio,
+        "top_logit_change": top_logit_change,
+        "chebyshev_excl_top": chebyshev_excl_top,
+        "action": chebyshev_excl_top_result["action"]
+    }
+
+
 # Dictionary mapping metric names to their functions
 METRIC_FUNCTIONS = {
     "output_logit_delta": output_logit_delta,
@@ -479,6 +521,7 @@ METRIC_FUNCTIONS = {
     "logit_proportion_change": logit_proportion_change,
     "euclidean_distance": euclidean_distance,
     "chebyshev_distance_excluding_top": chebyshev_distance_excluding_top,
+    "chebyshev_ratio": chebyshev_ratio,
     "cosine_similarity": cosine_similarity,
     "confidence_margin_change": confidence_margin_change,
     "pearson_correlation": pearson_correlation,
