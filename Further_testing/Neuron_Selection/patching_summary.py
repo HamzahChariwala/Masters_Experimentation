@@ -88,6 +88,9 @@ def process_experiment_results(results: Dict[str, Dict[str, Any]]) -> Dict[str, 
                     if "normalized_margin_change" in metric_value:
                         # For confidence_margin_change, use normalized_margin_change
                         experiment_metrics[experiment_key][metric_name].append(metric_value["normalized_margin_change"])
+                    elif "margin_change" in metric_value:
+                        # For updated confidence_margin_change, use margin_change
+                        experiment_metrics[experiment_key][metric_name].append(metric_value["margin_change"])
                     elif "correlation" in metric_value:
                         # For pearson_correlation, use correlation
                         experiment_metrics[experiment_key][metric_name].append(metric_value["correlation"])

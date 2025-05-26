@@ -332,48 +332,53 @@ def cosine_similarity(baseline_output: List[List[float]],
 def confidence_margin_change(baseline_output: List[List[float]], 
                             patched_output: List[List[float]]) -> Dict[str, Any]:
     """
-    Calculate the change in the confidence margin (difference between the top and second-highest logits)
-    divided by the sum of all logits to provide a normalized metric.
+    Calculate the change in the confidence margin (difference between the top and second-highest 
+    action probabilities after softmax) between baseline and patched outputs.
+    
+    This specifically tracks how patching affects the original top two actions from the baseline,
+    which is useful for interpretability analysis.
     
     Args:
         baseline_output: Baseline model output logits
         patched_output: Patched model output logits
         
     Returns:
-        Dictionary with normalized margin change and related information
+        Dictionary with probability margin change and related information
     """
     # Convert to numpy arrays
     baseline_array = np.array(baseline_output[0])
     patched_array = np.array(patched_output[0])
     
-    # Find top action in baseline
-    baseline_top_action = np.argmax(baseline_array)
+    # Apply softmax to get probabilities
+    def softmax(x):
+        exp_x = np.exp(x - np.max(x))  # Subtract max for numerical stability
+        return exp_x / exp_x.sum()
     
-    # Sort the baseline and patched arrays to find top and second values
-    baseline_sorted = np.sort(baseline_array)[::-1]  # Sort in descending order
-    patched_sorted = np.sort(patched_array)[::-1]
+    baseline_probs = softmax(baseline_array)
+    patched_probs = softmax(patched_array)
     
-    # Calculate the margins
-    baseline_margin = baseline_sorted[0] - baseline_sorted[1] if len(baseline_sorted) > 1 else baseline_sorted[0]
-    patched_margin = patched_sorted[0] - patched_sorted[1] if len(patched_sorted) > 1 else patched_sorted[0]
+    # Find top two actions in baseline
+    baseline_sorted_indices = np.argsort(baseline_probs)[-2:][::-1]  # Descending order, top 2
+    baseline_top_action = baseline_sorted_indices[0]
+    baseline_second_action = baseline_sorted_indices[1]
     
-    # Calculate the sum of absolute logits for normalization
-    baseline_sum = np.sum(np.abs(baseline_array))
-    patched_sum = np.sum(np.abs(patched_array))
+    # Calculate the margins using the SAME actions from baseline for both distributions
+    baseline_margin = baseline_probs[baseline_top_action] - baseline_probs[baseline_second_action]
+    patched_margin = patched_probs[baseline_top_action] - patched_probs[baseline_second_action]
     
-    # Normalize margins
-    baseline_norm_margin = baseline_margin / baseline_sum if baseline_sum != 0 else 0
-    patched_norm_margin = patched_margin / patched_sum if patched_sum != 0 else 0
-    
-    # Calculate change in normalized margin
-    margin_change = patched_norm_margin - baseline_norm_margin
+    # Calculate change in margin
+    margin_change = patched_margin - baseline_margin
     
     return {
-        "normalized_margin_change": float(margin_change),
+        "margin_change": float(margin_change),
         "baseline_margin": float(baseline_margin),
         "patched_margin": float(patched_margin),
-        "baseline_normalized_margin": float(baseline_norm_margin),
-        "patched_normalized_margin": float(patched_norm_margin)
+        "top_action": int(baseline_top_action),
+        "second_action": int(baseline_second_action),
+        "baseline_top_prob": float(baseline_probs[baseline_top_action]),
+        "baseline_second_prob": float(baseline_probs[baseline_second_action]),
+        "patched_top_prob": float(patched_probs[baseline_top_action]),
+        "patched_second_prob": float(patched_probs[baseline_second_action])
     }
 
 
