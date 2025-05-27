@@ -55,9 +55,11 @@ except ImportError as e:
 try:
     sys.path.insert(0, os.path.join(neuron_selection_dir, 'CircuitTooling'))
     from run_circuit_experiments import run_all_circuit_experiments
+    from visualize_circuit_results import create_circuit_visualization
 except ImportError as e:
-    print(f"Warning: Could not import circuit experiments runner: {e}")
+    print(f"Warning: Could not import circuit experiments runner or visualizer: {e}")
     run_all_circuit_experiments = None
+    create_circuit_visualization = None
 
 def load_summary_data(summary_file: str) -> Dict[str, Any]:
     """
@@ -390,15 +392,19 @@ def filter_metrics(agent_path: str) -> None:
             # Run circuit experiments
             if run_all_circuit_experiments:
                 print(f"Running circuit experiments...")
-                try:
-                    run_all_circuit_experiments(agent_path)
-                except Exception as e:
-                    print(f"Error running circuit experiments: {e}")
+                run_all_circuit_experiments(agent_path)
+                
+                # Generate visualizations
+                if create_circuit_visualization:
+                    print(f"Generating circuit verification visualizations...")
+                    create_circuit_visualization(agent_path)
+                else:
+                    print(f"Skipping visualization generation (module not available)")
             else:
                 print(f"Skipping circuit experiments (module not available)")
                 
         except Exception as e:
-            print(f"Error generating cumulative experiments: {e}")
+            print(f"Error in circuit verification workflow: {e}")
     else:
         print(f"\nSkipping cumulative experiment generation (module not available)")
 
