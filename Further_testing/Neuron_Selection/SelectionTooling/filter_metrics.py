@@ -18,6 +18,8 @@ Each file contains:
 
 Additionally generates a cross-metric summary file containing neurons that appear
 in all metrics' filtered results.
+
+After filtering, also generates cumulative coalition experiments for circuit verification.
 """
 import os
 import sys
@@ -33,6 +35,21 @@ neuron_selection_dir = os.path.dirname(script_dir)
 if neuron_selection_dir not in sys.path:
     sys.path.insert(0, neuron_selection_dir)
     print(f"Added Neuron_Selection directory to Python path: {neuron_selection_dir}")
+
+# Import the cumulative experiment generator
+try:
+    from CircuitTooling.cumulative_patching_generator import generate_cumulative_experiments
+except ImportError as e:
+    print(f"Warning: Could not import cumulative experiment generator: {e}")
+    generate_cumulative_experiments = None
+
+# Import the coalition to experiments converter
+try:
+    sys.path.insert(0, os.path.join(neuron_selection_dir, 'ExperimentTooling'))
+    from coalition_to_experiments import main as convert_coalitions_to_experiments
+except ImportError as e:
+    print(f"Warning: Could not import coalition to experiments converter: {e}")
+    convert_coalitions_to_experiments = None
 
 def load_summary_data(summary_file: str) -> Dict[str, Any]:
     """
@@ -340,6 +357,32 @@ def filter_metrics(agent_path: str) -> None:
     # Write cross-metric summary to the main results directory
     cross_metric_file = os.path.join(results_dir, "cross_metric_summary.json")
     write_cross_metric_summary(cross_metric_file, cross_metric_common, metrics_info)
+
+    # Generate cumulative coalition experiments
+    if generate_cumulative_experiments:
+        print(f"\nGenerating cumulative coalition experiments...")
+        try:
+            generate_cumulative_experiments(agent_path)
+            
+            # Convert coalition files to experiment format
+            if convert_coalitions_to_experiments:
+                print(f"Converting coalition files to experiment format...")
+                # Temporarily modify sys.argv to pass arguments to the converter
+                original_argv = sys.argv
+                sys.argv = ["coalition_to_experiments.py", "--agent_path", agent_path]
+                try:
+                    convert_coalitions_to_experiments()
+                except SystemExit:
+                    pass  # Ignore SystemExit from the converter
+                finally:
+                    sys.argv = original_argv
+            else:
+                print(f"Skipping coalition to experiments conversion (module not available)")
+                
+        except Exception as e:
+            print(f"Error generating cumulative experiments: {e}")
+    else:
+        print(f"\nSkipping cumulative experiment generation (module not available)")
 
 def main():
     parser = argparse.ArgumentParser(description="Filter metrics based on thresholds")
