@@ -51,6 +51,14 @@ except ImportError as e:
     print(f"Warning: Could not import coalition to experiments converter: {e}")
     convert_coalitions_to_experiments = None
 
+# Import the circuit experiments runner
+try:
+    sys.path.insert(0, os.path.join(neuron_selection_dir, 'CircuitTooling'))
+    from run_circuit_experiments import run_all_circuit_experiments
+except ImportError as e:
+    print(f"Warning: Could not import circuit experiments runner: {e}")
+    run_all_circuit_experiments = None
+
 def load_summary_data(summary_file: str) -> Dict[str, Any]:
     """
     Load patching summary data from a JSON file.
@@ -276,11 +284,11 @@ def filter_metrics(agent_path: str) -> None:
     
     # Define metrics and thresholds
     metrics_thresholds = {
-        'kl_divergence': 0.05,
-        'reverse_kl_divergence': 0.05,
-        'undirected_saturating_chebyshev': 0.5,
+        'kl_divergence': 0.03,
+        'reverse_kl_divergence': 0.03,
+        'undirected_saturating_chebyshev': 0.45,
         'confidence_margin_magnitude': 0.05,
-        'reversed_pearson_correlation': 0.05
+        'reversed_pearson_correlation': 0.03
     }
     
     # Dictionary to store common neurons across metrics
@@ -378,6 +386,16 @@ def filter_metrics(agent_path: str) -> None:
                     sys.argv = original_argv
             else:
                 print(f"Skipping coalition to experiments conversion (module not available)")
+                
+            # Run circuit experiments
+            if run_all_circuit_experiments:
+                print(f"Running circuit experiments...")
+                try:
+                    run_all_circuit_experiments(agent_path)
+                except Exception as e:
+                    print(f"Error running circuit experiments: {e}")
+            else:
+                print(f"Skipping circuit experiments (module not available)")
                 
         except Exception as e:
             print(f"Error generating cumulative experiments: {e}")
