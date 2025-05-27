@@ -49,6 +49,35 @@ DEFAULT_CLEAN_ACTIVATIONS = "clean_activations.npz"
 DEFAULT_CORRUPTED_ACTIVATIONS = "corrupted_activations.npz"
 DEFAULT_RESULT_FILENAME = "patching_results.json"
 
+# Layer to exclude from patching
+EXCLUDED_LAYER = "q_net.4"
+
+def filter_patch_configs(patch_configs: List[Dict[str, Union[List[int], str]]]) -> List[Dict[str, Union[List[int], str]]]:
+    """
+    Filter out excluded layers from patch configurations.
+    
+    Args:
+        patch_configs: List of patch configurations
+        
+    Returns:
+        Filtered list of patch configurations
+    """
+    filtered_configs = []
+    
+    for patch_config in patch_configs:
+        # Create a new config that excludes the specified layer
+        filtered_config = {layer: neurons for layer, neurons in patch_config.items() 
+                         if layer != EXCLUDED_LAYER}
+        
+        # Only add the config if it's not empty
+        if filtered_config:
+            filtered_configs.append(filtered_config)
+            
+    print(f"Filtered out layer '{EXCLUDED_LAYER}' from patch configurations")
+    print(f"Original patch count: {len(patch_configs)}, Filtered patch count: {len(filtered_configs)}")
+    
+    return filtered_configs
+
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Run activation patching experiments.")
@@ -136,6 +165,11 @@ def create_patch_config_from_args(layer: str, neurons_str: str) -> Dict[str, Uni
     Returns:
         Patch configuration dictionary
     """
+    # Skip creating the configuration if the layer is excluded
+    if layer == EXCLUDED_LAYER:
+        print(f"Warning: Specified layer '{layer}' is excluded from patching")
+        return {}
+        
     neurons = [int(n.strip()) for n in neurons_str.split(',')]
     return {layer: neurons}
 
@@ -239,6 +273,9 @@ def main():
         # Multiple patch configurations from file
         patch_configs = load_patches_from_file(args.patches_file)
         
+        # Filter out excluded layers
+        patch_configs = filter_patch_configs(patch_configs)
+        
         # Default to bidirectional unless explicitly set to unidirectional
         run_bidirectional = not args.unidirectional
         
@@ -251,6 +288,7 @@ def main():
             print(f"  Clean activations: {source_activations}")
             print(f"  Corrupted activations: {target_activations}")
             print(f"  Number of patch configurations: {len(patch_configs)}")
+            print(f"  Excluded layer: {EXCLUDED_LAYER}")
             print("--------------------------------------------------")
             
             clean_to_corrupted, corrupted_to_clean = experiment.run_bidirectional_patching(
@@ -281,6 +319,7 @@ def main():
                 print(f"  Target input: {target_input}")
                 print(f"  Source activations: {source_activations}")
                 print(f"  Patching: {patch_spec}")
+                print(f"  Excluded layer: {EXCLUDED_LAYER}")
                 print("--------------------------------------------------")
                 
                 try:
@@ -335,6 +374,11 @@ def main():
         # Single patch configuration from command-line arguments
         patch_spec = create_patch_config_from_args(args.layer, args.neurons)
         
+        # Skip if the patch spec is empty (which means the layer was excluded)
+        if not patch_spec:
+            print(f"Error: The specified layer '{args.layer}' is excluded from patching.")
+            sys.exit(1)
+        
         # Default to bidirectional unless explicitly set to unidirectional
         run_bidirectional = not args.unidirectional
         
@@ -349,6 +393,7 @@ def main():
             print(f"  Clean activations: {source_activations}")
             print(f"  Corrupted activations: {target_activations}")
             print(f"  Patch configuration: {patch_spec}")
+            print(f"  Excluded layer: {EXCLUDED_LAYER}")
             print("--------------------------------------------------")
             
             clean_to_corrupted, corrupted_to_clean = experiment.run_bidirectional_patching(
@@ -373,6 +418,7 @@ def main():
             print(f"  Target input: {target_input}")
             print(f"  Source activations: {source_activations}")
             print(f"  Patching: {patch_spec}")
+            print(f"  Excluded layer: {EXCLUDED_LAYER}")
             print("--------------------------------------------------")
             
             results = experiment.run_patching_experiment(

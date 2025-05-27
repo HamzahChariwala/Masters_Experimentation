@@ -20,6 +20,8 @@ from .metrics import (
     pearson_correlation,
     hellinger_distance,
     mahalanobis_distance,
+    directed_saturating_chebyshev,
+    undirected_saturating_chebyshev,
     METRIC_FUNCTIONS
 )
 
@@ -47,6 +49,8 @@ __all__ = [
     'pearson_correlation',
     'hellinger_distance',
     'mahalanobis_distance',
+    'directed_saturating_chebyshev',
+    'undirected_saturating_chebyshev',
     'METRIC_FUNCTIONS',
     
     # Result processing

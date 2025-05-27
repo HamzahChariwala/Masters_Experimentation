@@ -468,7 +468,7 @@ def mahalanobis_distance(baseline_output: List[List[float]],
     return float(mahalanobis)
 
 
-def chebyshev_ratio(baseline_output: List[List[float]], 
+def directed_saturating_chebyshev(baseline_output: List[List[float]], 
                    patched_output: List[List[float]]) -> Dict[str, Any]:
     """
     Calculate the ratio of the change in top logit to Chebyshev distance excluding top.
@@ -476,6 +476,10 @@ def chebyshev_ratio(baseline_output: List[List[float]],
     - Positive values indicate the top action's logit increased after patching
     - Negative values indicate the top action's logit decreased after patching
     - Magnitude shows the relative importance of the top action change vs. other actions
+    
+    The denominator includes the Chebyshev distance excluding top plus the absolute value
+    of the top logit change to slow the metric's growth as the change gets larger, making
+    it easier to compare between results.
     
     Args:
         baseline_output: Baseline model output logits
@@ -499,14 +503,99 @@ def chebyshev_ratio(baseline_output: List[List[float]],
     chebyshev_excl_top = chebyshev_excl_top_result["distance"]
     
     # Calculate ratio with small epsilon for stability
+    # Add the absolute value of top_logit_change to the denominator to slow the metric's growth
+    # as the change gets larger
     epsilon = 1e-10
-    ratio = top_logit_change / (chebyshev_excl_top + epsilon)
+    ratio = top_logit_change / (chebyshev_excl_top + abs(top_logit_change) + epsilon)
     
     return {
         "ratio": ratio,
         "top_logit_change": top_logit_change,
         "chebyshev_excl_top": chebyshev_excl_top,
         "action": chebyshev_excl_top_result["action"]
+    }
+
+
+def undirected_saturating_chebyshev(baseline_output: List[List[float]], 
+                               patched_output: List[List[float]]) -> Dict[str, Any]:
+    """
+    Calculate the absolute magnitude of the directed saturating Chebyshev ratio.
+    This metric removes the direction information and only focuses on the magnitude
+    of the effect, making it useful for finding neurons with strong effects regardless
+    of whether they increase or decrease the top action's logit.
+    
+    Args:
+        baseline_output: Baseline model output logits
+        patched_output: Patched model output logits
+        
+    Returns:
+        Dictionary with the absolute ratio, top logit change, and Chebyshev distance excluding top
+    """
+    # Get the directed result first
+    directed_result = directed_saturating_chebyshev(baseline_output, patched_output)
+    
+    # Take the absolute value of the ratio
+    abs_ratio = abs(directed_result["ratio"])
+    
+    return {
+        "ratio": abs_ratio,
+        "top_logit_change": directed_result["top_logit_change"],
+        "chebyshev_excl_top": directed_result["chebyshev_excl_top"],
+        "action": directed_result["action"]
+    }
+
+
+def confidence_margin_magnitude(baseline_output: List[List[float]], 
+                               patched_output: List[List[float]]) -> Dict[str, Any]:
+    """
+    Calculate the absolute magnitude of the change in confidence margin.
+    This metric measures how much the margin between the top two actions changes,
+    regardless of whether it increases or decreases.
+    
+    Args:
+        baseline_output: Baseline model output logits
+        patched_output: Patched model output logits
+        
+    Returns:
+        Dictionary with the absolute margin change and related information
+    """
+    # Get the confidence margin change result first
+    margin_result = confidence_margin_change(baseline_output, patched_output)
+    
+    # Take the absolute value of the margin change
+    abs_margin_change = abs(margin_result["margin_change"])
+    
+    return {
+        "magnitude": abs_margin_change,
+        "baseline_margin": margin_result["baseline_margin"],
+        "patched_margin": margin_result["patched_margin"],
+        "top_action": margin_result["top_action"],
+        "second_action": margin_result["second_action"]
+    }
+
+
+def reversed_pearson_correlation(baseline_output: List[List[float]], 
+                                patched_output: List[List[float]]) -> Dict[str, Any]:
+    """
+    Calculate 1 minus the Pearson correlation coefficient between baseline and patched logit vectors.
+    This provides a measure of dissimilarity where higher values indicate less correlation.
+    
+    Args:
+        baseline_output: Baseline model output logits
+        patched_output: Patched model output logits
+        
+    Returns:
+        Dictionary with reversed correlation coefficient and p-value
+    """
+    # Get the regular Pearson correlation result first
+    correlation_result = pearson_correlation(baseline_output, patched_output)
+    
+    # Calculate 1 minus the correlation
+    reversed_correlation = 1.0 - correlation_result["correlation"]
+    
+    return {
+        "reversed_correlation": float(reversed_correlation),
+        "p_value": correlation_result["p_value"]
     }
 
 
@@ -521,10 +610,13 @@ METRIC_FUNCTIONS = {
     "logit_proportion_change": logit_proportion_change,
     "euclidean_distance": euclidean_distance,
     "chebyshev_distance_excluding_top": chebyshev_distance_excluding_top,
-    "chebyshev_ratio": chebyshev_ratio,
+    "directed_saturating_chebyshev": directed_saturating_chebyshev,
+    "undirected_saturating_chebyshev": undirected_saturating_chebyshev,
     "cosine_similarity": cosine_similarity,
     "confidence_margin_change": confidence_margin_change,
+    "confidence_margin_magnitude": confidence_margin_magnitude,
     "pearson_correlation": pearson_correlation,
+    "reversed_pearson_correlation": reversed_pearson_correlation,
     "hellinger_distance": hellinger_distance,
     "mahalanobis_distance": mahalanobis_distance
 } 

@@ -58,7 +58,7 @@ def extract_metrics_from_files(directory_path, metrics_list):
                     value = 0.0
                     
                     if metric in patch_analysis:
-                        if metric == "chebyshev_ratio":
+                        if metric == "directed_saturating_chebyshev":
                             if isinstance(patch_analysis[metric], dict) and "ratio" in patch_analysis[metric]:
                                 value = patch_analysis[metric]["ratio"]
                             else:
@@ -166,8 +166,8 @@ def create_plot(experiments, metrics_data, metrics_list, title, output_path):
                     adjusted.append(v)
             normalized_metrics[metric] = adjusted
             print(f"  Pearson correlation adjusted: Subtracted 0.99 and scaled by 100 for values > 0.99")
-        elif metric == "chebyshev_ratio":
-            # For chebyshev ratio, we want to preserve sign but limit extreme values
+        elif metric == "directed_saturating_chebyshev":
+            # For directed saturating chebyshev, we want to preserve sign but limit extreme values
             normalized = []
             for v in values:
                 if abs(v) > 3:
@@ -179,7 +179,7 @@ def create_plot(experiments, metrics_data, metrics_list, title, output_path):
             
             # Find top 5 most extreme neurons (both positive and negative)
             extreme_indices = sorted(range(len(values)), key=lambda i: -abs(values[i]))[:5]
-            print(f"  Top 5 extreme chebyshev_ratio neurons:")
+            print(f"  Top 5 extreme directed_saturating_chebyshev neurons:")
             for i in extreme_indices:
                 print(f"    Neuron {sorted_experiments[i]}: {values[i]}")
         else:
@@ -235,8 +235,8 @@ def create_plot(experiments, metrics_data, metrics_list, title, output_path):
     plt.close()
 
 # Define metrics for each plot
-noising_metrics = ["kl_divergence", "chebyshev_ratio", "confidence_margin_change", "pearson_correlation"]
-denoising_metrics = ["reverse_kl_divergence", "chebyshev_ratio", "confidence_margin_change", "pearson_correlation"]
+noising_metrics = ["kl_divergence", "directed_saturating_chebyshev", "confidence_margin_change", "pearson_correlation"]
+denoising_metrics = ["reverse_kl_divergence", "directed_saturating_chebyshev", "confidence_margin_change", "pearson_correlation"]
 
 # Extract data from individual experiment files
 print("Extracting noising metrics...")

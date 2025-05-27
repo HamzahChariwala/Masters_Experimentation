@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
 Script to filter patching results based on specified criteria.
-Currently implements filtering for non-zero chebyshev ratio.
+Currently implements filtering for non-zero directed saturating chebyshev.
 
 Usage:
-    python filter_patching_results.py --agent_path <path_to_agent> --criterion chebyshev_ratio_nonzero
+    python filter_patching_results.py --agent_path <path_to_agent> --criterion directed_saturating_chebyshev_nonzero
 
 Example:
-    python filter_patching_results.py --agent_path Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6 --criterion chebyshev_ratio_nonzero
+    python filter_patching_results.py --agent_path Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6 --criterion directed_saturating_chebyshev_nonzero
 """
 
 import os
@@ -18,24 +18,24 @@ from typing import Dict, List, Callable, Any, Tuple
 import re
 
 # Define available criteria functions
-def chebyshev_ratio_nonzero(experiment_data: Dict[str, Any], experiment_type: str) -> bool:
+def directed_saturating_chebyshev_nonzero(experiment_data: Dict[str, Any], experiment_type: str) -> bool:
     """
-    Check if the chebyshev ratio is non-zero.
+    Check if the directed saturating chebyshev ratio is non-zero.
     
     Args:
         experiment_data: Data for a single experiment
         experiment_type: Either 'noising' or 'denoising'
         
     Returns:
-        True if the chebyshev ratio is non-zero, False otherwise
+        True if the directed saturating chebyshev ratio is non-zero, False otherwise
     """
     if 'metrics' not in experiment_data:
         return False
     
-    if 'chebyshev_ratio' not in experiment_data['metrics']:
+    if 'directed_saturating_chebyshev' not in experiment_data['metrics']:
         return False
     
-    chebyshev_data = experiment_data['metrics']['chebyshev_ratio']
+    chebyshev_data = experiment_data['metrics']['directed_saturating_chebyshev']
     
     # Check if the mean value is non-zero
     if 'mean' in chebyshev_data and chebyshev_data['mean'] != 0:
@@ -43,9 +43,9 @@ def chebyshev_ratio_nonzero(experiment_data: Dict[str, Any], experiment_type: st
     
     return False
 
-def chebyshev_ratio_significant(experiment_data: Dict[str, Any], experiment_type: str) -> bool:
+def directed_saturating_chebyshev_significant(experiment_data: Dict[str, Any], experiment_type: str) -> bool:
     """
-    Check if the chebyshev ratio is non-zero and has a magnitude of at least 1
+    Check if the directed saturating chebyshev ratio is non-zero and has a magnitude of at least 1
     in either its max or min value.
     
     Args:
@@ -53,15 +53,75 @@ def chebyshev_ratio_significant(experiment_data: Dict[str, Any], experiment_type
         experiment_type: Either 'noising' or 'denoising'
         
     Returns:
-        True if the chebyshev ratio is non-zero and has significant magnitude, False otherwise
+        True if the directed saturating chebyshev ratio is non-zero and has significant magnitude, False otherwise
     """
     if 'metrics' not in experiment_data:
         return False
     
-    if 'chebyshev_ratio' not in experiment_data['metrics']:
+    if 'directed_saturating_chebyshev' not in experiment_data['metrics']:
         return False
     
-    chebyshev_data = experiment_data['metrics']['chebyshev_ratio']
+    chebyshev_data = experiment_data['metrics']['directed_saturating_chebyshev']
+    
+    # Check if the mean value is non-zero
+    if 'mean' not in chebyshev_data or chebyshev_data['mean'] == 0:
+        return False
+    
+    # Check if at least one of max or min has magnitude >= 1
+    has_significant_magnitude = False
+    
+    if 'max' in chebyshev_data and abs(chebyshev_data['max']) >= 1:
+        has_significant_magnitude = True
+    
+    if 'min' in chebyshev_data and abs(chebyshev_data['min']) >= 1:
+        has_significant_magnitude = True
+    
+    return has_significant_magnitude
+
+def undirected_saturating_chebyshev_nonzero(experiment_data: Dict[str, Any], experiment_type: str) -> bool:
+    """
+    Check if the undirected saturating chebyshev ratio is non-zero.
+    
+    Args:
+        experiment_data: Data for a single experiment
+        experiment_type: Either 'noising' or 'denoising'
+        
+    Returns:
+        True if the undirected saturating chebyshev ratio is non-zero, False otherwise
+    """
+    if 'metrics' not in experiment_data:
+        return False
+    
+    if 'undirected_saturating_chebyshev' not in experiment_data['metrics']:
+        return False
+    
+    chebyshev_data = experiment_data['metrics']['undirected_saturating_chebyshev']
+    
+    # Check if the mean value is non-zero
+    if 'mean' in chebyshev_data and chebyshev_data['mean'] != 0:
+        return True
+    
+    return False
+
+def undirected_saturating_chebyshev_significant(experiment_data: Dict[str, Any], experiment_type: str) -> bool:
+    """
+    Check if the undirected saturating chebyshev ratio is non-zero and has a magnitude of at least 1
+    in either its max or min value.
+    
+    Args:
+        experiment_data: Data for a single experiment
+        experiment_type: Either 'noising' or 'denoising'
+        
+    Returns:
+        True if the undirected saturating chebyshev ratio is non-zero and has significant magnitude, False otherwise
+    """
+    if 'metrics' not in experiment_data:
+        return False
+    
+    if 'undirected_saturating_chebyshev' not in experiment_data['metrics']:
+        return False
+    
+    chebyshev_data = experiment_data['metrics']['undirected_saturating_chebyshev']
     
     # Check if the mean value is non-zero
     if 'mean' not in chebyshev_data or chebyshev_data['mean'] == 0:
@@ -80,8 +140,13 @@ def chebyshev_ratio_significant(experiment_data: Dict[str, Any], experiment_type
 
 # Dictionary of available criteria functions
 CRITERIA_FUNCTIONS = {
-    'chebyshev_ratio_nonzero': chebyshev_ratio_nonzero,
-    'chebyshev_ratio_significant': chebyshev_ratio_significant
+    'directed_saturating_chebyshev_nonzero': directed_saturating_chebyshev_nonzero,
+    'directed_saturating_chebyshev_significant': directed_saturating_chebyshev_significant,
+    'undirected_saturating_chebyshev_nonzero': undirected_saturating_chebyshev_nonzero,
+    'undirected_saturating_chebyshev_significant': undirected_saturating_chebyshev_significant,
+    # Keep old names for backwards compatibility
+    'chebyshev_ratio_nonzero': directed_saturating_chebyshev_nonzero,
+    'chebyshev_ratio_significant': directed_saturating_chebyshev_significant
 }
 
 def extract_neuron_info(experiment_id: str) -> Tuple[str, int]:
@@ -276,7 +341,7 @@ def main():
     parser = argparse.ArgumentParser(description='Filter patching results based on criteria')
     parser.add_argument('--agent_path', type=str, required=True,
                       help='Path to the agent directory')
-    parser.add_argument('--criterion', type=str, default='chebyshev_ratio_nonzero',
+    parser.add_argument('--criterion', type=str, default='directed_saturating_chebyshev_nonzero',
                       choices=list(CRITERIA_FUNCTIONS.keys()),
                       help='Criterion to use for filtering')
     parser.add_argument('--different_criteria', action='store_true',

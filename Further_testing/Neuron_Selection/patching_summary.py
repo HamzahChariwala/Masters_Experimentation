@@ -91,9 +91,15 @@ def process_experiment_results(results: Dict[str, Dict[str, Any]]) -> Dict[str, 
                     elif "margin_change" in metric_value:
                         # For updated confidence_margin_change, use margin_change
                         experiment_metrics[experiment_key][metric_name].append(metric_value["margin_change"])
+                    elif "magnitude" in metric_value:
+                        # For confidence_margin_magnitude, use magnitude
+                        experiment_metrics[experiment_key][metric_name].append(metric_value["magnitude"])
                     elif "correlation" in metric_value:
                         # For pearson_correlation, use correlation
                         experiment_metrics[experiment_key][metric_name].append(metric_value["correlation"])
+                    elif "reversed_correlation" in metric_value:
+                        # For reversed_pearson_correlation, use reversed_correlation
+                        experiment_metrics[experiment_key][metric_name].append(metric_value["reversed_correlation"])
                     elif "distance" in metric_value:
                         # For chebyshev_distance_excluding_top, use distance
                         experiment_metrics[experiment_key][metric_name].append(metric_value["distance"])
