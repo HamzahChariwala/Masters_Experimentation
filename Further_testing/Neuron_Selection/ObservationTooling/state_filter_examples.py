@@ -62,6 +62,36 @@ EXAMPLES = {
         "name": "Long paths without lava",
         "criteria": ["reaches_goal:is:true", "lava_steps:eq:0", "path_length:gt:25"],
         "description": "Find states where the agent takes long paths to avoid lava completely."
+    },
+    11: {
+        "name": "Blocked path safety choices",
+        "criteria": ["blocked:is:true", "chose_safety:is:true"],
+        "description": "Find states where path to goal is blocked without lava, but agent chose safety over optimal lava move."
+    },
+    12: {
+        "name": "Optimal safety decisions",
+        "criteria": ["chose_safety_optimally:is:true"],
+        "description": "Find states where agent chose safety and made the optimal safe choice."
+    },
+    13: {
+        "name": "Non-optimal safety choices",
+        "criteria": ["chose_safety:is:true", "chose_safety_optimally:is:false"],
+        "description": "Find states where agent chose safety but not the optimal safe choice."
+    },
+    14: {
+        "name": "Wall collision attempts",
+        "criteria": ["into_wall:is:true"],
+        "description": "Find states where agent attempted to move but hit a wall (typically rare)."
+    },
+    15: {
+        "name": "Reachable goal with safety behavior",
+        "criteria": ["blocked:is:false", "chose_safety:is:true", "reaches_goal:is:true"],
+        "description": "Find states where goal is reachable without lava, agent chose safety, and eventually reached goal."
+    },
+    16: {
+        "name": "Safety choices in dangerous situations",
+        "criteria": ["next_cell_is_lava:is:true", "chose_safety:is:true", "cell_type:eq:floor"],
+        "description": "Find floor states with lava ahead where agent chose safety over optimal lava move."
     }
 }
 
@@ -116,7 +146,7 @@ def run_state_filter(agent_path, criteria, output_suffix=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run state filtering examples.')
-    parser.add_argument('--example', type=int, help='Example number to run (1-10)')
+    parser.add_argument('--example', type=int, help='Example number to run (1-16)')
     parser.add_argument('--path', help='Path to the agent directory')
     parser.add_argument('--list', action='store_true', help='List all available examples')
     

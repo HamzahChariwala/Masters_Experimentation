@@ -7,7 +7,7 @@ import json
 from typing import Dict, List, Tuple, Any, Callable, Union
 import re
 import argparse
-from operator import gt, lt, ge, le, eq
+from operator import gt, lt, ge, le, eq, ne
 
 # Available properties from state array
 STATE_ARRAY_PROPERTIES = {
@@ -18,7 +18,11 @@ STATE_ARRAY_PROPERTIES = {
     'next_cell_is_lava': 4,
     'risky_diagonal': 5,
     'target_state': 6,
-    'action_taken': 7
+    'action_taken': 7,
+    'blocked': 8,
+    'chose_safety': 9,
+    'chose_safety_optimally': 10,
+    'into_wall': 11
 }
 
 # Default properties to extract - modify this list to change what gets extracted
@@ -26,7 +30,11 @@ DEFAULT_PROPERTIES = [
     'model_inputs.raw_input',  # Raw input array
     'risky_diagonal',         # Boolean indicating if the move is a risky diagonal
     'next_cell_is_lava',      # Boolean indicating if the next cell is lava
-    'action_taken'            # Integer representing the action (0-4)
+    'action_taken',           # Integer representing the action (0-4)
+    'blocked',                # Boolean indicating if path to goal exists without stepping into lava
+    'chose_safety',           # Boolean indicating if agent chose floor over optimal lava move
+    'chose_safety_optimally', # Boolean indicating if the safe move was the most optimal safe move
+    'into_wall'               # Boolean indicating if the action results in hitting a wall
 ]
 
 def load_json_file(file_path: str) -> Dict:
@@ -54,16 +62,32 @@ def create_comparison_function(operator: str, value: str) -> Callable[[Any], boo
     """Create a comparison function based on operator and value."""
     operators = {
         'eq': eq,
+        'ne': ne,
         'gt': gt,
         'lt': lt,
         'gte': ge,
         'lte': le,
         'true': lambda x: bool(x) is True,
-        'false': lambda x: bool(x) is False
+        'false': lambda x: bool(x) is False,
+        'in': lambda x, val_set: x in val_set
     }
     
     if operator in ('true', 'false'):
         return operators[operator]
+    
+    if operator == 'in':
+        # Parse comma-separated values into a set
+        val_set = set()
+        for val in value.split(','):
+            val = val.strip()
+            try:
+                if '.' in val:
+                    val_set.add(float(val))
+                else:
+                    val_set.add(int(val))
+            except ValueError:
+                val_set.add(val)  # Keep as string if not a number
+        return lambda x: x in val_set
     
     op_func = operators.get(operator)
     if op_func is None:
@@ -112,7 +136,11 @@ def create_state_filter(criteria_list: List[str]) -> Callable[[List, Dict[str, A
         'next_cell_is_lava': 4,
         'risky_diagonal': 5,
         'target_state': 6,
-        'action_taken': 7
+        'action_taken': 7,
+        'blocked': 8,
+        'chose_safety': 9,
+        'chose_safety_optimally': 10,
+        'into_wall': 11
     }
     
     def filter_func(state_data: List, raw_state_data: Dict[str, Any]) -> bool:
@@ -180,6 +208,19 @@ def process_evaluation_file(
             
             if 'action_taken' in properties or 'all' in properties:
                 result["action_taken"] = int(state_array[STATE_ARRAY_PROPERTIES['action_taken']])
+            
+            # Add new behavioral metrics
+            if 'blocked' in properties or 'all' in properties:
+                result["blocked"] = bool(state_array[STATE_ARRAY_PROPERTIES['blocked']])
+            
+            if 'chose_safety' in properties or 'all' in properties:
+                result["chose_safety"] = bool(state_array[STATE_ARRAY_PROPERTIES['chose_safety']])
+            
+            if 'chose_safety_optimally' in properties or 'all' in properties:
+                result["chose_safety_optimally"] = bool(state_array[STATE_ARRAY_PROPERTIES['chose_safety_optimally']])
+            
+            if 'into_wall' in properties or 'all' in properties:
+                result["into_wall"] = bool(state_array[STATE_ARRAY_PROPERTIES['into_wall']])
             
             results[key] = result
             counter += 1
@@ -263,7 +304,7 @@ if __name__ == "__main__":
     # ===================================================
 
     # Set your criteria here
-    CRITERIA = ["reaches_goal:is:true", "next_cell_is_lava:is:true", "cell_type:eq:floor"]
+    CRITERIA = ['blocked:is:false', 'chose_safety_optimally:is:true', 'action_taken:in:2,3,4']
 
     parser = argparse.ArgumentParser(description='Filter states from agent evaluation logs.')
     parser.add_argument('--path', help='Path to the agent directory')
