@@ -12,6 +12,7 @@ sys.path.insert(0, project_root)
 
 # Import from Agent_Evaluation module
 from Agent_Evaluation.AgentTooling.results_processing import format_json_with_compact_arrays
+from Agent_Evaluation.add_metrics import calculate_behavioral_metrics_for_states
 
 def load_dijkstra_results() -> Dict[str, Any]:
     """
@@ -253,6 +254,139 @@ def generate_reachable_path_summary(agent_dir: str) -> str:
     print(f"\nTotal states filtered out: {filtered_lava_start_states} starting on lava, {filtered_unreachable_states} unable to reach goal without lava")
     print(f"Total reachable states: {reachable_overall_stats['total_states']}")
     
+    # Calculate behavioral metrics for reachable states
+    print("Calculating behavioral metrics...")
+    
+    # Collect all agent performance data that passes the reachable filter
+    all_filtered_agent_data = {}
+    
+    # Re-process all files to collect the filtered data for behavioral metrics
+    for json_file in json_files:
+        file_name = os.path.basename(json_file)
+        env_name = os.path.splitext(file_name)[0]
+        
+        if file_name.startswith("performance_"):
+            continue
+        
+        # Load agent performance data
+        try:
+            with open(json_file, 'r') as f:
+                agent_data = json.load(f)
+        except json.JSONDecodeError:
+            continue
+        
+        if "performance" not in agent_data:
+            continue
+        
+        # Get agent performance data
+        if "agent" in agent_data["performance"]:
+            agent_perf_data = agent_data["performance"]["agent"]
+        else:
+            agent_perf_data = agent_data["performance"]
+        
+        # Load corresponding Dijkstra data
+        dijkstra_file = os.path.join(project_root, "Behaviour_Specification", "Evaluations", file_name)
+        
+        if not os.path.exists(dijkstra_file):
+            continue
+        
+        try:
+            with open(dijkstra_file, 'r') as f:
+                env_dijkstra_data = json.load(f)
+        except json.JSONDecodeError:
+            continue
+        
+        if "performance" in env_dijkstra_data and "standard" in env_dijkstra_data["performance"]:
+            dijkstra_standard = env_dijkstra_data["performance"]["standard"]
+        else:
+            continue
+        
+        # Create set of reachable states for this environment
+        env_reachable_states = set()
+        for state_key, metrics in dijkstra_standard.items():
+            if state_key.startswith("__"):
+                continue
+            if isinstance(metrics, list) and len(metrics) > 3 and metrics[3] == 1:
+                env_reachable_states.add(state_key)
+        
+        # Filter agent data to only include reachable floor states
+        filtered_data = {}
+        for state_key, metrics in agent_perf_data.items():
+            if state_key.startswith("__"):
+                continue
+            if len(metrics) >= 6:
+                cell_type = metrics[0]
+                # Apply same filters: floor tiles that can reach goal without lava
+                if cell_type != "lava" and state_key in env_reachable_states:
+                    filtered_data[state_key] = metrics
+        
+        if filtered_data:
+            all_filtered_agent_data[env_name] = filtered_data
+    
+    # Define filter function for behavioral metrics calculation
+    def reachable_floor_filter(state_key: str, metrics: List) -> bool:
+        """Filter for floor tiles that can reach goal without lava - already applied above"""
+        return True  # Data is already filtered
+    
+    # Calculate behavioral metrics for all filtered data
+    behavioral_overall_counts = {
+        "total_states": 0,
+        "blocked_count": 0,
+        "chose_safety_count": 0,
+        "chose_safety_optimally_count": 0,
+        "into_wall_count": 0
+    }
+    
+    behavioral_per_state_counts = defaultdict(lambda: {
+        "count": 0,
+        "blocked_count": 0,
+        "chose_safety_count": 0,
+        "chose_safety_optimally_count": 0,
+        "into_wall_count": 0
+    })
+    
+    # Process each environment's filtered data
+    for env_name, env_data in all_filtered_agent_data.items():
+        # Load the dijkstra data for this specific environment
+        env_file_name = f"{env_name}.json"
+        dijkstra_file = os.path.join(project_root, "Behaviour_Specification", "Evaluations", env_file_name)
+        
+        if not os.path.exists(dijkstra_file):
+            continue
+            
+        try:
+            with open(dijkstra_file, 'r') as f:
+                env_dijkstra_data = json.load(f)
+        except json.JSONDecodeError:
+            continue
+        
+        if "performance" not in env_dijkstra_data:
+            continue
+            
+        # Get the dijkstra performance data for this environment
+        dijkstra_perf_data = env_dijkstra_data["performance"]
+        
+        env_overall, env_per_state = calculate_behavioral_metrics_for_states(
+            env_data, dijkstra_perf_data, reachable_floor_filter
+        )
+        
+        # Aggregate overall counts
+        behavioral_overall_counts["total_states"] += env_overall["total_states"]
+        behavioral_overall_counts["blocked_count"] += env_overall["blocked_count"]
+        behavioral_overall_counts["chose_safety_count"] += env_overall["chose_safety_count"]
+        behavioral_overall_counts["chose_safety_optimally_count"] += env_overall["chose_safety_optimally_count"]
+        behavioral_overall_counts["into_wall_count"] += env_overall["into_wall_count"]
+        
+        # Aggregate per-state counts
+        for state_key, state_counts in env_per_state.items():
+            behavioral_per_state_counts[state_key]["count"] += state_counts["count"]
+            behavioral_per_state_counts[state_key]["blocked_count"] += state_counts["blocked_count"]
+            behavioral_per_state_counts[state_key]["chose_safety_count"] += state_counts["chose_safety_count"]
+            behavioral_per_state_counts[state_key]["chose_safety_optimally_count"] += state_counts["chose_safety_optimally_count"]
+            behavioral_per_state_counts[state_key]["into_wall_count"] += state_counts["into_wall_count"]
+    
+    print(f"Calculated behavioral metrics for {behavioral_overall_counts['total_states']} filtered state instances")
+    
     # Process the collected statistics
     
     # Create summary data for each state
@@ -263,7 +397,7 @@ def generate_reachable_path_summary(agent_dir: str) -> str:
             continue
         
         # Calculate averages and proportions
-        summary_data[state_key] = {
+        state_summary = {
             "lava_cell_proportion": stats["lava_cell_count"] / stats["count"],
             "avg_path_length": stats["path_length_sum"] / stats["count"],
             "avg_lava_steps": stats["lava_steps_sum"] / stats["count"],
@@ -271,6 +405,27 @@ def generate_reachable_path_summary(agent_dir: str) -> str:
             "next_cell_lava_proportion": stats["next_cell_lava_count"] / stats["count"],
             "risky_diagonal_proportion": stats["risky_diagonal_count"] / stats["count"]
         }
+        
+        # Add behavioral metrics if available
+        if state_key in behavioral_per_state_counts:
+            behavioral_stats = behavioral_per_state_counts[state_key]
+            if behavioral_stats["count"] > 0:
+                state_summary["blocked_proportion"] = behavioral_stats["blocked_count"] / behavioral_stats["count"]
+                state_summary["chose_safety_proportion"] = behavioral_stats["chose_safety_count"] / behavioral_stats["count"]
+                state_summary["chose_safety_optimally_proportion"] = behavioral_stats["chose_safety_optimally_count"] / behavioral_stats["count"]
+                state_summary["into_wall_proportion"] = behavioral_stats["into_wall_count"] / behavioral_stats["count"]
+            else:
+                state_summary["blocked_proportion"] = 0.0
+                state_summary["chose_safety_proportion"] = 0.0
+                state_summary["chose_safety_optimally_proportion"] = 0.0
+                state_summary["into_wall_proportion"] = 0.0
+        else:
+            state_summary["blocked_proportion"] = 0.0
+            state_summary["chose_safety_proportion"] = 0.0
+            state_summary["chose_safety_optimally_proportion"] = 0.0
+            state_summary["into_wall_proportion"] = 0.0
+        
+        summary_data[state_key] = state_summary
     
     # Calculate overall summary
     total_states = reachable_overall_stats["total_states"]
@@ -289,6 +444,18 @@ def generate_reachable_path_summary(agent_dir: str) -> str:
         "next_cell_lava_proportion": reachable_overall_stats["next_cell_lava_count"] / total_states,
         "risky_diagonal_proportion": reachable_overall_stats["risky_diagonal_count"] / total_states
     }
+    
+    # Add behavioral metrics to overall summary
+    if behavioral_overall_counts["total_states"] > 0:
+        overall_summary["blocked_proportion"] = behavioral_overall_counts["blocked_count"] / behavioral_overall_counts["total_states"]
+        overall_summary["chose_safety_proportion"] = behavioral_overall_counts["chose_safety_count"] / behavioral_overall_counts["total_states"]
+        overall_summary["chose_safety_optimally_proportion"] = behavioral_overall_counts["chose_safety_optimally_count"] / behavioral_overall_counts["total_states"]
+        overall_summary["into_wall_proportion"] = behavioral_overall_counts["into_wall_count"] / behavioral_overall_counts["total_states"]
+    else:
+        overall_summary["blocked_proportion"] = 0.0
+        overall_summary["chose_safety_proportion"] = 0.0
+        overall_summary["chose_safety_optimally_proportion"] = 0.0
+        overall_summary["into_wall_proportion"] = 0.0
     
     # Create a dedicated summary directory
     summary_dir = os.path.join(agent_dir, "evaluation_summary")

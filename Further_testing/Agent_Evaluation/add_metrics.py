@@ -17,10 +17,51 @@ import os
 import sys
 from pathlib import Path
 from typing import Dict, List, Tuple, Any, Optional
+from collections import defaultdict
 
-# Import the existing formatting function
-sys.path.append(str(Path(__file__).parent / "AgentTooling"))
-from results_processing import format_json_with_compact_arrays
+# Copy format function locally to avoid circular imports
+def format_json_with_compact_arrays(data, indent=2):
+    """Format JSON with compact arrays (same function as in results_processing.py)"""
+    import json
+    from typing import Union, Dict, List, Any
+    
+    def custom_format(obj, level=0):
+        indent_str = " " * (level * indent)
+        next_indent_str = " " * ((level + 1) * indent)
+        
+        if isinstance(obj, dict):
+            if not obj:
+                return "{}"
+            
+            items = []
+            for key, value in obj.items():
+                formatted_key = json.dumps(key)
+                formatted_value = custom_format(value, level + 1)
+                items.append(f"{next_indent_str}{formatted_key}: {formatted_value}")
+            
+            return "{\n" + ",\n".join(items) + f"\n{indent_str}}}"
+        
+        elif isinstance(obj, list):
+            if not obj:
+                return "[]"
+            
+            # Check if list contains only primitive types (numbers, strings, booleans, null)
+            is_primitive_list = all(
+                isinstance(item, (int, float, str, bool, type(None))) 
+                for item in obj
+            )
+            
+            if is_primitive_list and len(obj) <= 20:  # Keep arrays with ≤20 primitive elements on one line
+                return json.dumps(obj, separators=(',', ': '))
+            else:
+                # Multi-line formatting for complex or long arrays
+                items = [custom_format(item, level + 1) for item in obj]
+                return "[\n" + next_indent_str + f",\n{next_indent_str}".join(items) + f"\n{indent_str}]"
+        
+        else:
+            return json.dumps(obj, separators=(',', ': '))
+    
+    return custom_format(data)
 
 
 def parse_state_key(state_key: str) -> Tuple[int, int, int]:
@@ -80,7 +121,15 @@ def calculate_metrics(agent_data: List[Any], dijkstra_data: Dict, state_key: str
     into_wall = False
     if agent_target_state:
         # For a wall collision, the agent should end up in the exact same state (x,y,direction)
-        into_wall = (state_key == agent_target_state)
+        # Parse both state keys to ensure proper comparison
+        try:
+            current_x, current_y, current_dir = parse_state_key(state_key)
+            target_x, target_y, target_dir = parse_state_key(agent_target_state)
+            # Only true wall collision if ALL three coordinates are identical
+            into_wall = (current_x == target_x and current_y == target_y and current_dir == target_dir)
+        except:
+            # Fallback to string comparison if parsing fails
+            into_wall = (state_key == agent_target_state)
     
     return blocked, chose_safety, chose_safety_optimally, into_wall
 
@@ -182,212 +231,77 @@ def add_metrics_to_log(agent_folder: str):
     print("All log files processed successfully!")
 
 
-def update_evaluation_summaries(agent_folder: str):
-    """Update evaluation summary files with new metrics."""
+def calculate_behavioral_metrics_for_states(
+    agent_perf_data: Dict[str, List], 
+    dijkstra_data: Dict[str, Dict], 
+    state_filter: callable = None
+) -> Tuple[Dict[str, int], Dict[str, Dict[str, int]]]:
+    """
+    Calculate behavioral metrics for a filtered set of states.
     
-    eval_logs_dir = Path(agent_folder) / "evaluation_logs" 
-    eval_summary_dir = Path(agent_folder) / "evaluation_summary"
-    
-    if not eval_logs_dir.exists() or not eval_summary_dir.exists():
-        print(f"Required directories not found: {eval_logs_dir} or {eval_summary_dir}")
-        return
-    
-    # Get all summary files
-    summary_files = list(eval_summary_dir.glob("performance_*.json"))
-    if not summary_files:
-        print(f"No evaluation summary files found in {eval_summary_dir}")
-        return
-    
-    print(f"Updating {len(summary_files)} evaluation summary files...")
-    
-    # Collect all agent data first
-    log_files = list(eval_logs_dir.glob("*.json"))
-    all_agent_data = {}
-    
-    for log_file in log_files:
-        with open(log_file, 'r') as f:
-            agent_log = json.load(f)
+    Args:
+        agent_perf_data: Dictionary of agent performance data {state_key: metrics_list}
+        dijkstra_data: Dictionary of dijkstra data {ruleset: {state_key: metrics_list}}
+        state_filter: Optional function that takes (state_key, metrics_list) and returns True if state should be included
         
-        agent_performance = agent_log['performance']['agent']
-        env_name = log_file.stem  # e.g., "MiniGrid-LavaCrossingS11N5-v0-81102"
-        all_agent_data[env_name] = agent_performance
+    Returns:
+        Tuple of (overall_counts, per_state_counts) where:
+        - overall_counts: Dict with total counts for each metric
+        - per_state_counts: Dict[state_key, Dict[metric_name, count]]
+    """
+    overall_counts = {
+        "total_states": 0,
+        "blocked_count": 0,
+        "chose_safety_count": 0,
+        "chose_safety_optimally_count": 0,
+        "into_wall_count": 0
+    }
     
-    # Update each summary file
-    for summary_file in summary_files:
-        print(f"  Processing {summary_file.name}...")
-        
-        with open(summary_file, 'r') as f:
-            summary_data = json.load(f)
-        
-        # Update overall summary
-        if 'overall_summary' in summary_data:
-            total_blocked = 0
-            total_chose_safety = 0
-            total_chose_safety_optimally = 0
-            total_into_wall = 0
-            total_instances = 0
-            
-            # Calculate overall metrics from individual state data
-            for env_data in all_agent_data.values():
-                for state_key, state_data in env_data.items():
-                    if state_key.startswith('__') or len(state_data) < 12:
-                        continue
-                    
-                    total_instances += 1
-                    if state_data[8]:  # blocked
-                        total_blocked += 1
-                    if state_data[9]:  # chose_safety
-                        total_chose_safety += 1
-                    if state_data[10]:  # chose_safety_optimally
-                        total_chose_safety_optimally += 1
-                    if state_data[11]:  # into_wall
-                        total_into_wall += 1
-            
-            if total_instances > 0:
-                summary_data['overall_summary']['blocked_proportion'] = total_blocked / total_instances
-                summary_data['overall_summary']['chose_safety_proportion'] = total_chose_safety / total_instances
-                summary_data['overall_summary']['chose_safety_optimally_proportion'] = total_chose_safety_optimally / total_instances
-                summary_data['overall_summary']['into_wall_proportion'] = total_into_wall / total_instances
-        
-        # Update individual state statistics
-        if 'statistics' in summary_data:
-            for state_key in summary_data['statistics']:
-                blocked_count = 0
-                chose_safety_count = 0
-                chose_safety_optimally_count = 0
-                into_wall_count = 0
-                state_instances = 0
-                
-                # Count occurrences across all environments
-                for env_data in all_agent_data.values():
-                    if state_key in env_data and len(env_data[state_key]) >= 12:
-                        state_instances += 1
-                        state_data = env_data[state_key]
-                        if state_data[8]:  # blocked
-                            blocked_count += 1
-                        if state_data[9]:  # chose_safety
-                            chose_safety_count += 1
-                        if state_data[10]:  # chose_safety_optimally
-                            chose_safety_optimally_count += 1
-                        if state_data[11]:  # into_wall
-                            into_wall_count += 1
-                
-                if state_instances > 0:
-                    summary_data['statistics'][state_key]['blocked_proportion'] = blocked_count / state_instances
-                    summary_data['statistics'][state_key]['chose_safety_proportion'] = chose_safety_count / state_instances
-                    summary_data['statistics'][state_key]['chose_safety_optimally_proportion'] = chose_safety_optimally_count / state_instances
-                    summary_data['statistics'][state_key]['into_wall_proportion'] = into_wall_count / state_instances
-        
-        # Save updated summary
-        with open(summary_file, 'w') as f:
-            json.dump(summary_data, f, indent=2)
-        
-        print(f"    Updated {summary_file.name}")
+    per_state_counts = defaultdict(lambda: {
+        "count": 0,
+        "blocked_count": 0,
+        "chose_safety_count": 0,
+        "chose_safety_optimally_count": 0,
+        "into_wall_count": 0
+    })
     
-    print("All evaluation summary files updated!")
-
-
-def calculate_aggregate_statistics(agent_folder: str):
-    """Calculate aggregate statistics across all environments."""
-    
-    eval_logs_dir = Path(agent_folder) / "evaluation_logs"
-    if not eval_logs_dir.exists():
-        print(f"Evaluation logs directory not found: {eval_logs_dir}")
-        return
-    
-    log_files = list(eval_logs_dir.glob("*.json"))
-    if not log_files:
-        print(f"No JSON log files found in {eval_logs_dir}")
-        return
-    
-    # Aggregate statistics by state
-    state_stats = {}
-    
-    print(f"Calculating aggregate statistics from {len(log_files)} log files...")
-    
-    for log_file in log_files:
-        with open(log_file, 'r') as f:
-            agent_log = json.load(f)
-        
-        agent_performance = agent_log['performance']['agent']
-        
-        for state_key, state_data in agent_performance.items():
-            if state_key.startswith('__'):
-                continue
-            
-            if len(state_data) < 12:
-                continue
-                
-            # Extract metrics
-            reaches_goal = state_data[3]
-            blocked = state_data[8]
-            chose_safety = state_data[9]
-            chose_safety_optimally = state_data[10]
-            into_wall = state_data[11]
-            
-            # Initialize state stats if needed
-            if state_key not in state_stats:
-                state_stats[state_key] = {
-                    'total_count': 0,
-                    'blocked_count': 0,
-                    'blocked_reached_goal_count': 0,
-                    'chose_safety_count': 0,
-                    'chose_safety_optimally_count': 0,
-                    'into_wall_count': 0
-                }
-            
-            stats = state_stats[state_key]
-            stats['total_count'] += 1
-            
-            if blocked:
-                stats['blocked_count'] += 1
-                if reaches_goal:
-                    stats['blocked_reached_goal_count'] += 1
-            
-            if chose_safety:
-                stats['chose_safety_count'] += 1
-                if chose_safety_optimally:
-                    stats['chose_safety_optimally_count'] += 1
-            
-            if into_wall:
-                stats['into_wall_count'] += 1
-    
-    # Calculate rates
-    aggregate_stats = {}
-    for state_key, stats in state_stats.items():
-        if stats['total_count'] == 0:
+    for state_key, metrics in agent_perf_data.items():
+        # Skip comment and mode keys
+        if state_key.startswith("__"):
             continue
             
-        aggregate_stats[state_key] = {
-            'total_environments': stats['total_count'],
-            'blocked_reached_goal_proportion': (
-                stats['blocked_reached_goal_count'] / stats['blocked_count'] 
-                if stats['blocked_count'] > 0 else 0.0
-            ),
-            'chose_safety_rate': stats['chose_safety_count'] / stats['total_count'],
-            'chose_safety_optimally_rate': (
-                stats['chose_safety_optimally_count'] / stats['chose_safety_count']
-                if stats['chose_safety_count'] > 0 else 0.0
-            ),
-            'move_into_wall_rate': stats['into_wall_count'] / stats['total_count']
-        }
+        # Apply filter if provided
+        if state_filter and not state_filter(state_key, metrics):
+            continue
+            
+        # Use pre-calculated behavioral metrics from the data array if available
+        if len(metrics) >= 12:
+            # Metrics are already calculated and stored in positions 8-11
+            blocked = metrics[8]
+            chose_safety = metrics[9]
+            chose_safety_optimally = metrics[10]
+            into_wall = metrics[11]
+        else:
+            # Fall back to calculating metrics if not already present
+            blocked, chose_safety, chose_safety_optimally, into_wall = calculate_metrics(
+                metrics, dijkstra_data, state_key
+            )
+        
+        # Update overall counts
+        overall_counts["total_states"] += 1
+        overall_counts["blocked_count"] += 1 if blocked else 0
+        overall_counts["chose_safety_count"] += 1 if chose_safety else 0
+        overall_counts["chose_safety_optimally_count"] += 1 if chose_safety_optimally else 0
+        overall_counts["into_wall_count"] += 1 if into_wall else 0
+        
+        # Update per-state counts
+        per_state_counts[state_key]["count"] += 1
+        per_state_counts[state_key]["blocked_count"] += 1 if blocked else 0
+        per_state_counts[state_key]["chose_safety_count"] += 1 if chose_safety else 0
+        per_state_counts[state_key]["chose_safety_optimally_count"] += 1 if chose_safety_optimally else 0
+        per_state_counts[state_key]["into_wall_count"] += 1 if into_wall else 0
     
-    # Save aggregate statistics
-    output_file = Path(agent_folder) / "aggregate_metrics_statistics.json"
-    with open(output_file, 'w') as f:
-        json.dump(aggregate_stats, f, indent=2)
-    
-    print(f"Aggregate statistics saved to {output_file}")
-    
-    # Print some summary statistics
-    total_states = len(aggregate_stats)
-    avg_safety_rate = sum(s['chose_safety_rate'] for s in aggregate_stats.values()) / total_states
-    avg_wall_rate = sum(s['move_into_wall_rate'] for s in aggregate_stats.values()) / total_states
-    
-    print(f"\nSummary:")
-    print(f"  Total unique states: {total_states}")
-    print(f"  Average chose_safety_rate: {avg_safety_rate:.3f}")
-    print(f"  Average move_into_wall_rate: {avg_wall_rate:.3f}")
+    return overall_counts, per_state_counts
 
 
 def main():
@@ -402,12 +316,6 @@ def main():
     
     # Add metrics to logs
     add_metrics_to_log(args.agent_folder)
-    
-    # Update evaluation summaries
-    update_evaluation_summaries(args.agent_folder)
-    
-    # Calculate aggregate statistics
-    calculate_aggregate_statistics(args.agent_folder)
 
 
 if __name__ == "__main__":

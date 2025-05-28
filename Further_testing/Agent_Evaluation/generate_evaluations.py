@@ -24,6 +24,7 @@ from Agent_Evaluation.SummaryTooling.comparison_evaluation import load_dijkstra_
 from Agent_Evaluation.SummaryTooling.reachable_path_evaluation import generate_reachable_path_summary
 from Agent_Evaluation.SummaryTooling.unreachable_path_evaluation import generate_unreachable_path_summary
 from Agent_Evaluation.SummaryTooling.lava_only_evaluation import generate_lava_only_summary
+from Agent_Evaluation.add_metrics import add_metrics_to_log, update_evaluation_summaries, calculate_aggregate_statistics
 
 # Import from our import_vars.py file - updated to reflect new location
 from Agent_Evaluation.EnvironmentTooling.import_vars import (
@@ -101,6 +102,18 @@ def generate_complete_summary(agent_path: str, env_id: str, seed: int, num_envs:
             logs_dir=agent_logs_dir,
             save_results=True
         )
+        
+        # Step 1.5: Add behavioral metrics to agent logs and update summaries
+        print("Adding behavioral metrics to agent logs...")
+        try:
+            add_metrics_to_log(agent_path)
+            print("Updating evaluation summaries with new metrics...")
+            update_evaluation_summaries(agent_path)
+            print("Calculating aggregate statistics...")
+            calculate_aggregate_statistics(agent_path)
+        except Exception as e:
+            print(f"Warning: Error adding behavioral metrics: {e}")
+            # Continue with the rest of the evaluation process even if metrics fail
         
         # Step 2: Create the overall summary file for the agent
         print("Creating agent performance summary...")

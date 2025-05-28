@@ -1,8 +1,12 @@
 import os
 import json
 import numpy as np
+import pandas as pd
 from typing import Dict, Any, Union, List, Optional
 from collections import defaultdict
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from add_metrics import calculate_behavioral_metrics_for_states
 
 
 def format_json_with_compact_arrays(data: Union[Dict, List, Any], indent: int = 2) -> str:
@@ -438,6 +442,76 @@ def add_performance_summary_to_agent_logs(logs_dir: Optional[str] = None, save_r
             
             print(f"  Added performance data to {file_name}")
     
+    # Calculate behavioral metrics for all states
+    print("Calculating behavioral metrics for all states...")
+    all_behavioral_counts = {"total_states": 0, "blocked_count": 0, "chose_safety_count": 0, "chose_safety_optimally_count": 0, "into_wall_count": 0}
+    behavioral_per_state = defaultdict(lambda: {"count": 0, "blocked_count": 0, "chose_safety_count": 0, "chose_safety_optimally_count": 0, "into_wall_count": 0})
+    
+    # Process each JSON file again for behavioral metrics
+    for json_file in json_files:
+        file_name = os.path.basename(json_file)
+        
+        # Skip performance summary files
+        if file_name.startswith("performance_summary"):
+            continue
+        
+        # Load agent data
+        try:
+            with open(json_file, 'r') as f:
+                agent_data = json.load(f)
+        except json.JSONDecodeError:
+            continue
+        
+        if "performance" not in agent_data:
+            continue
+        
+        # Get agent performance data
+        if "agent" in agent_data["performance"]:
+            agent_perf_data = agent_data["performance"]["agent"]
+        else:
+            agent_perf_data = agent_data["performance"]
+        
+        # Load corresponding Dijkstra data
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        dijkstra_file = os.path.join(project_root, "Behaviour_Specification", "Evaluations", file_name)
+        
+        if not os.path.exists(dijkstra_file):
+            continue
+        
+        try:
+            with open(dijkstra_file, 'r') as f:
+                env_dijkstra_data = json.load(f)
+        except json.JSONDecodeError:
+            continue
+        
+        if "performance" not in env_dijkstra_data:
+            continue
+            
+        # Get the dijkstra performance data
+        dijkstra_perf_data = env_dijkstra_data["performance"]
+        
+        # Calculate behavioral metrics for this environment (all states)
+        env_overall, env_per_state = calculate_behavioral_metrics_for_states(
+            agent_perf_data, dijkstra_perf_data, None  # No filter = all states
+        )
+        
+        # Aggregate counts
+        all_behavioral_counts["total_states"] += env_overall["total_states"]
+        all_behavioral_counts["blocked_count"] += env_overall["blocked_count"]
+        all_behavioral_counts["chose_safety_count"] += env_overall["chose_safety_count"]
+        all_behavioral_counts["chose_safety_optimally_count"] += env_overall["chose_safety_optimally_count"]
+        all_behavioral_counts["into_wall_count"] += env_overall["into_wall_count"]
+        
+        # Aggregate per-state counts
+        for state_key, state_counts in env_per_state.items():
+            behavioral_per_state[state_key]["count"] += state_counts["count"]
+            behavioral_per_state[state_key]["blocked_count"] += state_counts["blocked_count"]
+            behavioral_per_state[state_key]["chose_safety_count"] += state_counts["chose_safety_count"]
+            behavioral_per_state[state_key]["chose_safety_optimally_count"] += state_counts["chose_safety_optimally_count"]
+            behavioral_per_state[state_key]["into_wall_count"] += state_counts["into_wall_count"]
+    
+    print(f"Calculated behavioral metrics for {all_behavioral_counts['total_states']} state instances")
+    
     return performance_summaries
 
 def create_agent_performance_summary(agent_dir: Optional[str] = None, logs_dir: Optional[str] = None, overall_only: bool = False) -> str:
@@ -611,6 +685,76 @@ def create_agent_performance_summary(agent_dir: Optional[str] = None, logs_dir: 
                     floor_state_stats[state_key]["next_cell_lava_count"] += 1 if next_cell_is_lava else 0
                     floor_state_stats[state_key]["risky_diagonal_count"] += 1 if risky_diagonal else 0
     
+    # Calculate behavioral metrics for all states
+    print("Calculating behavioral metrics for all states...")
+    all_behavioral_counts = {"total_states": 0, "blocked_count": 0, "chose_safety_count": 0, "chose_safety_optimally_count": 0, "into_wall_count": 0}
+    behavioral_per_state = defaultdict(lambda: {"count": 0, "blocked_count": 0, "chose_safety_count": 0, "chose_safety_optimally_count": 0, "into_wall_count": 0})
+    
+    # Process each JSON file again for behavioral metrics
+    for json_file in json_files:
+        file_name = os.path.basename(json_file)
+        
+        # Skip performance summary files
+        if file_name.startswith("performance_summary"):
+            continue
+        
+        # Load agent data
+        try:
+            with open(json_file, 'r') as f:
+                agent_data = json.load(f)
+        except json.JSONDecodeError:
+            continue
+        
+        if "performance" not in agent_data:
+            continue
+        
+        # Get agent performance data
+        if "agent" in agent_data["performance"]:
+            agent_perf_data = agent_data["performance"]["agent"]
+        else:
+            agent_perf_data = agent_data["performance"]
+        
+        # Load corresponding Dijkstra data
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        dijkstra_file = os.path.join(project_root, "Behaviour_Specification", "Evaluations", file_name)
+        
+        if not os.path.exists(dijkstra_file):
+            continue
+        
+        try:
+            with open(dijkstra_file, 'r') as f:
+                env_dijkstra_data = json.load(f)
+        except json.JSONDecodeError:
+            continue
+        
+        if "performance" not in env_dijkstra_data:
+            continue
+            
+        # Get the dijkstra performance data
+        dijkstra_perf_data = env_dijkstra_data["performance"]
+        
+        # Calculate behavioral metrics for this environment (all states)
+        env_overall, env_per_state = calculate_behavioral_metrics_for_states(
+            agent_perf_data, dijkstra_perf_data, None  # No filter = all states
+        )
+        
+        # Aggregate counts
+        all_behavioral_counts["total_states"] += env_overall["total_states"]
+        all_behavioral_counts["blocked_count"] += env_overall["blocked_count"]
+        all_behavioral_counts["chose_safety_count"] += env_overall["chose_safety_count"]
+        all_behavioral_counts["chose_safety_optimally_count"] += env_overall["chose_safety_optimally_count"]
+        all_behavioral_counts["into_wall_count"] += env_overall["into_wall_count"]
+        
+        # Aggregate per-state counts
+        for state_key, state_counts in env_per_state.items():
+            behavioral_per_state[state_key]["count"] += state_counts["count"]
+            behavioral_per_state[state_key]["blocked_count"] += state_counts["blocked_count"]
+            behavioral_per_state[state_key]["chose_safety_count"] += state_counts["chose_safety_count"]
+            behavioral_per_state[state_key]["chose_safety_optimally_count"] += state_counts["chose_safety_optimally_count"]
+            behavioral_per_state[state_key]["into_wall_count"] += state_counts["into_wall_count"]
+    
+    print(f"Calculated behavioral metrics for {all_behavioral_counts['total_states']} state instances")
+    
     # Create summary data
     summary_data = {}
     if not overall_only:
@@ -625,6 +769,17 @@ def create_agent_performance_summary(agent_dir: Optional[str] = None, logs_dir: 
                     "next_cell_lava_proportion": stats["next_cell_lava_count"] / count,
                     "risky_diagonal_proportion": stats["risky_diagonal_count"] / count
                 }
+                
+                # Add behavioral metrics if available for this state
+                if state_key in behavioral_per_state and behavioral_per_state[state_key]["count"] > 0:
+                    behav_stats = behavioral_per_state[state_key]
+                    behav_count = behav_stats["count"]
+                    summary_data[state_key].update({
+                        "blocked_proportion": behav_stats["blocked_count"] / behav_count,
+                        "chose_safety_proportion": behav_stats["chose_safety_count"] / behav_count,
+                        "chose_safety_optimally_proportion": behav_stats["chose_safety_optimally_count"] / behav_count,
+                        "into_wall_proportion": behav_stats["into_wall_count"] / behav_count
+                    })
     
     # Create floor-only summary data
     floor_summary_data = {}
@@ -654,6 +809,15 @@ def create_agent_performance_summary(agent_dir: Optional[str] = None, logs_dir: 
             "next_cell_lava_proportion": overall_stats["next_cell_lava_count"] / total_states,
             "risky_diagonal_proportion": overall_stats["risky_diagonal_count"] / total_states
         }
+        
+        # Add behavioral metrics to overall summary
+        if all_behavioral_counts["total_states"] > 0:
+            overall_summary.update({
+                "blocked_proportion": all_behavioral_counts["blocked_count"] / all_behavioral_counts["total_states"],
+                "chose_safety_proportion": all_behavioral_counts["chose_safety_count"] / all_behavioral_counts["total_states"],
+                "chose_safety_optimally_proportion": all_behavioral_counts["chose_safety_optimally_count"] / all_behavioral_counts["total_states"],
+                "into_wall_proportion": all_behavioral_counts["into_wall_count"] / all_behavioral_counts["total_states"]
+            })
     
     # Calculate floor-only summary
     floor_states = floor_only_stats["total_states"]

@@ -13,6 +13,7 @@ sys.path.insert(0, project_root)
 
 # Import the JSON formatting function from results_processing
 from Agent_Evaluation.AgentTooling.results_processing import format_json_with_compact_arrays
+from Agent_Evaluation.add_metrics import update_evaluation_summaries
 
 def load_evaluation_summary(agent_dir: str, summary_type: str) -> Optional[Dict[str, Any]]:
     """
@@ -147,6 +148,13 @@ def generate_agent_category_summary(agent_type_dir: str) -> Optional[str]:
     for agent_dir in agent_version_dirs:
         agent_version = os.path.basename(agent_dir)
         print(f"Processing agent version: {agent_version}")
+        
+        # Ensure behavioral metrics are updated in evaluation summaries
+        try:
+            print(f"  Updating behavioral metrics for {agent_version}...")
+            update_evaluation_summaries(agent_dir)
+        except Exception as e:
+            print(f"  Warning: Could not update behavioral metrics for {agent_version}: {e}")
         
         # Try to load each summary type
         for summary_type in ["lava_only", "reachable_paths", "unreachable_paths", "all_states"]:

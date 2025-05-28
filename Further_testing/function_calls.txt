@@ -27,6 +27,18 @@ SEQUENTIAL FUNCTION CALLS:
    Command: python Agent_Evaluation/generate_evaluations.py --path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
    Generates: evaluation_logs/, evaluation_summary/, final_eval.json
    Dependencies: Requires agent.zip file
+   Note: Automatically includes behavioral metrics (blocked, chose_safety, chose_safety_optimally, into_wall)
+
+3.1. BEHAVIORAL METRICS (STANDALONE - if needed on existing evaluations)
+   Command: python Agent_Evaluation/add_metrics.py "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
+   Generates: Updates evaluation_logs/ and evaluation_summary/ with 4 new behavioral metrics
+   Dependencies: Requires evaluation_logs/ and Behaviour_Specification/Evaluations/ dijkstra data
+
+3.2. CATEGORY SUMMARIES GENERATION
+   Command: python Agent_Evaluation/category_summaries.py --base "LavaTests/NoDeath/0.100_penalty" --agent "0.100_penalty"
+   Generates: category_summary.json with statistics across agent versions
+   Dependencies: Requires evaluation_summary/ from multiple agent versions
+   Note: Automatically updates behavioral metrics before processing
 
 4. PATCHING SELECTION
    Command: python Neuron_Selection/SelectionTooling/analyze_metrics.py --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"

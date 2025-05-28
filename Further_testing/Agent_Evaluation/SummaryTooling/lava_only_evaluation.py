@@ -12,6 +12,7 @@ sys.path.insert(0, project_root)
 
 # Import from Agent_Evaluation module
 from Agent_Evaluation.AgentTooling.results_processing import format_json_with_compact_arrays
+from Agent_Evaluation.add_metrics import calculate_behavioral_metrics_for_states
 
 def load_dijkstra_results() -> Dict[str, Any]:
     """
@@ -194,6 +195,7 @@ def generate_lava_only_summary(agent_dir: str) -> str:
             "risky_diagonal_proportion": stats["risky_diagonal_count"] / stats["count"]
         }
     
+    
     # Calculate overall summary
     total_states = lava_overall_stats["total_states"]
     
@@ -201,6 +203,94 @@ def generate_lava_only_summary(agent_dir: str) -> str:
         print("No states found that meet filtering criteria (start on lava)")
         return ""
     
+    # Calculate behavioral metrics for lava states
+    print("Calculating behavioral metrics for lava-only states...")
+    
+    behavioral_overall_counts = {
+        "total_states": 0,
+        "blocked_count": 0,
+        "chose_safety_count": 0,
+        "chose_safety_optimally_count": 0,
+        "into_wall_count": 0
+    }
+    
+    behavioral_per_state_counts = defaultdict(lambda: {
+        "count": 0,
+        "blocked_count": 0,
+        "chose_safety_count": 0,
+        "chose_safety_optimally_count": 0,
+        "into_wall_count": 0
+    })
+    
+    # Process each environment's lava states
+    for json_file in json_files:
+        file_name = os.path.basename(json_file)
+        env_name = os.path.splitext(file_name)[0]
+        
+        if file_name.startswith("performance_"):
+            continue
+        
+        # Load agent performance data
+        try:
+            with open(json_file, 'r') as f:
+                agent_data = json.load(f)
+        except json.JSONDecodeError:
+            continue
+        
+        if "performance" not in agent_data:
+            continue
+        
+        # Get agent performance data
+        if "agent" in agent_data["performance"]:
+            agent_perf_data = agent_data["performance"]["agent"]
+        else:
+            agent_perf_data = agent_data["performance"]
+        
+        # Load corresponding Dijkstra data
+        dijkstra_file = os.path.join(project_root, "Behaviour_Specification", "Evaluations", file_name)
+        
+        if not os.path.exists(dijkstra_file):
+            continue
+        
+        try:
+            with open(dijkstra_file, 'r') as f:
+                env_dijkstra_data = json.load(f)
+        except json.JSONDecodeError:
+            continue
+        
+        if "performance" not in env_dijkstra_data:
+            continue
+            
+        # Get the dijkstra performance data in the format expected by calculate_behavioral_metrics_for_states
+        dijkstra_perf_data = env_dijkstra_data["performance"]
+        
+        # Define filter for lava states only (using same logic as main summary)
+        def lava_filter(state_key: str, metrics: List) -> bool:
+            cell_type = metrics[0]
+            return cell_type == "lava"
+        
+        # Calculate behavioral metrics for this environment (lava states only)
+        env_overall, env_per_state = calculate_behavioral_metrics_for_states(
+            agent_perf_data, dijkstra_perf_data, lava_filter
+        )
+        
+        # Aggregate overall counts
+        behavioral_overall_counts["total_states"] += env_overall["total_states"]
+        behavioral_overall_counts["blocked_count"] += env_overall["blocked_count"]
+        behavioral_overall_counts["chose_safety_count"] += env_overall["chose_safety_count"]
+        behavioral_overall_counts["chose_safety_optimally_count"] += env_overall["chose_safety_optimally_count"]
+        behavioral_overall_counts["into_wall_count"] += env_overall["into_wall_count"]
+        
+        # Aggregate per-state counts
+        for state_key, state_counts in env_per_state.items():
+            behavioral_per_state_counts[state_key]["count"] += state_counts["count"]
+            behavioral_per_state_counts[state_key]["blocked_count"] += state_counts["blocked_count"]
+            behavioral_per_state_counts[state_key]["chose_safety_count"] += state_counts["chose_safety_count"]
+            behavioral_per_state_counts[state_key]["chose_safety_optimally_count"] += state_counts["chose_safety_optimally_count"]
+            behavioral_per_state_counts[state_key]["into_wall_count"] += state_counts["into_wall_count"]
+    
+    print(f"Calculated behavioral metrics for {behavioral_overall_counts['total_states']} lava state instances")
+
     overall_summary = {
         "total_state_instances": total_states,
         "unique_states": len(summary_data),
@@ -211,6 +301,22 @@ def generate_lava_only_summary(agent_dir: str) -> str:
         "next_cell_lava_proportion": lava_overall_stats["next_cell_lava_count"] / total_states,
         "risky_diagonal_proportion": lava_overall_stats["risky_diagonal_count"] / total_states
     }
+    
+    # Add behavioral metrics to overall summary
+    if behavioral_overall_counts["total_states"] > 0:
+        overall_summary["blocked_proportion"] = behavioral_overall_counts["blocked_count"] / behavioral_overall_counts["total_states"]
+        overall_summary["chose_safety_proportion"] = behavioral_overall_counts["chose_safety_count"] / behavioral_overall_counts["total_states"]
+        overall_summary["chose_safety_optimally_proportion"] = behavioral_overall_counts["chose_safety_optimally_count"] / behavioral_overall_counts["total_states"]
+        overall_summary["into_wall_proportion"] = behavioral_overall_counts["into_wall_count"] / behavioral_overall_counts["total_states"]
+
+    # Add behavioral metrics to individual state statistics
+    for state_key in summary_data:
+        if state_key in behavioral_per_state_counts and behavioral_per_state_counts[state_key]["count"] > 0:
+            count = behavioral_per_state_counts[state_key]["count"]
+            summary_data[state_key]["blocked_proportion"] = behavioral_per_state_counts[state_key]["blocked_count"] / count
+            summary_data[state_key]["chose_safety_proportion"] = behavioral_per_state_counts[state_key]["chose_safety_count"] / count
+            summary_data[state_key]["chose_safety_optimally_proportion"] = behavioral_per_state_counts[state_key]["chose_safety_optimally_count"] / count
+            summary_data[state_key]["into_wall_proportion"] = behavioral_per_state_counts[state_key]["into_wall_count"] / count
     
     # Create a dedicated summary directory
     summary_dir = os.path.join(agent_dir, "evaluation_summary")
