@@ -32,15 +32,15 @@ if neuron_selection_dir not in sys.path:
 # CONFIGURABLE PARAMETERS
 #################################################
 
-# Define metrics and thresholds - EDIT THESE AS NEEDED
+# Define thresholds for each metric
 METRICS_THRESHOLDS = {
-    'kl_divergence': 0.05,         # Threshold for KL divergence
-    'reverse_kl_divergence': 0.05, # Threshold for reverse KL divergence
-    'undirected_saturating_chebyshev': 0.5,  # Threshold for undirected saturating Chebyshev
-    'confidence_margin_magnitude': 0.05,     # Threshold for confidence margin magnitude
-    'reversed_pearson_correlation': 0.05,    # Threshold for reversed Pearson correlation
+    'kl_divergence': 0.05,  # Threshold for KL divergence  
+    'reverse_kl_divergence': 0.05,  # Threshold for reverse KL divergence  
+    'confidence_margin_magnitude': 0.05,  # Threshold for confidence margin magnitude
+    'undirected_saturating_chebyshev': 0.4,  # Threshold for undirected saturating Chebyshev (lowered from 0.5)
+    'reversed_pearson_correlation': 0.05,  # Threshold for reversed Pearson correlation
     'reversed_undirected_saturating_chebyshev': 0.3,  # Threshold for reversed undirected saturating Chebyshev
-    'top_logit_delta_magnitude': 0.1         # Threshold for top logit delta magnitude
+    'top_logit_delta_magnitude': 0.1,  # Threshold for top logit delta magnitude
 }
 
 # Default plotting configuration

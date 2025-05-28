@@ -287,25 +287,47 @@ def create_circuit_visualization(
                 
                 ax.grid(True, alpha=0.3)
         
-        # Add metric names as row labels on the left side
+        # Add metric names as row labels on the left side with letters
+        metric_letters = []
         for i, metric_name in enumerate([d.name for d in metric_dirs]):
-            fig.text(0.02, 1 - (i + 0.5) / len(metric_dirs), metric_name, 
-                    rotation=90, verticalalignment='center', fontsize=11, fontweight='bold')
+            letter = chr(ord('A') + i)  # A, B, C, D, E, etc.
+            metric_letters.append((letter, metric_name))
+            # Calculate the exact y position to align with the center of each row of plots
+            # Account for the subplot positioning within the figure
+            plot_top = 0.88  # top of plot area from subplots_adjust
+            plot_bottom = 0.18  # bottom of plot area from subplots_adjust
+            plot_height = plot_top - plot_bottom
+            row_height = plot_height / len(metric_dirs)
+            row_center_y = plot_top - (i + 0.5) * row_height
+            fig.text(0.02, row_center_y, letter, 
+                    rotation=0, verticalalignment='center', horizontalalignment='center', 
+                    fontsize=14, fontweight='bold')
         
-        # Create a single legend for the entire figure
+        # Create a single legend for the entire figure (colors at bottom right)
         # Use the first subplot to get the legend handles and labels
         handles, labels = axes[0, 0].get_legend_handles_labels()
         if handles:
-            # Place legend outside the plot area on the right
-            fig.legend(handles, labels, loc='center right', bbox_to_anchor=(0.98, 0.5), 
-                      title='Logit Index', title_fontsize=11, fontsize=9)
+            # Place color legend at the bottom right, aligned with right edge of plots
+            # Use left margin (0.12) + plot width to align with right edge, then subtract spacing
+            plot_left = 0.12  # left margin from subplots_adjust
+            plot_right = 0.95  # right margin from subplots_adjust
+            legend_x = plot_right - 0.02  # right edge minus small spacing
+            color_legend = fig.legend(handles, labels, loc='lower right', bbox_to_anchor=(legend_x, 0.08), 
+                      title='Logit Index', title_fontsize=11, fontsize=9, ncol=1)
+        
+        # Add metric mapping as a simple vertical list aligned with left edge of plots
+        metric_text_lines = ["Metrics:"] + [f"{letter}: {metric}" for letter, metric in metric_letters]
+        metric_text = "\n".join(metric_text_lines)
+        # Align with left edge of plots plus small spacing
+        metric_x = plot_left + 0.01  # left edge plus small spacing
+        fig.text(metric_x, 0.08, metric_text, ha='left', va='bottom', fontsize=10)
         
         # Add overall title with more space
-        fig.suptitle(f'Circuit Verification Results - {experiment_type.title()}\n5 Metrics × 3 Environments (0=Baseline)', 
+        fig.suptitle(f'Circuit Verification Results - {experiment_type.title()}\n{len(metric_dirs)} Metrics × {len(all_examples)} Environments (0=Baseline)', 
                     fontsize=14, y=0.95)
         
-        # Adjust layout with better spacing
-        plt.subplots_adjust(left=0.12, right=0.85, top=0.88, bottom=0.12, 
+        # Adjust layout with better spacing to accommodate bottom legends
+        plt.subplots_adjust(left=0.12, right=0.95, top=0.88, bottom=0.18, 
                            hspace=0.35, wspace=0.25)
         
         # Save the plot
