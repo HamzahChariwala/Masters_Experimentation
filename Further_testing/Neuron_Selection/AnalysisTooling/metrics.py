@@ -599,6 +599,59 @@ def reversed_pearson_correlation(baseline_output: List[List[float]],
     }
 
 
+def reversed_undirected_saturating_chebyshev(baseline_output: List[List[float]], 
+                                       patched_output: List[List[float]]) -> Dict[str, Any]:
+    """
+    Calculate 1 minus the undirected saturating Chebyshev ratio.
+    This provides a measure of dissimilarity where higher values indicate stronger effects.
+    
+    Args:
+        baseline_output: Baseline model output logits
+        patched_output: Patched model output logits
+        
+    Returns:
+        Dictionary with reversed ratio and related information
+    """
+    # Get the undirected result first
+    undirected_result = undirected_saturating_chebyshev(baseline_output, patched_output)
+    
+    # Calculate 1 minus the ratio
+    reversed_ratio = 1.0 - undirected_result["ratio"]
+    
+    return {
+        "ratio": float(reversed_ratio),
+        "top_logit_change": undirected_result["top_logit_change"],
+        "chebyshev_excl_top": undirected_result["chebyshev_excl_top"],
+        "action": undirected_result["action"]
+    }
+
+
+def top_logit_delta_magnitude(baseline_output: List[List[float]], 
+                             patched_output: List[List[float]]) -> float:
+    """
+    Calculate the absolute magnitude of the change in the top logit.
+    This provides a simple measure of how much the top action's logit changed.
+    
+    Args:
+        baseline_output: Baseline model output logits
+        patched_output: Patched model output logits
+        
+    Returns:
+        Absolute magnitude of the top logit change
+    """
+    # Convert to numpy arrays
+    baseline_array = np.array(baseline_output[0])
+    patched_array = np.array(patched_output[0])
+    
+    # Find the top action in the baseline
+    top_action = np.argmax(baseline_array)
+    
+    # Calculate the absolute change in the top logit
+    top_logit_change = abs(patched_array[top_action] - baseline_array[top_action])
+    
+    return float(top_logit_change)
+
+
 # Dictionary mapping metric names to their functions
 METRIC_FUNCTIONS = {
     "output_logit_delta": output_logit_delta,
@@ -617,6 +670,8 @@ METRIC_FUNCTIONS = {
     "confidence_margin_magnitude": confidence_margin_magnitude,
     "pearson_correlation": pearson_correlation,
     "reversed_pearson_correlation": reversed_pearson_correlation,
+    "reversed_undirected_saturating_chebyshev": reversed_undirected_saturating_chebyshev,
+    "top_logit_delta_magnitude": top_logit_delta_magnitude,
     "hellinger_distance": hellinger_distance,
     "mahalanobis_distance": mahalanobis_distance
 } 

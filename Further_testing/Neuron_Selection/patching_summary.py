@@ -106,6 +106,9 @@ def process_experiment_results(results: Dict[str, Dict[str, Any]]) -> Dict[str, 
                     elif "gap" in metric_value:
                         # For top_action_probability_gap, use gap
                         experiment_metrics[experiment_key][metric_name].append(metric_value["gap"])
+                    elif "ratio" in metric_value:
+                        # For chebyshev ratio metrics (including reversed_undirected_saturating_chebyshev), use ratio
+                        experiment_metrics[experiment_key][metric_name].append(metric_value["ratio"])
                     else:
                         # For other dict metrics, use the first numeric value
                         for key, val in metric_value.items():
@@ -113,7 +116,7 @@ def process_experiment_results(results: Dict[str, Dict[str, Any]]) -> Dict[str, 
                                 experiment_metrics[experiment_key][metric_name].append(val)
                                 break
                 else:
-                    # For scalar metrics, just use the value
+                    # For scalar metrics (including top_logit_delta_magnitude), just use the value
                     experiment_metrics[experiment_key][metric_name].append(metric_value)
     
     # Calculate statistics for each experiment and metric

@@ -38,7 +38,9 @@ METRICS_THRESHOLDS = {
     'reverse_kl_divergence': 0.05, # Threshold for reverse KL divergence
     'undirected_saturating_chebyshev': 0.5,  # Threshold for undirected saturating Chebyshev
     'confidence_margin_magnitude': 0.05,     # Threshold for confidence margin magnitude
-    'reversed_pearson_correlation': 0.05     # Threshold for reversed Pearson correlation
+    'reversed_pearson_correlation': 0.05,    # Threshold for reversed Pearson correlation
+    'reversed_undirected_saturating_chebyshev': 0.3,  # Threshold for reversed undirected saturating Chebyshev
+    'top_logit_delta_magnitude': 0.1         # Threshold for top logit delta magnitude
 }
 
 # Default plotting configuration
@@ -64,7 +66,9 @@ METRICS_TO_NORMALIZE = [
     'kl_divergence', 
     'reverse_kl_divergence', 
     'confidence_margin_magnitude', 
-    'reversed_pearson_correlation'
+    'reversed_pearson_correlation',
+    'reversed_undirected_saturating_chebyshev',
+    'top_logit_delta_magnitude'
     # undirected_saturating_chebyshev is NOT included here as it's already in an acceptable range
 ]
 
@@ -133,6 +137,19 @@ def normalize_metric_value(metric_name: str, value: float) -> float:
     if metric_name == 'reversed_pearson_correlation':
         # Maximum observed was around 0.2, scale to full range
         normalized = min(1.0, value / 0.2)
+        return normalized
+    
+    # For reversed_undirected_saturating_chebyshev
+    if metric_name == 'reversed_undirected_saturating_chebyshev':
+        # This metric is already in range [0,1] since it's 1 - undirected_saturating_chebyshev
+        # Just clamp to ensure it's in bounds
+        return max(0.0, min(1.0, value))
+    
+    # For top_logit_delta_magnitude
+    if metric_name == 'top_logit_delta_magnitude':
+        # Scale based on observed maximums - most values are quite small
+        # Maximum observed was around 0.5, so scale appropriately
+        normalized = min(1.0, value / 0.5)
         return normalized
     
     # Default normalization: just clamp to [0, 1]
