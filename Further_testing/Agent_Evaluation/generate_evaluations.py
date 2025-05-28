@@ -24,7 +24,7 @@ from Agent_Evaluation.SummaryTooling.comparison_evaluation import load_dijkstra_
 from Agent_Evaluation.SummaryTooling.reachable_path_evaluation import generate_reachable_path_summary
 from Agent_Evaluation.SummaryTooling.unreachable_path_evaluation import generate_unreachable_path_summary
 from Agent_Evaluation.SummaryTooling.lava_only_evaluation import generate_lava_only_summary
-from Agent_Evaluation.add_metrics import add_metrics_to_log, update_evaluation_summaries, calculate_aggregate_statistics
+from Agent_Evaluation.add_metrics import add_metrics_to_log
 
 # Import from our import_vars.py file - updated to reflect new location
 from Agent_Evaluation.EnvironmentTooling.import_vars import (
@@ -35,6 +35,9 @@ from Agent_Evaluation.EnvironmentTooling.import_vars import (
     DEFAULT_RANK,
     DEFAULT_NUM_EPISODES
 )
+
+# Import from Agent_Evaluation - only import the function that actually exists
+from Agent_Evaluation.add_metrics import add_metrics_to_log
 
 def generate_complete_summary(agent_path: str, env_id: str, seed: int, num_envs: int, generate_plot: bool = True, debug: bool = False, force_dijkstra: bool = False):
 
@@ -107,10 +110,10 @@ def generate_complete_summary(agent_path: str, env_id: str, seed: int, num_envs:
         print("Adding behavioral metrics to agent logs...")
         try:
             add_metrics_to_log(agent_path)
-            print("Updating evaluation summaries with new metrics...")
-            update_evaluation_summaries(agent_path)
-            print("Calculating aggregate statistics...")
-            calculate_aggregate_statistics(agent_path)
+            # print("Updating evaluation summaries with new metrics...")
+            # update_evaluation_summaries(agent_path)
+            # print("Calculating aggregate statistics...")
+            # calculate_aggregate_statistics(agent_path)
         except Exception as e:
             print(f"Warning: Error adding behavioral metrics: {e}")
             # Continue with the rest of the evaluation process even if metrics fail

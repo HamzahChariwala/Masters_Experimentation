@@ -30,10 +30,10 @@ experiment:
     total_timesteps: 1000000
   version: 1.0
 model:
-  batch_size: 125
-  buffer_size: 400169
-  exploration_final_eps: 0.012188232940064603
-  exploration_fraction: 0.39812435252990697
+  batch_size: 64
+  buffer_size: 100000
+  exploration_final_eps: 0.05
+  exploration_fraction: 0.5
   features_extractor:
     class: CustomCombinedExtractor
     cnn:
@@ -51,12 +51,12 @@ model:
       hidden_sizes:
       - 64
       num_layers: 1
-  gamma: 0.8718056740085409
-  learning_rate: 0.00015503163018277435
-  learning_starts: 46207
+  gamma: 0.6
+  learning_rate: 0.00025
+  learning_starts: 100000
   policy: MultiInputPolicy
-  target_update_interval: 2386
-  train_freq: 25
+  target_update_interval: 1000
+  train_freq: 8
   type: DQN
   use_mps: false
   verbose: 1
