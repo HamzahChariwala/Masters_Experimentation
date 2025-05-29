@@ -5,11 +5,11 @@ Script: visualize_circuit_results.py
 Creates visualization plots for circuit verification results showing how logits change
 across the first 30 cumulative experiments for different metrics and input examples.
 
-This script creates a 5x3 grid of plots where:
-- Rows correspond to different metrics (first 5 metrics found)
-- Columns correspond to different input examples (first 3 examples found)
-- Each plot shows logit trajectories for the first 30 experiments
+This script creates separate plots for each metric where:
+- Each plot has 2 columns (noising vs denoising) and 5 rows (different environments/states)
+- Each subplot shows logit trajectories for the first 30 experiments
 - Colors correspond to logit indices (consistent across all plots)
+- Same environment/state combinations have consistent axis scaling across noising/denoising
 - Uses magma colormap for easy visual comparison
 """
 
@@ -46,6 +46,30 @@ def load_experiment_results(results_file: Path) -> Dict[str, Any]:
     except Exception as e:
         print(f"Error loading results file {results_file}: {e}")
         return {}
+
+
+def format_environment_name(raw_name: str) -> str:
+    """
+    Clean up environment names for display by removing common prefixes and suffixes.
+    
+    Args:
+        raw_name: Original environment name (e.g., "MiniGrid_LavaCrossingS11N5_v0_81102_7_8_0_0106")
+        
+    Returns:
+        Cleaned environment name (e.g., "S11N5_v0_81102_7_8_0")
+    """
+    # Remove "MiniGrid_LavaCrossing" prefix if present
+    if raw_name.startswith("MiniGrid_LavaCrossing"):
+        name = raw_name[len("MiniGrid_LavaCrossing"):]
+    else:
+        name = raw_name
+    
+    # Remove the last "_" and four digits if the pattern matches
+    # Look for pattern like "_1234" at the end
+    import re
+    name = re.sub(r'_\d{4}$', '', name)
+    
+    return name
 
 
 def extract_logits_from_experiments(data: Dict[str, Any], max_experiments: int = 30) -> List[List[float]]:
@@ -122,7 +146,7 @@ def create_circuit_visualization(
     output_dir: str = None,
     max_experiments: int = 30,
     max_metrics: int = 5,
-    max_examples: int = 3
+    max_examples: int = 5
 ) -> None:
     """
     Create circuit verification visualization plots.
@@ -158,18 +182,18 @@ def create_circuit_visualization(
     
     print(f"Found {len(metric_dirs)} metric directories: {[d.name for d in metric_dirs]}")
     
-    # Process both noising and denoising
-    for experiment_type in ["noising", "denoising"]:
-        print(f"\nProcessing {experiment_type} experiments...")
+    # Collect data for all metrics and examples
+    all_data = {}
+    all_examples = set()
+    # Track min/max per environment for consistent scaling across noising/denoising
+    environment_limits = {}
+    
+    # First pass: collect all data and track limits
+    for metric_dir in metric_dirs:
+        metric_name = metric_dir.name
+        all_data[metric_name] = {}
         
-        # Collect data for all metrics and examples
-        all_data = {}
-        all_examples = set()
-        # Track min/max per environment for consistent scaling
-        environment_limits = {}
-        
-        for metric_dir in metric_dirs:
-            metric_name = metric_dir.name
+        for experiment_type in ["noising", "denoising"]:
             type_dir = metric_dir / experiment_type
             
             if not type_dir.exists():
@@ -180,7 +204,7 @@ def create_circuit_visualization(
             result_files = list(type_dir.glob("*.json"))
             result_files = sorted(result_files)[:max_examples]
             
-            all_data[metric_name] = {}
+            all_data[metric_name][experiment_type] = {}
             
             for result_file in result_files:
                 example_name = result_file.stem
@@ -191,9 +215,9 @@ def create_circuit_visualization(
                 logits_by_experiment = extract_logits_from_experiments(data, max_experiments)
                 
                 if logits_by_experiment:
-                    all_data[metric_name][example_name] = logits_by_experiment
+                    all_data[metric_name][experiment_type][example_name] = logits_by_experiment
                     
-                    # Track min/max per environment
+                    # Track min/max per environment across both noising and denoising
                     if example_name not in environment_limits:
                         environment_limits[example_name] = {'min': float('inf'), 'max': float('-inf')}
                     
@@ -203,59 +227,68 @@ def create_circuit_visualization(
                             env_max = max(logits)
                             environment_limits[example_name]['min'] = min(environment_limits[example_name]['min'], env_min)
                             environment_limits[example_name]['max'] = max(environment_limits[example_name]['max'], env_max)
+    
+    # Convert to sorted list for consistent ordering
+    all_examples = sorted(list(all_examples))[:max_examples]
+    
+    if not all_data or not all_examples:
+        print(f"No data found")
+        return
+    
+    # Set reasonable defaults for environments with invalid limits
+    for example_name in environment_limits:
+        if environment_limits[example_name]['min'] == float('inf'):
+            environment_limits[example_name]['min'] = 0.0
+        if environment_limits[example_name]['max'] == float('-inf'):
+            environment_limits[example_name]['max'] = 1.0
+    
+    # Set up colormap for logit indices
+    n_logits = 5  # Assuming 5 actions based on the data
+    colors = plt.cm.magma(np.linspace(0.1, 0.9, n_logits))
+    
+    # Create separate plot for each metric
+    for metric_dir in metric_dirs:
+        metric_name = metric_dir.name
         
-        # Convert to sorted list for consistent ordering
-        all_examples = sorted(list(all_examples))[:max_examples]
-        
-        if not all_data or not all_examples:
-            print(f"No data found for {experiment_type}")
-            continue
-        
-        # Check if we have any valid logits data
+        # Check if we have any valid logits data for this metric
         has_valid_data = False
-        for metric_name in all_data:
-            for example_name in all_data[metric_name]:
-                if all_data[metric_name][example_name]:
-                    has_valid_data = True
+        for exp_type in ["noising", "denoising"]:
+            if exp_type in all_data[metric_name]:
+                for example_name in all_data[metric_name][exp_type]:
+                    if all_data[metric_name][exp_type][example_name]:
+                        has_valid_data = True
+                        break
+                if has_valid_data:
                     break
-            if has_valid_data:
-                break
         
         if not has_valid_data:
-            print(f"No valid logits data found for {experiment_type}")
+            print(f"No valid logits data found for metric {metric_name}")
             continue
         
-        # Set reasonable defaults for environments with invalid limits
-        for example_name in environment_limits:
-            if environment_limits[example_name]['min'] == float('inf'):
-                environment_limits[example_name]['min'] = 0.0
-            if environment_limits[example_name]['max'] == float('-inf'):
-                environment_limits[example_name]['max'] = 1.0
+        print(f"Creating plot for metric: {metric_name}")
         
-        # Create the visualization - 5 metrics (rows) x 3 environments (columns)
-        # Use wider aspect ratio for better readability
-        fig, axes = plt.subplots(len(metric_dirs), len(all_examples), 
-                                figsize=(6*len(all_examples), 3*len(metric_dirs)))
+        # Create the visualization - N environments (rows) x 2 experiment types (columns)
+        fig, axes = plt.subplots(len(all_examples), 2, 
+                                figsize=(12, 3.5*len(all_examples)))
         
-        # Handle case where we have only one row or column
-        if len(metric_dirs) == 1:
+        # Handle case where we have only one row
+        if len(all_examples) == 1:
             axes = axes.reshape(1, -1)
-        elif len(all_examples) == 1:
-            axes = axes.reshape(-1, 1)
-        elif len(metric_dirs) == 1 and len(all_examples) == 1:
-            axes = np.array([[axes]])
         
-        # Set up colormap for logit indices
-        n_logits = 5  # Assuming 5 actions based on the data
-        colors = plt.cm.magma(np.linspace(0.1, 0.9, n_logits))
+        experiment_types = ["noising", "denoising"]
         
         # Create plots
-        for i, metric_name in enumerate([d.name for d in metric_dirs]):
-            for j, example_name in enumerate(all_examples):
+        for i, example_name in enumerate(all_examples):
+            formatted_name = format_environment_name(example_name)
+            
+            for j, experiment_type in enumerate(experiment_types):
                 ax = axes[i, j]
                 
-                if metric_name in all_data and example_name in all_data[metric_name]:
-                    logits_by_experiment = all_data[metric_name][example_name]
+                # Check if we have data for this combination
+                if (experiment_type in all_data[metric_name] and 
+                    example_name in all_data[metric_name][experiment_type]):
+                    
+                    logits_by_experiment = all_data[metric_name][experiment_type][example_name]
                     
                     # Plot each logit index as a separate line
                     for logit_idx in range(n_logits):
@@ -275,74 +308,65 @@ def create_circuit_visualization(
                                    linewidth=2,
                                    label=f'Logit {logit_idx}')
                 
-                # Set consistent axis limits per environment (same for all metrics in this column)
+                # Set consistent axis limits per environment (same across noising/denoising)
                 ax.set_xlim(-0.5, max_experiments + 0.5)  # Start from 0 (baseline)
-                env_min = environment_limits[example_name]['min']
-                env_max = environment_limits[example_name]['max']
-                margin = (env_max - env_min) * 0.1 if env_max > env_min else 0.1
-                ax.set_ylim(env_min - margin, env_max + margin)
+                if example_name in environment_limits:
+                    env_min = environment_limits[example_name]['min']
+                    env_max = environment_limits[example_name]['max']
+                    margin = (env_max - env_min) * 0.1 if env_max > env_min else 0.1
+                    ax.set_ylim(env_min - margin, env_max + margin)
                 
                 # Set labels
-                if i == len(metric_dirs) - 1:  # Only add x-label to bottom plots
+                if i == len(all_examples) - 1:  # Only add x-label to bottom plots
                     ax.set_xlabel('Experiment Index (0=Baseline)', fontsize=10)
                 if j == 0:  # Only add y-label to leftmost plots
                     ax.set_ylabel('Logit Value', fontsize=10)
                 
-                # Set title - environment name only on top row
-                if i == 0:  # Top row - show environment name
-                    ax.set_title(f'{example_name}', fontsize=11, fontweight='bold', pad=15)
+                # Set title
+                if i == 0:  # Top row - show experiment type
+                    ax.set_title(f'{experiment_type.title()}', fontsize=12, fontweight='bold', pad=15)
+                
+                # Add environment name on the left for leftmost column with better formatting
+                if j == 0:
+                    ax.text(-0.12, 0.5, formatted_name, rotation=90, verticalalignment='center', 
+                           horizontalalignment='center', fontsize=10, fontweight='bold',
+                           transform=ax.transAxes)
                 
                 ax.grid(True, alpha=0.3)
         
-        # Add metric names as row labels on the left side with letters
-        metric_letters = []
-        for i, metric_name in enumerate([d.name for d in metric_dirs]):
-            letter = chr(ord('A') + i)  # A, B, C, D, E, etc.
-            metric_letters.append((letter, metric_name))
-            # Calculate the exact y position to align with the center of each row of plots
-            # Account for the subplot positioning within the figure
-            plot_top = 0.88  # top of plot area from subplots_adjust
-            plot_bottom = 0.18  # bottom of plot area from subplots_adjust
-            plot_height = plot_top - plot_bottom
-            row_height = plot_height / len(metric_dirs)
-            row_center_y = plot_top - (i + 0.5) * row_height
-            fig.text(0.02, row_center_y, letter, 
-                    rotation=0, verticalalignment='center', horizontalalignment='center', 
-                    fontsize=14, fontweight='bold')
+        # Create legend for this metric plot
+        # Get handles and labels from the first subplot that has data
+        handles, labels = None, None
+        for i in range(len(all_examples)):
+            for j in range(2):
+                h, l = axes[i, j].get_legend_handles_labels()
+                if h:
+                    handles, labels = h, l
+                    break
+            if handles:
+                break
         
-        # Create a single legend for the entire figure (colors at bottom right)
-        # Use the first subplot to get the legend handles and labels
-        handles, labels = axes[0, 0].get_legend_handles_labels()
         if handles:
-            # Place color legend at the bottom right, aligned with right edge of plots
-            # Use left margin (0.12) + plot width to align with right edge, then subtract spacing
-            plot_left = 0.12  # left margin from subplots_adjust
-            plot_right = 0.95  # right margin from subplots_adjust
-            legend_x = plot_right - 0.02  # right edge minus small spacing
-            color_legend = fig.legend(handles, labels, loc='lower right', bbox_to_anchor=(legend_x, 0.08), 
-                      title='Logit Index', title_fontsize=11, fontsize=9, ncol=1)
+            # Place legend at the bottom right
+            fig.legend(handles, labels, loc='lower right', bbox_to_anchor=(0.95, 0.02), 
+                      title='Logit Index', title_fontsize=11, fontsize=9, ncol=5)
         
-        # Add metric mapping as a simple vertical list aligned with left edge of plots
-        metric_text_lines = ["Metrics:"] + [f"{letter}: {metric}" for letter, metric in metric_letters]
-        metric_text = "\n".join(metric_text_lines)
-        # Align with left edge of plots plus small spacing
-        metric_x = plot_left + 0.01  # left edge plus small spacing
-        fig.text(metric_x, 0.08, metric_text, ha='left', va='bottom', fontsize=10)
-        
-        # Add overall title with more space
-        fig.suptitle(f'Circuit Verification Results - {experiment_type.title()}\n{len(metric_dirs)} Metrics × {len(all_examples)} Environments (0=Baseline)', 
+        # Add overall title
+        fig.suptitle(f'Circuit Verification Results - {metric_name}\n{len(all_examples)} Environments × 2 Experiment Types (0=Baseline)', 
                     fontsize=14, y=0.95)
         
-        # Adjust layout with better spacing to accommodate bottom legends
-        plt.subplots_adjust(left=0.12, right=0.95, top=0.88, bottom=0.18, 
-                           hspace=0.35, wspace=0.25)
+        # Adjust layout with better spacing to accommodate more environments
+        plt.subplots_adjust(left=0.18, right=0.95, top=0.88, bottom=0.08, 
+                           hspace=0.25, wspace=0.15)
         
         # Save the plot
-        output_file = output_dir / f"circuit_verification_{experiment_type}.png"
+        # Replace any problematic characters in metric name for filename
+        safe_metric_name = metric_name.replace("/", "_").replace("\\", "_")
+        output_file = output_dir / f"circuit_verification_{safe_metric_name}.png"
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         plt.close()
         
-        print(f"Saved {experiment_type} visualization to: {output_file}")
+        print(f"Saved {metric_name} visualization to: {output_file}")
     
     print(f"\nVisualization complete! Plots saved to: {output_dir}")
 
@@ -357,8 +381,8 @@ def main():
                        help="Maximum number of experiments to plot (default: 30)")
     parser.add_argument("--max_metrics", type=int, default=5,
                        help="Maximum number of metrics to include (default: 5)")
-    parser.add_argument("--max_examples", type=int, default=3,
-                       help="Maximum number of input examples to include (default: 3)")
+    parser.add_argument("--max_examples", type=int, default=5,
+                       help="Maximum number of input examples to include (default: 5)")
     
     args = parser.parse_args()
     
