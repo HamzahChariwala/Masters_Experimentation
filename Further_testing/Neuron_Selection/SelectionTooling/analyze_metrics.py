@@ -34,13 +34,13 @@ if neuron_selection_dir not in sys.path:
 
 # Define thresholds for each metric
 METRICS_THRESHOLDS = {
-    'kl_divergence': 0.05,  # Threshold for KL divergence  
-    'reverse_kl_divergence': 0.05,  # Threshold for reverse KL divergence  
-    'confidence_margin_magnitude': 0.05,  # Threshold for confidence margin magnitude
-    'undirected_saturating_chebyshev': 0.4,  # Threshold for undirected saturating Chebyshev (lowered from 0.5)
-    'reversed_pearson_correlation': 0.05,  # Threshold for reversed Pearson correlation
-    'reversed_undirected_saturating_chebyshev': 0.3,  # Threshold for reversed undirected saturating Chebyshev
-    'top_logit_delta_magnitude': 0.1,  # Threshold for top logit delta magnitude
+    'kl_divergence': 0.0,  # Threshold for KL divergence  
+    'reverse_kl_divergence': 0.0,  # Threshold for reverse KL divergence  
+    'confidence_margin_magnitude': 0.0,  # Threshold for confidence margin magnitude
+    'undirected_saturating_chebyshev': 0.0,  # Threshold for undirected saturating Chebyshev 
+    'reversed_pearson_correlation': 0.0,  # Threshold for reversed Pearson correlation
+    'reversed_undirected_saturating_chebyshev': 0.0,  # Threshold for reversed undirected saturating Chebyshev
+    'top_logit_delta_magnitude': 0.0,  # Threshold for top logit delta magnitude
 }
 
 # Default plotting configuration
@@ -165,57 +165,80 @@ def filter_experiments_by_metric(
     threshold: float
 ) -> Dict[str, Dict[str, Any]]:
     """
-    Filter experiments where the normalized value of the specified metric exceeds the threshold.
+    Return all experiments ranked by their within-run normalized importance for the specified metric.
+    When threshold is 0, all experiments are included and ranked by importance.
     
     Args:
         summary_data: Dictionary containing the summary data
         metric_name: Name of the metric to filter by
-        threshold: Threshold value for filtering
+        threshold: Threshold value for filtering (when 0, all experiments included)
         
     Returns:
-        Dictionary of filtered experiments with their metrics
+        Dictionary of experiments with their metrics, ranked by importance
     """
-    filtered_experiments = {}
+    if threshold == 0.0:
+        # New behavior: return all experiments ranked by within-run normalized importance
+        within_run_normalized = compute_within_run_normalization(summary_data, metric_name)
+        
+        # Create filtered experiments with all neurons, including normalized ranking
+        filtered_experiments = {}
+        for exp_name, exp_data in summary_data.items():
+            if exp_name in within_run_normalized and 'metrics' in exp_data and metric_name in exp_data['metrics']:
+                metric_data = exp_data['metrics'][metric_name]
+                filtered_experiments[exp_name] = {
+                    'metrics': {
+                        metric_name: metric_data
+                    },
+                    'within_run_normalized_value': within_run_normalized[exp_name],
+                    'mean': metric_data['mean'],
+                    'input_count': exp_data.get('input_count', 0)
+                }
+        
+        return filtered_experiments
     
-    for exp_name, exp_data in summary_data.items():
-        if 'metrics' in exp_data and metric_name in exp_data['metrics']:
-            metric_data = exp_data['metrics'][metric_name]
-            
-            # For undirected_saturating_chebyshev, use the mean value directly as it's already in an acceptable range
-            if metric_name == 'undirected_saturating_chebyshev':
-                if 'mean' in metric_data and metric_data['mean'] > threshold:
-                    filtered_experiments[exp_name] = {
-                        'metrics': {
-                            metric_name: metric_data
-                        },
-                        'normalized_value': metric_data['mean'],  # Use mean as the normalized value for chebyshev
-                        'mean': metric_data['mean'],
-                        'input_count': exp_data.get('input_count', 0)
-                    }
-            # For other metrics, use the averaged_normalized_value
-            elif metric_name in METRICS_TO_NORMALIZE:
-                if 'averaged_normalized_value' in metric_data and metric_data['averaged_normalized_value'] > threshold:
-                    filtered_experiments[exp_name] = {
-                        'metrics': {
-                            metric_name: metric_data
-                        },
-                        'normalized_value': metric_data['averaged_normalized_value'],
-                        'mean': metric_data['mean'],
-                        'input_count': exp_data.get('input_count', 0)
-                    }
-            # For any other metrics, use the mean value directly
-            else:
-                if 'mean' in metric_data and metric_data['mean'] > threshold:
-                    filtered_experiments[exp_name] = {
-                        'metrics': {
-                            metric_name: metric_data
-                        },
-                        'normalized_value': metric_data['mean'],
-                        'mean': metric_data['mean'],
-                        'input_count': exp_data.get('input_count', 0)
-                    }
-    
-    return filtered_experiments
+    else:
+        # Original behavior: filter by threshold
+        filtered_experiments = {}
+        
+        for exp_name, exp_data in summary_data.items():
+            if 'metrics' in exp_data and metric_name in exp_data['metrics']:
+                metric_data = exp_data['metrics'][metric_name]
+                
+                # For undirected_saturating_chebyshev, use the mean value directly as it's already in an acceptable range
+                if metric_name == 'undirected_saturating_chebyshev':
+                    if 'mean' in metric_data and metric_data['mean'] > threshold:
+                        filtered_experiments[exp_name] = {
+                            'metrics': {
+                                metric_name: metric_data
+                            },
+                            'normalized_value': metric_data['mean'],  # Use mean as the normalized value for chebyshev
+                            'mean': metric_data['mean'],
+                            'input_count': exp_data.get('input_count', 0)
+                        }
+                # For other metrics, use the averaged_normalized_value
+                elif metric_name in METRICS_TO_NORMALIZE:
+                    if 'averaged_normalized_value' in metric_data and metric_data['averaged_normalized_value'] > threshold:
+                        filtered_experiments[exp_name] = {
+                            'metrics': {
+                                metric_name: metric_data
+                            },
+                            'normalized_value': metric_data['averaged_normalized_value'],
+                            'mean': metric_data['mean'],
+                            'input_count': exp_data.get('input_count', 0)
+                        }
+                # For any other metrics, use the mean value directly
+                else:
+                    if 'mean' in metric_data and metric_data['mean'] > threshold:
+                        filtered_experiments[exp_name] = {
+                            'metrics': {
+                                metric_name: metric_data
+                            },
+                            'normalized_value': metric_data['mean'],
+                            'mean': metric_data['mean'],
+                            'input_count': exp_data.get('input_count', 0)
+                        }
+        
+        return filtered_experiments
 
 def calculate_summary_statistics(
     filtered_experiments: Dict[str, Dict[str, Any]],
@@ -223,12 +246,12 @@ def calculate_summary_statistics(
     is_common: bool = False
 ) -> Dict[str, Any]:
     """
-    Calculate summary statistics for the filtered experiments.
+    Calculate summary statistics for a set of filtered experiments.
     
     Args:
         filtered_experiments: Dictionary of filtered experiments
         metric_name: Name of the metric
-        is_common: Whether these are common experiments (different structure)
+        is_common: Whether these are common experiments (with both noising and denoising data)
         
     Returns:
         Dictionary with summary statistics
@@ -249,18 +272,35 @@ def calculate_summary_statistics(
         normalized_values = []
         raw_values = []
         for exp_data in filtered_experiments.values():
-            noising_norm = exp_data['noising']['normalized_value']
-            denoising_norm = exp_data['denoising']['normalized_value']
-            noising_raw = exp_data['noising']['mean']
-            denoising_raw = exp_data['denoising']['mean']
-            
-            # Average of noising and denoising
-            normalized_values.append((noising_norm + denoising_norm) / 2)
-            raw_values.append((noising_raw + denoising_raw) / 2)
+            # Handle both old and new formats
+            if 'noising' in exp_data and 'denoising' in exp_data:
+                # New format with nested noising/denoising data
+                noising_norm = exp_data['noising'].get('within_run_normalized_value', 
+                                                     exp_data['noising'].get('normalized_value', 0))
+                denoising_norm = exp_data['denoising'].get('within_run_normalized_value',
+                                                         exp_data['denoising'].get('normalized_value', 0))
+                noising_raw = exp_data['noising']['mean']
+                denoising_raw = exp_data['denoising']['mean']
+                
+                # Average of noising and denoising
+                normalized_values.append((noising_norm + denoising_norm) / 2)
+                raw_values.append((noising_raw + denoising_raw) / 2)
+            else:
+                # Old format - shouldn't happen in new logic but keeping for safety
+                norm_val = exp_data.get('within_run_normalized_value', 
+                                      exp_data.get('normalized_value', 0))
+                normalized_values.append(norm_val)
+                raw_values.append(exp_data['mean'])
     else:
-        # For regular experiments
-        normalized_values = [exp_data['normalized_value'] for exp_data in filtered_experiments.values()]
-        raw_values = [exp_data['mean'] for exp_data in filtered_experiments.values()]
+        # For regular experiments - handle both new and old formats
+        normalized_values = []
+        raw_values = []
+        for exp_data in filtered_experiments.values():
+            # Try new format first, then fall back to old format
+            norm_val = exp_data.get('within_run_normalized_value', 
+                                   exp_data.get('normalized_value', 0))
+            normalized_values.append(norm_val)
+            raw_values.append(exp_data['mean'])
     
     return {
         'count': len(filtered_experiments),
@@ -296,7 +336,57 @@ def write_filtered_results(
     denoising_stats = calculate_summary_statistics(denoising_filtered, metric_name)
     common_stats = calculate_summary_statistics(common_experiments, metric_name, is_common=True)
     
-    # Prepare the output data
+    # Simplify common experiments - keep only essential information and sort by importance
+    simplified_common = {}
+    
+    # Sort common experiments by average within-run normalized value (descending)
+    if common_experiments:
+        sorted_common = []
+        for exp_name, exp_data in common_experiments.items():
+            # Calculate average importance for sorting
+            noising_score = exp_data.get('noising', {}).get('within_run_normalized_value', 0.0)
+            denoising_score = exp_data.get('denoising', {}).get('within_run_normalized_value', 0.0)
+            
+            # Count valid scores to avoid division by zero
+            valid_scores = 0
+            total_score = 0
+            if 'noising' in exp_data:
+                total_score += noising_score
+                valid_scores += 1
+            if 'denoising' in exp_data:
+                total_score += denoising_score  
+                valid_scores += 1
+                
+            avg_importance = total_score / valid_scores if valid_scores > 0 else 0.0
+            
+            sorted_common.append((exp_name, exp_data, avg_importance))
+        
+        # Sort by average importance (highest first)
+        sorted_common.sort(key=lambda x: x[2], reverse=True)
+        
+        # Create simplified common dictionary
+        for exp_name, exp_data, avg_importance in sorted_common:
+            simplified_entry = {
+                'average_importance': avg_importance
+            }
+            
+            # Add simplified noising data if available
+            if 'noising' in exp_data:
+                simplified_entry['noising'] = {
+                    'within_run_normalized_value': exp_data['noising']['within_run_normalized_value'],
+                    'raw_mean': exp_data['noising']['mean']
+                }
+            
+            # Add simplified denoising data if available
+            if 'denoising' in exp_data:
+                simplified_entry['denoising'] = {
+                    'within_run_normalized_value': exp_data['denoising']['within_run_normalized_value'],
+                    'raw_mean': exp_data['denoising']['mean']
+                }
+            
+            simplified_common[exp_name] = simplified_entry
+    
+    # Prepare the output data with common section first
     output_data = {
         'metric': metric_name,
         'threshold': threshold,
@@ -305,9 +395,9 @@ def write_filtered_results(
             'denoising': denoising_stats,
             'common': common_stats
         },
+        'common': simplified_common,  # Common section first
         'noising': noising_filtered,
-        'denoising': denoising_filtered,
-        'common': common_experiments
+        'denoising': denoising_filtered
     }
     
     # Ensure directory exists
@@ -320,29 +410,49 @@ def write_filtered_results(
     print(f"Filtered results saved to {output_file}")
     print(f"  Noising: {noising_stats['count']} experiments")
     print(f"  Denoising: {denoising_stats['count']} experiments")
-    print(f"  Common: {common_stats['count']} experiments")
+    print(f"  Common: {common_stats['count']} experiments (sorted by importance)")
 
 def write_cross_metric_summary(
     output_file: str,
-    cross_metric_common: Dict[str, Dict[str, Dict[str, Any]]],
+    cross_metric_common: Dict[str, Dict[str, Any]],
     metrics_info: Dict[str, Dict[str, Any]]
 ) -> None:
     """
-    Write summary of neurons that appear in all metrics' filtered results.
+    Write summary of neurons ranked by average importance across all metrics.
     
     Args:
         output_file: Path to the output file
-        cross_metric_common: Dictionary of experiments common across all metrics
+        cross_metric_common: Dictionary of experiments ranked by average importance
         metrics_info: Dictionary with information about each metric
     """
     # Calculate summary count
     common_count = len(cross_metric_common)
     
+    # Calculate some summary statistics
+    if cross_metric_common:
+        scores = [exp_data['final_average_importance'] for exp_data in cross_metric_common.values()]
+        max_score = max(scores)
+        min_score = min(scores)
+        avg_score = sum(scores) / len(scores)
+    else:
+        max_score = min_score = avg_score = 0.0
+    
     # Prepare the output data
     output_data = {
-        'description': 'Neurons that exceed threshold for all metrics',
+        'description': 'Neurons ranked by average importance across all metrics (within-run normalized)',
+        'methodology': {
+            'normalization': 'Within-run min-max normalization (0-1) for each metric separately',
+            'averaging': 'Average of noising and denoising normalized scores per metric',
+            'final_ranking': 'Average across all metric scores, sorted by importance (high to low)'
+        },
+        'summary_statistics': {
+            'total_neurons': common_count,
+            'max_importance_score': max_score,
+            'min_importance_score': min_score,
+            'average_importance_score': avg_score
+        },
         'metrics_info': metrics_info,
-        'common_count': common_count,
+        'common_count': common_count,  # Keep for backward compatibility
         'common_neurons': cross_metric_common
     }
     
@@ -354,7 +464,9 @@ def write_cross_metric_summary(
         json.dump(output_data, f, indent=2)
     
     print(f"\nCross-metric summary saved to {output_file}")
-    print(f"  Common neurons across all metrics: {common_count}")
+    print(f"  Total neurons ranked: {common_count}")
+    print(f"  Importance score range: [{min_score:.4f}, {max_score:.4f}]")
+    print(f"  Average importance score: {avg_score:.4f}")
 
 def filter_metrics(agent_path: str, metrics_thresholds: Dict[str, float]) -> Dict[str, Dict[str, Dict[str, Any]]]:
     """
@@ -416,26 +528,40 @@ def filter_metrics(agent_path: str, metrics_thresholds: Dict[str, float]) -> Dic
         denoising_metric = 'reverse_kl_divergence' if metric_name == 'kl_divergence' else metric_name
         denoising_filtered = filter_experiments_by_metric(denoising_data, denoising_metric, threshold)
         
-        # Find common experiments between noising and denoising
+        # Collect all experiment names from both runs
         noising_exp_names = set(noising_filtered.keys())
         denoising_exp_names = set(denoising_filtered.keys())
-        common_exp_names = noising_exp_names.intersection(denoising_exp_names)
+        all_exp_names = noising_exp_names.union(denoising_exp_names)
         
-        # Create common experiments dictionary
-        common_experiments = {}
-        for exp_name in common_exp_names:
-            common_experiments[exp_name] = {
-                'noising': noising_filtered[exp_name],
-                'denoising': denoising_filtered[exp_name]
-            }
+        # Create experiments dictionary including all experiments
+        all_experiments = {}
+        for exp_name in all_exp_names:
+            experiment_data = {}
+            
+            # Add noising data if available
+            if exp_name in noising_filtered:
+                experiment_data['noising'] = noising_filtered[exp_name]
+            
+            # Add denoising data if available  
+            if exp_name in denoising_filtered:
+                experiment_data['denoising'] = denoising_filtered[exp_name]
+            
+            all_experiments[exp_name] = experiment_data
         
-        # Store common experiments for this metric
-        metrics_common_experiments[metric_name] = common_experiments
+        # Store all experiments for this metric
+        metrics_common_experiments[metric_name] = all_experiments
+        
+        # For metrics_info, count experiments that have both noising and denoising
+        common_count = len([exp for exp in all_experiments.values() 
+                          if 'noising' in exp and 'denoising' in exp])
         
         # Store metric info
         metrics_info[metric_name] = {
             'threshold': threshold,
-            'common_count': len(common_experiments)
+            'common_count': common_count,  # Backward compatibility 
+            'total_count': len(all_experiments),
+            'noising_count': len(noising_exp_names),
+            'denoising_count': len(denoising_exp_names)
         }
         
         # Define output file in the filtered subdirectory
@@ -448,29 +574,108 @@ def filter_metrics(agent_path: str, metrics_thresholds: Dict[str, float]) -> Dic
             threshold,
             noising_filtered,
             denoising_filtered,
-            common_experiments
+            all_experiments
         )
     
-    # Find neurons that are common across all metrics
+    # Compute averaged importance rankings across all metrics and runs
     cross_metric_common = {}
     
-    # Get common experiment names from the first metric
     if metrics_common_experiments:
-        first_metric = list(metrics_common_experiments.keys())[0]
-        common_exp_set = set(metrics_common_experiments[first_metric].keys())
+        # Collect all unique experiment names across all metrics
+        all_exp_names = set()
+        for metric_name, metric_experiments in metrics_common_experiments.items():
+            all_exp_names.update(metric_experiments.keys())
         
-        # Intersect with common experiment names from other metrics
-        for metric_name in list(metrics_common_experiments.keys())[1:]:
-            metric_exp_set = set(metrics_common_experiments[metric_name].keys())
-            common_exp_set = common_exp_set.intersection(metric_exp_set)
+        # For each experiment, calculate average within-run normalized importance
+        experiment_avg_scores = {}
         
-        # Create cross-metric common experiments dictionary
-        for exp_name in common_exp_set:
-            cross_metric_common[exp_name] = {
-                metric_name: metrics_common_experiments[metric_name][exp_name]
-                for metric_name in metrics_common_experiments.keys()
-                if exp_name in metrics_common_experiments[metric_name]
+        for exp_name in all_exp_names:
+            metric_scores = []
+            metric_data_collection = {}
+            
+            # Collect scores for this experiment across all metrics
+            for metric_name, metric_experiments in metrics_common_experiments.items():
+                if exp_name in metric_experiments:
+                    # Get noising and denoising scores, handling missing data
+                    experiment_data = metric_experiments[exp_name]
+                    
+                    noising_score = 0.0
+                    denoising_score = 0.0
+                    valid_scores = 0
+                    
+                    if 'noising' in experiment_data:
+                        noising_score = experiment_data['noising'].get('within_run_normalized_value', 0.0)
+                        valid_scores += 1
+                    
+                    if 'denoising' in experiment_data:
+                        denoising_score = experiment_data['denoising'].get('within_run_normalized_value', 0.0)
+                        valid_scores += 1
+                    
+                    # Average the available scores (don't penalize missing data)
+                    if valid_scores > 0:
+                        avg_score = (noising_score + denoising_score) / valid_scores
+                    else:
+                        avg_score = 0.0
+                    
+                    metric_scores.append(avg_score)
+                    
+                    # Store detailed metric data
+                    metric_data_collection[metric_name] = metric_experiments[exp_name]
+                else:
+                    # If experiment not found in this metric, assign score of 0
+                    metric_scores.append(0.0)
+                    metric_data_collection[metric_name] = None
+            
+            # Calculate overall average score across all metrics for this experiment
+            if metric_scores:
+                overall_avg_score = sum(metric_scores) / len(metric_scores)
+                experiment_avg_scores[exp_name] = {
+                    'average_importance_score': overall_avg_score,
+                    'metric_details': metric_data_collection
+                }
+        
+        # Sort experiments by their average importance score (descending)
+        sorted_experiments = sorted(experiment_avg_scores.items(), 
+                                   key=lambda x: x[1]['average_importance_score'], 
+                                   reverse=True)
+        
+        # Create the cross-metric common dictionary with sorted ordering
+        for exp_name, exp_data in sorted_experiments:
+            # Create simplified entry with just the essential metrics
+            simplified_entry = {
+                'final_average_importance': exp_data['average_importance_score']
             }
+            
+            # Add normalized scores for each metric
+            for metric_name in metrics_common_experiments.keys():
+                if metric_name in exp_data['metric_details'] and exp_data['metric_details'][metric_name] is not None:
+                    # Calculate the average normalized value for this metric
+                    metric_data = exp_data['metric_details'][metric_name]
+                    
+                    noising_score = 0.0
+                    denoising_score = 0.0
+                    valid_scores = 0
+                    
+                    if 'noising' in metric_data:
+                        noising_score = metric_data['noising'].get('within_run_normalized_value', 0.0)
+                        valid_scores += 1
+                    
+                    if 'denoising' in metric_data:
+                        denoising_score = metric_data['denoising'].get('within_run_normalized_value', 0.0)
+                        valid_scores += 1
+                    
+                    # Average the available scores
+                    if valid_scores > 0:
+                        avg_score = (noising_score + denoising_score) / valid_scores
+                    else:
+                        avg_score = 0.0
+                    
+                    simplified_entry[f'{metric_name}_normalized'] = avg_score
+                else:
+                    # If metric not available for this neuron, set to 0
+                    simplified_entry[f'{metric_name}_normalized'] = 0.0
+            
+            cross_metric_common[exp_name] = simplified_entry
     
     # Write cross-metric summary directly to the main results directory
     cross_metric_file = os.path.join(results_dir, "cross_metric_summary.json")
@@ -1034,6 +1239,46 @@ def analyze_metrics(agent_path: str, metrics_thresholds: Dict[str, float] = None
         print("\nNeurons that exceed all thresholds:")
         for neuron_name in cross_metric_common.keys():
             print(f"- {neuron_name}")
+
+def compute_within_run_normalization(summary_data: Dict[str, Any], metric_name: str) -> Dict[str, float]:
+    """
+    Compute normalization within a single run (noising or denoising) for a specific metric.
+    This creates 0-1 normalized values relative to other neurons in the same run.
+    
+    Args:
+        summary_data: Dictionary containing the summary data for one run
+        metric_name: Name of the metric to normalize
+        
+    Returns:
+        Dictionary mapping experiment names to normalized values [0-1]
+    """
+    # Collect all mean values for this metric in this run
+    metric_values = []
+    experiment_names = []
+    
+    for exp_name, exp_data in summary_data.items():
+        if 'metrics' in exp_data and metric_name in exp_data['metrics']:
+            metric_data = exp_data['metrics'][metric_name]
+            if 'mean' in metric_data:
+                metric_values.append(metric_data['mean'])
+                experiment_names.append(exp_name)
+    
+    # Normalize to [0-1] range using min-max normalization
+    normalized_values = {}
+    if metric_values:
+        min_val = min(metric_values)
+        max_val = max(metric_values)
+        
+        if max_val != min_val:
+            for i, exp_name in enumerate(experiment_names):
+                normalized_val = (metric_values[i] - min_val) / (max_val - min_val)
+                normalized_values[exp_name] = normalized_val
+        else:
+            # If all values are the same, assign 0.5 to all
+            for exp_name in experiment_names:
+                normalized_values[exp_name] = 0.5
+    
+    return normalized_values
 
 def main():
     parser = argparse.ArgumentParser(description="Analyze patching metrics: filter, plot, and summarize")
