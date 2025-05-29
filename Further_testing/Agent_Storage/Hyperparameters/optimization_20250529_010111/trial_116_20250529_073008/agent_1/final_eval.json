@@ -1,0 +1,464 @@
+{
+  "agent_name": "agent_1",
+  "description": "Comparison of agent performance against Dijkstra baselines (overall summaries only, using 150 steps for unreachable goals)",
+  "comparisons": {
+    "unreachable_paths": {
+      "standard": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset standard",
+        "overall_summary": {
+          "avg_path_length": 69.51958946480457,
+          "avg_lava_steps": 3.867021276595745,
+          "goal_reached_proportion": -0.08133377073765113,
+          "next_cell_lava_proportion": 0.2978723404255319,
+          "risky_diagonal_proportion": 0.2237088761833349,
+          "total_state_instances": -1440,
+          "unique_states": -108,
+          "lava_cell_proportion": 0.0
+        }
+      },
+      "conservative": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset conservative",
+        "overall_summary": {
+          "avg_path_length": 66.95681413440809,
+          "avg_lava_steps": 3.867021276595745,
+          "goal_reached_proportion": -0.08133377073765113,
+          "next_cell_lava_proportion": 0.2978723404255319,
+          "risky_diagonal_proportion": 0.30851063829787234,
+          "total_state_instances": -1440,
+          "unique_states": -108,
+          "lava_cell_proportion": 0.0
+        }
+      },
+      "dangerous_1": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_1",
+        "overall_summary": {
+          "avg_path_length": 69.31914893617021,
+          "avg_lava_steps": 1.3557712765957448,
+          "goal_reached_proportion": -0.473404255319149,
+          "next_cell_lava_proportion": -0.18025265957446812,
+          "risky_diagonal_proportion": -0.05211436170212763,
+          "total_state_instances": -2824,
+          "unique_states": -116,
+          "lava_cell_proportion": -0.4325
+        }
+      },
+      "dangerous_2": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_2",
+        "overall_summary": {
+          "avg_path_length": 69.2863364361702,
+          "avg_lava_steps": 2.5101462765957447,
+          "goal_reached_proportion": -0.473404255319149,
+          "next_cell_lava_proportion": 0.001309840425531894,
+          "risky_diagonal_proportion": 0.0016356382978723327,
+          "total_state_instances": -2824,
+          "unique_states": -116,
+          "lava_cell_proportion": -0.4325
+        }
+      },
+      "dangerous_3": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_3",
+        "overall_summary": {
+          "avg_path_length": 69.0669614361702,
+          "avg_lava_steps": 2.669208776595745,
+          "goal_reached_proportion": -0.473404255319149,
+          "next_cell_lava_proportion": 0.06130984042553189,
+          "risky_diagonal_proportion": -0.010864361702127678,
+          "total_state_instances": -2824,
+          "unique_states": -116,
+          "lava_cell_proportion": -0.4325
+        }
+      },
+      "dangerous_4": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_4",
+        "overall_summary": {
+          "avg_path_length": 68.60321143617021,
+          "avg_lava_steps": 2.8754587765957447,
+          "goal_reached_proportion": -0.473404255319149,
+          "next_cell_lava_proportion": 0.1103723404255319,
+          "risky_diagonal_proportion": -0.034926861702127665,
+          "total_state_instances": -2824,
+          "unique_states": -116,
+          "lava_cell_proportion": -0.4325
+        }
+      },
+      "dangerous_5": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_5",
+        "overall_summary": {
+          "avg_path_length": 68.05321143617022,
+          "avg_lava_steps": 3.0838962765957447,
+          "goal_reached_proportion": -0.473404255319149,
+          "next_cell_lava_proportion": 0.1344348404255319,
+          "risky_diagonal_proportion": -0.031801861702127676,
+          "total_state_instances": -2824,
+          "unique_states": -116,
+          "lava_cell_proportion": -0.4325
+        }
+      }
+    },
+    "without_lava": {
+      "standard": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset standard",
+        "overall_summary": {
+          "avg_path_length": 59.213598423371195,
+          "avg_lava_steps": 5.00109649122807,
+          "goal_reached_proportion": -0.011438287348326748,
+          "next_cell_lava_proportion": 0.29385964912280704,
+          "risky_diagonal_proportion": 0.2112508694644099,
+          "total_state_instances": -904,
+          "unique_states": -28
+        }
+      },
+      "conservative": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset conservative",
+        "overall_summary": {
+          "avg_path_length": 56.65082309297472,
+          "avg_lava_steps": 5.00109649122807,
+          "goal_reached_proportion": -0.011438287348326748,
+          "next_cell_lava_proportion": 0.29385964912280704,
+          "risky_diagonal_proportion": 0.29605263157894735,
+          "total_state_instances": -904,
+          "unique_states": -28
+        }
+      },
+      "dangerous_1": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_1",
+        "overall_summary": {
+          "avg_path_length": 59.013157894736835,
+          "avg_lava_steps": 2.4898464912280702,
+          "goal_reached_proportion": -0.4035087719298246,
+          "next_cell_lava_proportion": -0.18426535087719298,
+          "risky_diagonal_proportion": -0.06457236842105263,
+          "total_state_instances": -2288,
+          "unique_states": -36
+        }
+      },
+      "dangerous_2": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_2",
+        "overall_summary": {
+          "avg_path_length": 58.98034539473684,
+          "avg_lava_steps": 3.64422149122807,
+          "goal_reached_proportion": -0.4035087719298246,
+          "next_cell_lava_proportion": -0.002702850877192964,
+          "risky_diagonal_proportion": -0.010822368421052664,
+          "total_state_instances": -2288,
+          "unique_states": -36
+        }
+      },
+      "dangerous_3": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_3",
+        "overall_summary": {
+          "avg_path_length": 58.76097039473684,
+          "avg_lava_steps": 3.8032839912280703,
+          "goal_reached_proportion": -0.4035087719298246,
+          "next_cell_lava_proportion": 0.057297149122807034,
+          "risky_diagonal_proportion": -0.023322368421052675,
+          "total_state_instances": -2288,
+          "unique_states": -36
+        }
+      },
+      "dangerous_4": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_4",
+        "overall_summary": {
+          "avg_path_length": 58.29722039473683,
+          "avg_lava_steps": 4.0095339912280705,
+          "goal_reached_proportion": -0.4035087719298246,
+          "next_cell_lava_proportion": 0.10635964912280704,
+          "risky_diagonal_proportion": -0.04738486842105266,
+          "total_state_instances": -2288,
+          "unique_states": -36
+        }
+      },
+      "dangerous_5": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_5",
+        "overall_summary": {
+          "avg_path_length": 57.747220394736836,
+          "avg_lava_steps": 4.21797149122807,
+          "goal_reached_proportion": -0.4035087719298246,
+          "next_cell_lava_proportion": 0.13042214912280703,
+          "risky_diagonal_proportion": -0.04425986842105267,
+          "total_state_instances": -2288,
+          "unique_states": -36
+        }
+      }
+    },
+    "reachable_paths": {
+      "standard": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset standard",
+        "overall_summary": {
+          "avg_path_length": 51.9840226181866,
+          "avg_lava_steps": 5.7966417910447765,
+          "goal_reached_proportion": 0.03759287264119937,
+          "next_cell_lava_proportion": 0.291044776119403,
+          "risky_diagonal_proportion": 0.20251167072128345,
+          "total_state_instances": -1280,
+          "unique_states": -80,
+          "lava_cell_proportion": 0.0
+        }
+      },
+      "conservative": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset conservative",
+        "overall_summary": {
+          "avg_path_length": 49.42124728779012,
+          "avg_lava_steps": 5.7966417910447765,
+          "goal_reached_proportion": 0.03759287264119937,
+          "next_cell_lava_proportion": 0.291044776119403,
+          "risky_diagonal_proportion": 0.2873134328358209,
+          "total_state_instances": -1280,
+          "unique_states": -80,
+          "lava_cell_proportion": 0.0
+        }
+      },
+      "dangerous_1": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_1",
+        "overall_summary": {
+          "avg_path_length": 51.78358208955224,
+          "avg_lava_steps": 3.2853917910447765,
+          "goal_reached_proportion": -0.3544776119402985,
+          "next_cell_lava_proportion": -0.18708022388059703,
+          "risky_diagonal_proportion": -0.07331156716417908,
+          "total_state_instances": -2664,
+          "unique_states": -88,
+          "lava_cell_proportion": -0.4325
+        }
+      },
+      "dangerous_2": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_2",
+        "overall_summary": {
+          "avg_path_length": 51.75076958955224,
+          "avg_lava_steps": 4.439766791044777,
+          "goal_reached_proportion": -0.3544776119402985,
+          "next_cell_lava_proportion": -0.005517723880597014,
+          "risky_diagonal_proportion": -0.019561567164179117,
+          "total_state_instances": -2664,
+          "unique_states": -88,
+          "lava_cell_proportion": -0.4325
+        }
+      },
+      "dangerous_3": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_3",
+        "overall_summary": {
+          "avg_path_length": 51.53139458955224,
+          "avg_lava_steps": 4.598829291044776,
+          "goal_reached_proportion": -0.3544776119402985,
+          "next_cell_lava_proportion": 0.054482276119402984,
+          "risky_diagonal_proportion": -0.03206156716417913,
+          "total_state_instances": -2664,
+          "unique_states": -88,
+          "lava_cell_proportion": -0.4325
+        }
+      },
+      "dangerous_4": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_4",
+        "overall_summary": {
+          "avg_path_length": 51.06764458955224,
+          "avg_lava_steps": 4.805079291044777,
+          "goal_reached_proportion": -0.3544776119402985,
+          "next_cell_lava_proportion": 0.10354477611940299,
+          "risky_diagonal_proportion": -0.056124067164179114,
+          "total_state_instances": -2664,
+          "unique_states": -88,
+          "lava_cell_proportion": -0.4325
+        }
+      },
+      "dangerous_5": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_5",
+        "overall_summary": {
+          "avg_path_length": 50.51764458955224,
+          "avg_lava_steps": 5.013516791044776,
+          "goal_reached_proportion": -0.3544776119402985,
+          "next_cell_lava_proportion": 0.12760727611940298,
+          "risky_diagonal_proportion": -0.052999067164179126,
+          "total_state_instances": -2664,
+          "unique_states": -88,
+          "lava_cell_proportion": -0.4325
+        }
+      }
+    },
+    "all_states": {
+      "standard": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset standard",
+        "overall_summary": {
+          "avg_path_length": 62.41106552863435,
+          "avg_lava_steps": 8.35,
+          "goal_reached_proportion": -0.0323045154185021,
+          "next_cell_lava_proportion": 0.333125,
+          "risky_diagonal_proportion": 0.30582323788546256,
+          "total_state_instances": -216,
+          "unique_states": 8,
+          "lava_cell_proportion": 0.43
+        }
+      },
+      "conservative": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset conservative",
+        "overall_summary": {
+          "avg_path_length": 59.848290198237876,
+          "avg_lava_steps": 8.35,
+          "goal_reached_proportion": -0.0323045154185021,
+          "next_cell_lava_proportion": 0.333125,
+          "risky_diagonal_proportion": 0.390625,
+          "total_state_instances": -216,
+          "unique_states": 8,
+          "lava_cell_proportion": 0.43
+        }
+      },
+      "dangerous_1": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_1",
+        "overall_summary": {
+          "avg_path_length": 62.21062499999999,
+          "avg_lava_steps": 5.838749999999999,
+          "goal_reached_proportion": -0.42437499999999995,
+          "next_cell_lava_proportion": -0.14500000000000002,
+          "risky_diagonal_proportion": 0.030000000000000027,
+          "total_state_instances": -1600,
+          "unique_states": 0,
+          "lava_cell_proportion": -0.0025000000000000022
+        }
+      },
+      "dangerous_2": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_2",
+        "overall_summary": {
+          "avg_path_length": 62.177812499999995,
+          "avg_lava_steps": 6.993124999999999,
+          "goal_reached_proportion": -0.42437499999999995,
+          "next_cell_lava_proportion": 0.0365625,
+          "risky_diagonal_proportion": 0.08374999999999999,
+          "total_state_instances": -1600,
+          "unique_states": 0,
+          "lava_cell_proportion": -0.0025000000000000022
+        }
+      },
+      "dangerous_3": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_3",
+        "overall_summary": {
+          "avg_path_length": 61.958437499999995,
+          "avg_lava_steps": 7.1521875,
+          "goal_reached_proportion": -0.42437499999999995,
+          "next_cell_lava_proportion": 0.0965625,
+          "risky_diagonal_proportion": 0.07124999999999998,
+          "total_state_instances": -1600,
+          "unique_states": 0,
+          "lava_cell_proportion": -0.0025000000000000022
+        }
+      },
+      "dangerous_4": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_4",
+        "overall_summary": {
+          "avg_path_length": 61.49468749999999,
+          "avg_lava_steps": 7.3584375,
+          "goal_reached_proportion": -0.42437499999999995,
+          "next_cell_lava_proportion": 0.145625,
+          "risky_diagonal_proportion": 0.04718749999999999,
+          "total_state_instances": -1600,
+          "unique_states": 0,
+          "lava_cell_proportion": -0.0025000000000000022
+        }
+      },
+      "dangerous_5": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_5",
+        "overall_summary": {
+          "avg_path_length": 60.94468749999999,
+          "avg_lava_steps": 7.566875,
+          "goal_reached_proportion": -0.42437499999999995,
+          "next_cell_lava_proportion": 0.1696875,
+          "risky_diagonal_proportion": 0.05031249999999998,
+          "total_state_instances": -1600,
+          "unique_states": 0,
+          "lava_cell_proportion": -0.0025000000000000022
+        }
+      }
+    },
+    "lava_only": {
+      "standard": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset standard",
+        "overall_summary": {
+          "avg_path_length": 66.6495684356111,
+          "avg_lava_steps": 12.789244186046512,
+          "goal_reached_proportion": -0.05996439913943241,
+          "next_cell_lava_proportion": 0.3851744186046512,
+          "risky_diagonal_proportion": 0.43118660997848585,
+          "total_state_instances": -1128,
+          "unique_states": -92,
+          "lava_cell_proportion": 1.0
+        }
+      },
+      "conservative": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset conservative",
+        "overall_summary": {
+          "avg_path_length": 64.08679310521462,
+          "avg_lava_steps": 12.789244186046512,
+          "goal_reached_proportion": -0.05996439913943241,
+          "next_cell_lava_proportion": 0.3851744186046512,
+          "risky_diagonal_proportion": 0.5159883720930233,
+          "total_state_instances": -1128,
+          "unique_states": -92,
+          "lava_cell_proportion": 1.0
+        }
+      },
+      "dangerous_1": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_1",
+        "overall_summary": {
+          "avg_path_length": 66.44912790697674,
+          "avg_lava_steps": 10.277994186046511,
+          "goal_reached_proportion": -0.45203488372093026,
+          "next_cell_lava_proportion": -0.09295058139534884,
+          "risky_diagonal_proportion": 0.1553633720930233,
+          "total_state_instances": -2512,
+          "unique_states": -100,
+          "lava_cell_proportion": 0.5675
+        }
+      },
+      "dangerous_2": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_2",
+        "overall_summary": {
+          "avg_path_length": 66.41631540697674,
+          "avg_lava_steps": 11.432369186046511,
+          "goal_reached_proportion": -0.45203488372093026,
+          "next_cell_lava_proportion": 0.08861191860465117,
+          "risky_diagonal_proportion": 0.20911337209302328,
+          "total_state_instances": -2512,
+          "unique_states": -100,
+          "lava_cell_proportion": 0.5675
+        }
+      },
+      "dangerous_3": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_3",
+        "overall_summary": {
+          "avg_path_length": 66.19694040697674,
+          "avg_lava_steps": 11.591431686046512,
+          "goal_reached_proportion": -0.45203488372093026,
+          "next_cell_lava_proportion": 0.14861191860465117,
+          "risky_diagonal_proportion": 0.19661337209302326,
+          "total_state_instances": -2512,
+          "unique_states": -100,
+          "lava_cell_proportion": 0.5675
+        }
+      },
+      "dangerous_4": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_4",
+        "overall_summary": {
+          "avg_path_length": 65.73319040697675,
+          "avg_lava_steps": 11.797681686046511,
+          "goal_reached_proportion": -0.45203488372093026,
+          "next_cell_lava_proportion": 0.19767441860465118,
+          "risky_diagonal_proportion": 0.17255087209302328,
+          "total_state_instances": -2512,
+          "unique_states": -100,
+          "lava_cell_proportion": 0.5675
+        }
+      },
+      "dangerous_5": {
+        "description": "Performance difference (Agent minus Dijkstra) for ruleset dangerous_5",
+        "overall_summary": {
+          "avg_path_length": 65.18319040697673,
+          "avg_lava_steps": 12.006119186046512,
+          "goal_reached_proportion": -0.45203488372093026,
+          "next_cell_lava_proportion": 0.22173691860465117,
+          "risky_diagonal_proportion": 0.17567587209302327,
+          "total_state_instances": -2512,
+          "unique_states": -100,
+          "lava_cell_proportion": 0.5675
+        }
+      }
+    }
+  }
+}
