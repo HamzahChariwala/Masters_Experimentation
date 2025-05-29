@@ -3,12 +3,12 @@
 Script: visualize_circuit_results.py
 
 Creates visualization plots for circuit verification results showing how logits change
-across the first 25 cumulative experiments for different metrics and input examples.
+across the first 30 cumulative experiments for different metrics and input examples.
 
 This script creates a 5x3 grid of plots where:
 - Rows correspond to different metrics (first 5 metrics found)
 - Columns correspond to different input examples (first 3 examples found)
-- Each plot shows logit trajectories for the first 25 experiments
+- Each plot shows logit trajectories for the first 30 experiments
 - Colors correspond to logit indices (consistent across all plots)
 - Uses magma colormap for easy visual comparison
 """
@@ -48,7 +48,7 @@ def load_experiment_results(results_file: Path) -> Dict[str, Any]:
         return {}
 
 
-def extract_logits_from_experiments(data: Dict[str, Any], max_experiments: int = 25) -> List[List[float]]:
+def extract_logits_from_experiments(data: Dict[str, Any], max_experiments: int = 30) -> List[List[float]]:
     """
     Extract logits from experiment data for the first N experiments.
     Includes baseline logits as the zeroth entry.
@@ -62,32 +62,39 @@ def extract_logits_from_experiments(data: Dict[str, Any], max_experiments: int =
     """
     logits_by_experiment = []
     
-    # First, try to get baseline logits as experiment 0
+    # Get baseline logits from any experiment (they should all have the same baseline)
     baseline_logits = None
+    experiment_keys = list(data.keys())
     
-    # Look for baseline in the first experiment or any experiment
-    for exp_name in sorted([k for k in data.keys() if k.startswith('exp_')], 
-                          key=lambda x: int(x.split('_')[1])):
-        if exp_name in data:
-            exp_data = data[exp_name]
-            if 'results' in exp_data:
-                results = exp_data['results']
-                if 'baseline_output' in results and results['baseline_output']:
-                    baseline_logits = results['baseline_output'][0]
-                    break
-            elif 'baseline_logits' in exp_data:
-                baseline_logits = exp_data['baseline_logits']
-                break
+    if experiment_keys:
+        # Get baseline from the first experiment
+        first_exp_data = data[experiment_keys[0]]
+        if 'results' in first_exp_data:
+            results = first_exp_data['results']
+            if 'baseline_output' in results and results['baseline_output']:
+                baseline_logits = results['baseline_output'][0]
+        elif 'baseline_logits' in first_exp_data:
+            baseline_logits = first_exp_data['baseline_logits']
     
     # Add baseline as experiment 0
     if baseline_logits:
         logits_by_experiment.append(baseline_logits)
     
-    # Sort experiments by name to get them in order (exp_1, exp_2, etc.)
-    experiment_names = sorted([k for k in data.keys() if k.startswith('exp_')], 
-                             key=lambda x: int(x.split('_')[1]))
+    # Sort experiments by name for consistent ordering and take first max_experiments
+    # Handle both cumulative experiments and individual neuron experiments
+    if any(k.startswith('cumulative_') for k in experiment_keys):
+        # Use cumulative experiments if available
+        experiment_names = sorted([k for k in experiment_keys if k.startswith('cumulative_')], 
+                                 key=lambda x: int(x.split('_')[1]))
+    else:
+        # Use individual neuron experiments, sorted alphabetically for consistency
+        experiment_names = sorted([k for k in experiment_keys 
+                                 if not k.startswith('baseline')])  # Exclude any baseline-only entries
     
-    for i, exp_name in enumerate(experiment_names[:max_experiments]):
+    # Take only the first max_experiments
+    experiment_names = experiment_names[:max_experiments]
+    
+    for exp_name in experiment_names:
         if exp_name in data:
             exp_data = data[exp_name]
             
@@ -113,7 +120,7 @@ def extract_logits_from_experiments(data: Dict[str, Any], max_experiments: int =
 def create_circuit_visualization(
     agent_path: str,
     output_dir: str = None,
-    max_experiments: int = 25,
+    max_experiments: int = 30,
     max_metrics: int = 5,
     max_examples: int = 3
 ) -> None:
@@ -346,8 +353,8 @@ def main():
                        help="Path to the agent directory")
     parser.add_argument("--output_dir", type=str,
                        help="Directory to save plots (default: circuit_verification/plots)")
-    parser.add_argument("--max_experiments", type=int, default=25,
-                       help="Maximum number of experiments to plot (default: 25)")
+    parser.add_argument("--max_experiments", type=int, default=30,
+                       help="Maximum number of experiments to plot (default: 30)")
     parser.add_argument("--max_metrics", type=int, default=5,
                        help="Maximum number of metrics to include (default: 5)")
     parser.add_argument("--max_examples", type=int, default=3,

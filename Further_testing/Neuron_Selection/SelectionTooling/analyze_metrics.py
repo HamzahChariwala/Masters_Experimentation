@@ -28,6 +28,32 @@ if neuron_selection_dir not in sys.path:
     sys.path.insert(0, neuron_selection_dir)
     print(f"Added Neuron_Selection directory to Python path: {neuron_selection_dir}")
 
+# Import circuit verification functions
+try:
+    from CircuitTooling.cumulative_patching_generator import generate_cumulative_experiments
+except ImportError as e:
+    print(f"Warning: Could not import cumulative experiment generator: {e}")
+    generate_cumulative_experiments = None
+
+try:
+    sys.path.insert(0, os.path.join(neuron_selection_dir, 'ExperimentTooling'))
+    from coalition_to_experiments import main as convert_coalitions_to_experiments
+except ImportError as e:
+    print(f"Warning: Could not import coalition to experiments converter: {e}")
+    convert_coalitions_to_experiments = None
+
+try:
+    from CircuitTooling.run_circuit_experiments import run_all_circuit_experiments
+except ImportError as e:
+    print(f"Warning: Could not import circuit experiments runner: {e}")
+    run_all_circuit_experiments = None
+
+try:
+    from CircuitTooling.visualize_circuit_results import create_circuit_visualization
+except ImportError as e:
+    print(f"Warning: Could not import circuit visualization: {e}")
+    create_circuit_visualization = None
+
 #################################################
 # CONFIGURABLE PARAMETERS
 #################################################
@@ -1203,7 +1229,7 @@ def plot_metric_distributions(
 # MAIN ANALYSIS FUNCTION
 #################################################
 
-def analyze_metrics(agent_path: str, metrics_thresholds: Dict[str, float] = None, metrics_pairs: List[List[str]] = None) -> None:
+def analyze_metrics(agent_path: str, metrics_thresholds: Dict[str, float] = None, metrics_pairs: List[List[str]] = None, max_experiments: int = 30) -> None:
     """
     Perform comprehensive metrics analysis: filtering, plotting, and summary generation.
     
@@ -1211,6 +1237,7 @@ def analyze_metrics(agent_path: str, metrics_thresholds: Dict[str, float] = None
         agent_path: Path to the agent directory
         metrics_thresholds: Dictionary mapping metric names to threshold values
         metrics_pairs: List of lists containing pairs of metrics to plot together
+        max_experiments: Maximum number of cumulative experiments to generate for circuit verification (default: 30)
     """
     # Set default metrics_thresholds if not provided
     if metrics_thresholds is None:
@@ -1234,11 +1261,66 @@ def analyze_metrics(agent_path: str, metrics_thresholds: Dict[str, float] = None
     print(f"- Created distribution plots for {len(metrics_pairs)} metric pairs")
     print(f"- Found {len(cross_metric_common)} neurons that exceed thresholds for all metrics")
     
+    # Run circuit verification workflow
+    print("\n===== CIRCUIT VERIFICATION WORKFLOW =====")
+    if generate_cumulative_experiments:
+        print(f"Generating cumulative coalition experiments (max {max_experiments} experiments per metric)...")
+        try:
+            generate_cumulative_experiments(agent_path, max_experiments=max_experiments)
+            
+            # Convert coalition files to experiment format
+            if convert_coalitions_to_experiments:
+                print("Converting coalition files to experiment format...")
+                # Temporarily modify sys.argv to pass arguments to the converter
+                original_argv = sys.argv
+                sys.argv = ["coalition_to_experiments.py", "--agent_path", agent_path]
+                try:
+                    convert_coalitions_to_experiments()
+                except SystemExit:
+                    pass  # Ignore SystemExit from the converter
+                finally:
+                    sys.argv = original_argv
+            else:
+                print("Skipping coalition to experiments conversion (module not available)")
+                
+            # Run circuit experiments
+            if run_all_circuit_experiments:
+                print("Running circuit experiments...")
+                try:
+                    circuit_results = run_all_circuit_experiments(agent_path)
+                    print(f"Circuit experiments completed: {circuit_results.get('successful', 0)} successful")
+                except Exception as e:
+                    print(f"Error running circuit experiments: {e}")
+                
+                # Generate visualizations
+                if create_circuit_visualization:
+                    print("Generating circuit verification visualizations...")
+                    try:
+                        create_circuit_visualization(agent_path, max_experiments=max_experiments)
+                        print("Circuit visualization completed")
+                    except Exception as e:
+                        print(f"Error generating circuit visualization: {e}")
+                else:
+                    print("Skipping visualization generation (module not available)")
+            else:
+                print("Skipping circuit experiments (module not available)")
+                
+        except Exception as e:
+            print(f"Error in circuit verification workflow: {e}")
+    else:
+        print("Skipping cumulative experiment generation (module not available)")
+    
     # Display the common neurons if any
     if cross_metric_common:
-        print("\nNeurons that exceed all thresholds:")
-        for neuron_name in cross_metric_common.keys():
-            print(f"- {neuron_name}")
+        print(f"\nNeurons that exceed all thresholds (total: {len(cross_metric_common)}):")
+        # Show top 10 neurons
+        for i, neuron_name in enumerate(list(cross_metric_common.keys())[:10]):
+            importance = cross_metric_common[neuron_name]['final_average_importance']
+            print(f"{i+1:2d}. {neuron_name}: {importance:.4f}")
+        if len(cross_metric_common) > 10:
+            print(f"    ... and {len(cross_metric_common) - 10} more neurons")
+    else:
+        print("\nNo neurons found that exceed thresholds for all metrics")
 
 def compute_within_run_normalization(summary_data: Dict[str, Any], metric_name: str) -> Dict[str, float]:
     """
@@ -1271,12 +1353,29 @@ def compute_within_run_normalization(summary_data: Dict[str, Any], metric_name: 
         
         if max_val != min_val:
             for i, exp_name in enumerate(experiment_names):
-                normalized_val = (metric_values[i] - min_val) / (max_val - min_val)
+                original_value = metric_values[i]
+                
+                # Special handling for reversed_undirected_saturating_chebyshev:
+                # If the original value is exactly 0, keep it as 0
+                if (metric_name == 'reversed_undirected_saturating_chebyshev' and 
+                    original_value == 0.0):  # Only preserve exact zeros
+                    normalized_val = 0.0
+                else:
+                    normalized_val = (original_value - min_val) / (max_val - min_val)
+                
                 normalized_values[exp_name] = normalized_val
         else:
             # If all values are the same, assign 0.5 to all
-            for exp_name in experiment_names:
-                normalized_values[exp_name] = 0.5
+            for i, exp_name in enumerate(experiment_names):
+                original_value = metric_values[i]
+                
+                # Special handling for reversed_undirected_saturating_chebyshev:
+                # If all values are the same and exactly 0, keep as 0
+                if (metric_name == 'reversed_undirected_saturating_chebyshev' and 
+                    original_value == 0.0):  # Only preserve exact zeros
+                    normalized_values[exp_name] = 0.0
+                else:
+                    normalized_values[exp_name] = 0.5
     
     return normalized_values
 
@@ -1288,6 +1387,8 @@ def main():
                        help="Path to a JSON file with patch experiment definitions")
     parser.add_argument("--custom_thresholds", type=str,
                        help="Comma-separated list of custom thresholds in format 'metric:threshold', e.g., 'kl_divergence:0.1,undirected_saturating_chebyshev:0.6'")
+    parser.add_argument("--max_experiments", type=int, default=30,
+                       help="Maximum number of cumulative experiments to generate for circuit verification (default: 30)")
     
     args = parser.parse_args()
     
@@ -1326,7 +1427,7 @@ def main():
         run_activation_patching()
     
     # Run the comprehensive analysis
-    analyze_metrics(args.agent_path, metrics_thresholds)
+    analyze_metrics(args.agent_path, metrics_thresholds, max_experiments=args.max_experiments)
 
 if __name__ == "__main__":
     main() 

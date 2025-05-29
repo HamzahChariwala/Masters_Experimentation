@@ -3,8 +3,8 @@
 Script to convert coalition JSON files to experiment format compatible with analyze_metric.py.
 
 This script processes coalition JSON files from circuit_verification/descriptions and converts
-them into the format expected by analyze_metric.py, mapping exp_N strings to actual neuron
-definitions using the useful_neurons.json file.
+them into the format expected by analyze_metric.py, mapping neuron names to actual neuron
+definitions using the all_neurons.json file.
 """
 
 import json
@@ -14,63 +14,81 @@ from pathlib import Path
 from typing import Dict, List, Any
 
 
-def load_useful_neurons() -> List[Dict[str, Any]]:
+def load_all_neurons() -> List[Dict[str, Any]]:
     """
-    Load the useful_neurons.json file to get the neuron mapping.
+    Load the all_neurons.json file to get the neuron mapping.
     
     Returns:
         List of neuron definitions
     """
-    useful_neurons_path = Path(__file__).parent / "Definitions" / "useful_neurons.json"
+    all_neurons_path = Path(__file__).parent / "Definitions" / "all_neurons.json"
     
     try:
-        with open(useful_neurons_path, 'r') as f:
+        with open(all_neurons_path, 'r') as f:
             return json.load(f)
     except Exception as e:
-        print(f"Error loading useful_neurons.json: {e}")
+        print(f"Error loading all_neurons.json: {e}")
         return []
 
 
-def exp_string_to_neuron_def(exp_string: str, useful_neurons: List[Dict[str, Any]]) -> Dict[str, Any]:
+def neuron_name_to_neuron_def(neuron_name: str, all_neurons: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Convert an exp_N string to a neuron definition.
+    Convert a neuron name to a neuron definition.
     
     Args:
-        exp_string: String like "exp_36_q_net.0"
-        useful_neurons: List of neuron definitions from useful_neurons.json
+        neuron_name: String like "q_net.4_neuron_3" or "features_extractor.mlp.0_neuron_15"
+        all_neurons: List of neuron definitions from all_neurons.json
         
     Returns:
         Neuron definition dictionary
     """
-    # Extract the number from the exp string (e.g., "exp_36_q_net.0" -> 36)
+    # For the new naming convention, we need to find the matching neuron definition
+    # by searching through all_neurons for a definition that would generate this name
     try:
-        # Split by underscore and get the number part
-        parts = exp_string.split('_')
-        if len(parts) >= 2 and parts[0] == 'exp':
-            exp_number = int(parts[1])
-            # Convert to 0-based index (exp_1 -> index 0)
-            index = exp_number - 1
+        # Parse the neuron name to extract layer and index
+        if "_neuron_" in neuron_name:
+            layer_part, index_part = neuron_name.rsplit("_neuron_", 1)
+            neuron_index = int(index_part)
             
-            if 0 <= index < len(useful_neurons):
-                return useful_neurons[index]
-            else:
-                print(f"Warning: Index {index} out of range for useful_neurons (length: {len(useful_neurons)})")
-                return {}
+            # Search for a matching definition in all_neurons
+            for neuron_def in all_neurons:
+                # neuron_def is like {"q_net.0": [35]} or {"features_extractor.mlp.0": [15]}
+                for layer_name, neuron_list in neuron_def.items():
+                    if layer_name == layer_part and neuron_index in neuron_list:
+                        return neuron_def
+            
+            # If not found in existing definitions, create a new one
+            # This handles the case where we have individual neuron names
+            return {layer_part: [neuron_index]}
         else:
-            print(f"Warning: Could not parse experiment string: {exp_string}")
+            # Handle old exp_N format if present (for backward compatibility)
+            if neuron_name.startswith('exp_'):
+                parts = neuron_name.split('_')
+                if len(parts) >= 2:
+                    exp_number = int(parts[1])
+                    # Convert to 0-based index (exp_1 -> index 0)
+                    index = exp_number - 1
+                    
+                    if 0 <= index < len(all_neurons):
+                        return all_neurons[index]
+                    else:
+                        print(f"Warning: Index {index} out of range for all_neurons (length: {len(all_neurons)})")
+                        return {}
+            
+            print(f"Warning: Could not parse experiment string: {neuron_name}")
             return {}
     except (ValueError, IndexError) as e:
-        print(f"Warning: Error parsing experiment string {exp_string}: {e}")
+        print(f"Warning: Error parsing experiment string {neuron_name}: {e}")
         return {}
 
 
-def convert_coalition_to_experiments(coalition_file: Path, useful_neurons: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def convert_coalition_to_experiments(coalition_file: Path, all_neurons: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Convert a coalition JSON file to experiment format.
     
     Args:
         coalition_file: Path to the coalition JSON file
-        useful_neurons: List of neuron definitions
+        all_neurons: List of neuron definitions
         
     Returns:
         List of patch configurations (each is a dict mapping layer names to neuron lists)
@@ -92,13 +110,13 @@ def convert_coalition_to_experiments(coalition_file: Path, useful_neurons: List[
         
         for exp_name, exp_data in sorted_experiments:
             if 'included_experiments' in exp_data:
-                # Convert each exp_N string to neuron definition and group by layer
+                # Convert each neuron name to neuron definition and group by layer
                 layer_neurons = {}
                 
-                for exp_string in exp_data['included_experiments']:
-                    neuron_def = exp_string_to_neuron_def(exp_string, useful_neurons)
+                for neuron_name in exp_data['included_experiments']:
+                    neuron_def = neuron_name_to_neuron_def(neuron_name, all_neurons)
                     if neuron_def:
-                        # neuron_def is like {"q_net.0": [35]}
+                        # neuron_def is like {"q_net.0": [35]} or {"features_extractor.mlp.0": [15]}
                         for layer_name, neuron_list in neuron_def.items():
                             if layer_name not in layer_neurons:
                                 layer_neurons[layer_name] = []
@@ -114,14 +132,14 @@ def convert_coalition_to_experiments(coalition_file: Path, useful_neurons: List[
     return experiments
 
 
-def process_coalition_files(descriptions_dir: Path, output_dir: Path, useful_neurons: List[Dict[str, Any]]) -> None:
+def process_coalition_files(descriptions_dir: Path, output_dir: Path, all_neurons: List[Dict[str, Any]]) -> None:
     """
     Process all coalition files in the descriptions directory.
     
     Args:
         descriptions_dir: Directory containing coalition JSON files
         output_dir: Directory to save experiment files
-        useful_neurons: List of neuron definitions
+        all_neurons: List of neuron definitions
     """
     # Find all coalition files
     coalition_files = list(descriptions_dir.glob("coalitions_*.json"))
@@ -137,7 +155,7 @@ def process_coalition_files(descriptions_dir: Path, output_dir: Path, useful_neu
         print(f"  Processing {coalition_file.name}...")
         
         # Convert coalition to experiments
-        experiments = convert_coalition_to_experiments(coalition_file, useful_neurons)
+        experiments = convert_coalition_to_experiments(coalition_file, all_neurons)
         
         if experiments:
             # Create output filename (replace 'coalitions_' with 'experiments_')
@@ -178,18 +196,18 @@ def main():
         print(f"Error: Descriptions directory not found: {descriptions_dir}")
         return 1
     
-    # Load useful neurons mapping
-    print("Loading useful neurons mapping...")
-    useful_neurons = load_useful_neurons()
+    # Load all neurons mapping
+    print("Loading all neurons mapping...")
+    all_neurons = load_all_neurons()
     
-    if not useful_neurons:
-        print("Error: Could not load useful neurons mapping")
+    if not all_neurons:
+        print("Error: Could not load all neurons mapping")
         return 1
     
-    print(f"Loaded {len(useful_neurons)} neuron definitions")
+    print(f"Loaded {len(all_neurons)} neuron definitions")
     
     # Process coalition files
-    process_coalition_files(descriptions_dir, experiments_dir, useful_neurons)
+    process_coalition_files(descriptions_dir, experiments_dir, all_neurons)
     
     print(f"Output directory: {experiments_dir}")
     return 0

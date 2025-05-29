@@ -509,13 +509,12 @@ class PatchingExperiment:
                 print(f"Warning: Empty patch specification at index {i}. Skipping.")
                 continue
                 
-            # Create descriptive experiment name
-            layer_names = "-".join(patch_spec.keys())
-            exp_name = f"exp_{i+1}_{layer_names}"
+            # Create descriptive experiment name using new naming system (0-based indexing)
+            exp_name = self.generate_experiment_name(i, patch_spec)
             experiment_names.append(exp_name)
             
             # Print experiment details
-            print(f"\nRunning denoising experiment {i+1}/{len(patch_configs)}:")
+            print(f"\nRunning denoising experiment {i+1}/{len(patch_configs)} ({exp_name}):")
             print(f"  Target input: {corrupted_input_file}")
             print(f"  Source activations: {clean_activations_file}")
             print(f"  Patching: {patch_spec}")
@@ -577,13 +576,12 @@ class PatchingExperiment:
                 print(f"Warning: Empty patch specification at index {i}. Skipping.")
                 continue
                 
-            # Create descriptive experiment name
-            layer_names = "-".join(patch_spec.keys())
-            exp_name = f"exp_{i+1}_{layer_names}"
+            # Create descriptive experiment name using new naming system (0-based indexing)
+            exp_name = self.generate_experiment_name(i, patch_spec)
             experiment_names.append(exp_name)
             
             # Print experiment details
-            print(f"\nRunning noising experiment {i+1}/{len(patch_configs)}:")
+            print(f"\nRunning noising experiment {i+1}/{len(patch_configs)} ({exp_name}):")
             print(f"  Target input: {clean_input_file}")
             print(f"  Source activations: {corrupted_activations_file}")
             print(f"  Patching: {patch_spec}")
@@ -632,4 +630,62 @@ class PatchingExperiment:
         else:
             noising_output_files = {}
         
-        return denoising_output_files, noising_output_files 
+        return denoising_output_files, noising_output_files
+    
+    def generate_experiment_name(self, experiment_index: int, patch_spec: Dict[str, Union[List[int], str]]) -> str:
+        """
+        Generate a descriptive experiment name based on the patch specification.
+        Uses actual neuron indices within layers instead of arbitrary counters.
+        
+        Args:
+            experiment_index: The 0-based index of the experiment
+            patch_spec: Dictionary specifying which neurons to patch
+            
+        Returns:
+            Descriptive experiment name (e.g., "q_net.0_neuron_5" or "q_net.2_neurons_3_7_12")
+        """
+        if not patch_spec:
+            return f"exp_{experiment_index}"
+        
+        # Handle single layer, single neuron case
+        if len(patch_spec) == 1:
+            layer_name = list(patch_spec.keys())[0]
+            neurons = patch_spec[layer_name]
+            
+            if isinstance(neurons, list) and len(neurons) == 1:
+                # Single neuron: "q_net.0_neuron_5"
+                return f"{layer_name}_neuron_{neurons[0]}"
+            elif isinstance(neurons, list) and len(neurons) <= 5:
+                # Few neurons: "q_net.0_neurons_3_7_12"
+                neuron_str = "_".join(map(str, sorted(neurons)))
+                return f"{layer_name}_neurons_{neuron_str}"
+            elif isinstance(neurons, str) and neurons == "all":
+                # All neurons: "q_net.0_all"
+                return f"{layer_name}_all"
+            else:
+                # Many neurons: "q_net.0_group_25"
+                return f"{layer_name}_group_{len(neurons)}"
+        
+        # Handle multiple layers
+        else:
+            layer_parts = []
+            for layer_name, neurons in patch_spec.items():
+                if isinstance(neurons, list) and len(neurons) == 1:
+                    layer_parts.append(f"{layer_name}_{neurons[0]}")
+                elif isinstance(neurons, list) and len(neurons) <= 3:
+                    neuron_str = "_".join(map(str, sorted(neurons)))
+                    layer_parts.append(f"{layer_name}_{neuron_str}")
+                elif isinstance(neurons, str) and neurons == "all":
+                    layer_parts.append(f"{layer_name}_all")
+                else:
+                    layer_parts.append(f"{layer_name}_{len(neurons)}n")
+            
+            # Combine all layer parts
+            combined_name = "_".join(layer_parts)
+            
+            # If the name gets too long, use a fallback
+            if len(combined_name) > 100:
+                layer_names = "_".join(patch_spec.keys())
+                return f"exp_{experiment_index}_{layer_names}"
+            
+            return combined_name 

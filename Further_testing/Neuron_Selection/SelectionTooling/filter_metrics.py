@@ -85,11 +85,12 @@ def filter_experiments_by_metric(
 ) -> Dict[str, Dict[str, Any]]:
     """
     Filter experiments where the normalized value of the specified metric exceeds the threshold.
+    When threshold is 0.0, returns all experiments ranked by normalized importance.
     
     Args:
         summary_data: Dictionary containing the summary data
         metric_name: Name of the metric to filter by
-        threshold: Threshold value for filtering
+        threshold: Threshold value for filtering (when 0.0, all experiments included)
         
     Returns:
         Dictionary of filtered experiments with their metrics
@@ -100,17 +101,29 @@ def filter_experiments_by_metric(
         if 'metrics' in exp_data and metric_name in exp_data['metrics']:
             metric_data = exp_data['metrics'][metric_name]
             
-            # Check if normalized value exists and exceeds threshold
-            if 'normalized_value' in metric_data and metric_data['normalized_value'] > threshold:
-                # Include the experiment in the filtered results
-                filtered_experiments[exp_name] = {
-                    'metrics': {
-                        metric_name: metric_data
-                    },
-                    'normalized_value': metric_data['normalized_value'],
-                    'mean': metric_data['mean'],
-                    'input_count': exp_data.get('input_count', 0)
-                }
+            if threshold == 0.0:
+                # Include all experiments when threshold is 0.0
+                if 'normalized_value' in metric_data:
+                    filtered_experiments[exp_name] = {
+                        'metrics': {
+                            metric_name: metric_data
+                        },
+                        'normalized_value': metric_data['normalized_value'],
+                        'mean': metric_data['mean'],
+                        'input_count': exp_data.get('input_count', 0)
+                    }
+            else:
+                # Original behavior: filter by threshold
+                if 'normalized_value' in metric_data and metric_data['normalized_value'] > threshold:
+                    # Include the experiment in the filtered results
+                    filtered_experiments[exp_name] = {
+                        'metrics': {
+                            metric_name: metric_data
+                        },
+                        'normalized_value': metric_data['normalized_value'],
+                        'mean': metric_data['mean'],
+                        'input_count': exp_data.get('input_count', 0)
+                    }
     
     return filtered_experiments
 
@@ -253,12 +266,13 @@ def write_cross_metric_summary(
     print(f"\nCross-metric summary saved to {output_file}")
     print(f"  Common neurons across all metrics: {common_count}")
 
-def filter_metrics(agent_path: str) -> None:
+def filter_metrics(agent_path: str, max_experiments: int = 30) -> None:
     """
     Filter metrics from patching summary files and generate separate output files.
     
     Args:
         agent_path: Path to the agent directory
+        max_experiments: Maximum number of cumulative experiments to generate (default: 30)
     """
     # Paths to summary files
     results_dir = os.path.join(agent_path, "patching_results")
@@ -286,11 +300,13 @@ def filter_metrics(agent_path: str) -> None:
     
     # Define metrics and thresholds
     metrics_thresholds = {
-        'kl_divergence': 0.03,
-        'reverse_kl_divergence': 0.03,
-        'undirected_saturating_chebyshev': 0.45,
-        'confidence_margin_magnitude': 0.05,
-        'reversed_pearson_correlation': 0.03
+        'kl_divergence': 0.0,
+        'reverse_kl_divergence': 0.0,
+        'undirected_saturating_chebyshev': 0.0,
+        'confidence_margin_magnitude': 0.0,
+        'reversed_pearson_correlation': 0.0,
+        'reversed_undirected_saturating_chebyshev': 0.0,
+        'top_logit_delta_magnitude': 0.0,
     }
     
     # Dictionary to store common neurons across metrics
@@ -372,7 +388,7 @@ def filter_metrics(agent_path: str) -> None:
     if generate_cumulative_experiments:
         print(f"\nGenerating cumulative coalition experiments...")
         try:
-            generate_cumulative_experiments(agent_path)
+            generate_cumulative_experiments(agent_path, max_experiments=max_experiments)
             
             # Convert coalition files to experiment format
             if convert_coalitions_to_experiments:
@@ -412,10 +428,12 @@ def main():
     parser = argparse.ArgumentParser(description="Filter metrics based on thresholds")
     parser.add_argument("--agent_path", type=str, required=True,
                       help="Path to the agent directory")
+    parser.add_argument("--max_experiments", type=int, default=30,
+                      help="Maximum number of cumulative experiments to generate (default: 30)")
     args = parser.parse_args()
     
     # Filter metrics
-    filter_metrics(args.agent_path)
+    filter_metrics(args.agent_path, args.max_experiments)
 
 if __name__ == "__main__":
     main() 

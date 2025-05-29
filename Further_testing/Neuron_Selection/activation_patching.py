@@ -50,7 +50,7 @@ DEFAULT_CORRUPTED_ACTIVATIONS = "corrupted_activations.npz"
 DEFAULT_RESULT_FILENAME = "patching_results.json"
 
 # Layer to exclude from patching
-EXCLUDED_LAYER = "q_net.4"
+EXCLUDED_LAYER = None  # Changed from "q_net.4" to allow patching output layer
 
 def filter_patch_configs(patch_configs: List[Dict[str, Union[List[int], str]]]) -> List[Dict[str, Union[List[int], str]]]:
     """
@@ -62,6 +62,11 @@ def filter_patch_configs(patch_configs: List[Dict[str, Union[List[int], str]]]) 
     Returns:
         Filtered list of patch configurations
     """
+    # If no layer is excluded, return the original configurations
+    if EXCLUDED_LAYER is None:
+        print("No layers excluded from patching")
+        return patch_configs
+    
     filtered_configs = []
     
     for patch_config in patch_configs:
@@ -166,7 +171,7 @@ def create_patch_config_from_args(layer: str, neurons_str: str) -> Dict[str, Uni
         Patch configuration dictionary
     """
     # Skip creating the configuration if the layer is excluded
-    if layer == EXCLUDED_LAYER:
+    if EXCLUDED_LAYER is not None and layer == EXCLUDED_LAYER:
         print(f"Warning: Specified layer '{layer}' is excluded from patching")
         return {}
         
@@ -309,12 +314,16 @@ def main():
             
         else:
             # Run unidirectional patching
-            experiment_names = [f"patch_{i}" for i in range(len(patch_configs))]
+            experiment_names = []
             
             # Run experiments for each patch configuration
             all_results = []
             for i, patch_spec in enumerate(patch_configs):
-                print(f"\nRunning patching experiment {i+1}/{len(patch_configs)}:")
+                # Generate experiment name using the new system (0-based indexing)
+                exp_name = experiment.generate_experiment_name(i, patch_spec)
+                experiment_names.append(exp_name)
+                
+                print(f"\nRunning patching experiment {i+1}/{len(patch_configs)} ({exp_name}):")
                 print(f"  Agent: {args.agent_path}")
                 print(f"  Target input: {target_input}")
                 print(f"  Source activations: {source_activations}")
@@ -359,7 +368,7 @@ def main():
                 # Save all results in a single file
                 all_experiment_results = {}
                 for i, (results, patch_spec) in enumerate(zip(all_results, patch_configs)):
-                    experiment_name = f"patch_{i}"
+                    experiment_name = experiment_names[i]  # Use the generated name instead of patch_i
                     all_experiment_results[experiment_name] = {
                         "patch_config": patch_spec,
                         "results": results

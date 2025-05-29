@@ -1,6 +1,113 @@
 {
-  "exp_1_q_net.0": {
+  "q_net.4_neuron_3": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ]
+    },
+    "results": {
+      "baseline_output": [
+        [
+          0.5029986500740051,
+          0.5503154993057251,
+          0.543774425983429,
+          0.5890152454376221,
+          0.5223516225814819
+        ]
+      ],
+      "baseline_action": 3,
+      "patched_output": [
+        [
+          0.5029986500740051,
+          0.5503154993057251,
+          0.543774425983429,
+          0.717247724533081,
+          0.5223516225814819
+        ]
+      ],
+      "patched_action": 3,
+      "patched_layers": [
+        "q_net.4"
+      ],
+      "action_changed": "False",
+      "patch_configuration": {
+        "q_net.4": [
+          3
+        ]
+      }
+    },
+    "patch_analysis": {
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.12823247909545898,
+      "action_probability_delta": 0.022034658845461963,
+      "kl_divergence": 0.001395903426605785,
+      "reverse_kl_divergence": 0.0014296555018506723,
+      "top_action_probability_gap": {
+        "gap": 0.022034658845461963,
+        "baseline_top_action": 3,
+        "patched_top_action": 3
+      },
+      "logit_proportion_change": 0.03537414490152818,
+      "euclidean_distance": 0.12823247909545898,
+      "chebyshev_distance_excluding_top": {
+        "distance": 0.0,
+        "action": 0
+      },
+      "directed_saturating_chebyshev": {
+        "ratio": 0.9999999992201664,
+        "top_logit_change": 0.12823247909545898,
+        "chebyshev_excl_top": 0.0,
+        "action": 0
+      },
+      "undirected_saturating_chebyshev": {
+        "ratio": 0.9999999992201664,
+        "top_logit_change": 0.12823247909545898,
+        "chebyshev_excl_top": 0.0,
+        "action": 0
+      },
+      "cosine_similarity": 0.9961587551407589,
+      "confidence_margin_change": {
+        "margin_change": 0.02765619140896755,
+        "baseline_margin": 0.007956677520024241,
+        "patched_margin": 0.03561286892899179,
+        "top_action": 3,
+        "second_action": 1,
+        "baseline_top_prob": 0.20960424927935267,
+        "baseline_second_prob": 0.20164757175932843,
+        "patched_top_prob": 0.23163890812481464,
+        "patched_second_prob": 0.19602603919582284
+      },
+      "confidence_margin_magnitude": {
+        "magnitude": 0.02765619140896755,
+        "baseline_margin": 0.007956677520024241,
+        "patched_margin": 0.03561286892899179,
+        "top_action": 3,
+        "second_action": 1
+      },
+      "pearson_correlation": {
+        "correlation": 0.9230157699619956,
+        "p_value": 0.02534293151407924
+      },
+      "reversed_pearson_correlation": {
+        "reversed_correlation": 0.07698423003800436,
+        "p_value": 0.02534293151407924
+      },
+      "reversed_undirected_saturating_chebyshev": {
+        "ratio": 7.798336421060981e-10,
+        "top_logit_change": 0.12823247909545898,
+        "chebyshev_excl_top": 0.0,
+        "action": 0
+      },
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.018791920419532013,
+      "mahalanobis_distance": 0.12823247909545898
+    }
+  },
+  "q_net.4_3_q_net.0_35": {
+    "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         35
       ]
@@ -21,90 +128,97 @@
           0.5024052858352661,
           0.5498878955841064,
           0.5436989068984985,
-          0.5878995656967163,
+          0.717247724533081,
           0.5218865871429443
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           35
         ]
       }
     },
     "patch_analysis": {
-      "output_logit_delta": -0.0011156797409057617,
-      "logit_difference_norm": 0.0014147891850408605,
-      "action_probability_delta": -0.00012053484952428972,
-      "kl_divergence": 5.8437496660657543e-08,
-      "reverse_kl_divergence": 5.843425868514686e-08,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.12823543029179246,
+      "action_probability_delta": 0.022103717375147797,
+      "kl_divergence": 0.001404480128824685,
+      "reverse_kl_divergence": 0.0014385386151183266,
       "top_action_probability_gap": {
-        "gap": -0.00012053484952428972,
+        "gap": 0.022103717375147797,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": -0.00019715629709288196,
-      "euclidean_distance": 0.0014147891850408605,
+      "logit_proportion_change": 0.03551340716041462,
+      "euclidean_distance": 0.12823543029179246,
       "chebyshev_distance_excluding_top": {
         "distance": 0.0005933642387390137,
         "action": 0
       },
       "directed_saturating_chebyshev": {
-        "ratio": -0.6528092248724536,
-        "top_logit_change": -0.0011156797409057617,
+        "ratio": 0.9953940581880055,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.0005933642387390137,
         "action": 0
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6528092248724536,
-        "top_logit_change": -0.0011156797409057617,
+        "ratio": 0.9953940581880055,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.0005933642387390137,
         "action": 0
       },
-      "cosine_similarity": 0.9999998218661311,
+      "cosine_similarity": 0.9961290793465728,
       "confidence_margin_change": {
-        "margin_change": -0.0001432923485626958,
+        "margin_change": 0.027750637206587075,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.007813385171461545,
+        "patched_margin": 0.03570731472661132,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.20948371442982838,
-        "patched_second_prob": 0.20167032925836684
+        "patched_top_prob": 0.23170796665450047,
+        "patched_second_prob": 0.19600065192788915
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.0001432923485626958,
+        "magnitude": 0.027750637206587075,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.007813385171461545,
+        "patched_margin": 0.03570731472661132,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9999489650979723,
-        "p_value": 4.376545630431159e-07
+        "correlation": 0.9234083934292118,
+        "p_value": 0.025150823146763982
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 5.103490202773564e-05,
-        "p_value": 4.376545630431159e-07
+        "reversed_correlation": 0.07659160657078823,
+        "p_value": 0.025150823146763982
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.34719077512754637,
-        "top_logit_change": -0.0011156797409057617,
+        "ratio": 0.004605941811994474,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.0005933642387390137,
         "action": 0
       },
-      "top_logit_delta_magnitude": 0.0011156797409057617,
-      "hellinger_distance": 0.00012086756942122897,
-      "mahalanobis_distance": 0.0014147891850408605
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.018849881641664193,
+      "mahalanobis_distance": 0.12823543029179246
     }
   },
-  "exp_2_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_35_q_net.2_3": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         35
       ],
@@ -128,17 +242,21 @@
           0.5001901388168335,
           0.5475900769233704,
           0.5444666743278503,
-          0.592387318611145,
+          0.717247724533081,
           0.5246766209602356
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           35
         ],
@@ -148,74 +266,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.0033720731735229492,
-      "logit_difference_norm": 0.005707132849606217,
-      "action_probability_delta": 0.0006628014990224251,
-      "kl_divergence": 3.2543869150964853e-06,
-      "reverse_kl_divergence": 3.254061415351652e-06,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.1283151167354914,
+      "action_probability_delta": 0.022145741166252758,
+      "kl_divergence": 0.0014116186428649452,
+      "reverse_kl_divergence": 0.0014458112858675301,
       "top_action_probability_gap": {
-        "gap": 0.0006628014990224251,
+        "gap": 0.022145741166252758,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.0011759632521905206,
-      "euclidean_distance": 0.005707132849606217,
+      "logit_proportion_change": 0.03559866784380483,
+      "euclidean_distance": 0.1283151167354914,
       "chebyshev_distance_excluding_top": {
         "distance": 0.002808511257171631,
         "action": 0
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.545591303990141,
-        "top_logit_change": 0.0033720731735229492,
+        "ratio": 0.978567688267078,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.002808511257171631,
         "action": 0
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.545591303990141,
-        "top_logit_change": 0.0033720731735229492,
+        "ratio": 0.978567688267078,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.002808511257171631,
         "action": 0
       },
-      "cosine_similarity": 0.99998904344969,
+      "cosine_similarity": 0.9961048221526422,
       "confidence_margin_change": {
-        "margin_change": 0.001254840653808209,
+        "margin_change": 0.028207051776615255,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.00921151817383245,
+        "patched_margin": 0.036163729296639496,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.2102670507783751,
-        "patched_second_prob": 0.20105553260454265
+        "patched_top_prob": 0.23174999044560543,
+        "patched_second_prob": 0.19558626114896593
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.001254840653808209,
+        "magnitude": 0.028207051776615255,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.00921151817383245,
+        "patched_margin": 0.036163729296639496,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9975360237268804,
-        "p_value": 0.0001467668796275188
+        "correlation": 0.9231327820073136,
+        "p_value": 0.02528562889088548
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.0024639762731195614,
-        "p_value": 0.0001467668796275188
+        "reversed_correlation": 0.07686721799268637,
+        "p_value": 0.02528562889088548
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.454408696009859,
-        "top_logit_change": 0.0033720731735229492,
+        "ratio": 0.021432311732922038,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.002808511257171631,
         "action": 0
       },
-      "top_logit_delta_magnitude": 0.0033720731735229492,
-      "hellinger_distance": 0.0009019733345575632,
-      "mahalanobis_distance": 0.005707132849606217
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.01889759118374413,
+      "mahalanobis_distance": 0.1283151167354914
     }
   },
-  "exp_3_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_14_35_q_net.2_3": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         14,
         35
@@ -240,17 +361,21 @@
           0.5023399591445923,
           0.5504916906356812,
           0.5438429117202759,
-          0.5980089902877808,
+          0.717247724533081,
           0.528764009475708
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           14,
           35
@@ -261,74 +386,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.008993744850158691,
-      "logit_difference_norm": 0.011066876683707658,
-      "action_probability_delta": 0.0012447076893314368,
-      "kl_divergence": 7.861699647013242e-06,
-      "reverse_kl_divergence": 7.86680880249138e-06,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.12839453651954963,
+      "action_probability_delta": 0.021768343203900087,
+      "kl_divergence": 0.0013663183730791987,
+      "reverse_kl_divergence": 0.001398819063634287,
       "top_action_probability_gap": {
-        "gap": 0.0012447076893314368,
+        "gap": 0.021768343203900087,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.002105187510270612,
-      "euclidean_distance": 0.011066876683707658,
+      "logit_proportion_change": 0.03484061083553203,
+      "euclidean_distance": 0.12839453651954963,
       "chebyshev_distance_excluding_top": {
         "distance": 0.006412386894226074,
         "action": 4
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.5837769623811662,
-        "top_logit_change": 0.008993744850158691,
+        "ratio": 0.9523755551886035,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.006412386894226074,
         "action": 4
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.5837769623811662,
-        "top_logit_change": 0.008993744850158691,
+        "ratio": 0.9523755551886035,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.006412386894226074,
         "action": 4
       },
-      "cosine_similarity": 0.9999751574140691,
+      "cosine_similarity": 0.9962617126199824,
       "confidence_margin_change": {
-        "margin_change": 0.0018279842066768193,
+        "margin_change": 0.027580745814380858,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.00978466172670106,
+        "patched_margin": 0.0355374233344051,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.2108489569686841,
-        "patched_second_prob": 0.20106429524198305
+        "patched_top_prob": 0.23137259248325276,
+        "patched_second_prob": 0.19583516914884766
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.0018279842066768193,
+        "magnitude": 0.027580745814380858,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.00978466172670106,
+        "patched_margin": 0.0355374233344051,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.994734358698245,
-        "p_value": 0.0004583185566756117
+        "correlation": 0.9216287519227047,
+        "p_value": 0.026025351994968283
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.0052656413017549974,
-        "p_value": 0.0004583185566756117
+        "reversed_correlation": 0.07837124807729534,
+        "p_value": 0.026025351994968283
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.41622303761883384,
-        "top_logit_change": 0.008993744850158691,
+        "ratio": 0.047624444811396494,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.006412386894226074,
         "action": 4
       },
-      "top_logit_delta_magnitude": 0.008993744850158691,
-      "hellinger_distance": 0.001402163558382053,
-      "mahalanobis_distance": 0.011066876683707658
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.018589948935492588,
+      "mahalanobis_distance": 0.12839453651954963
     }
   },
-  "exp_4_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_14_35_q_net.2_3_33": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         14,
         35
@@ -354,17 +482,21 @@
           0.5089249610900879,
           0.5487101078033447,
           0.5425187349319458,
-          0.6079292297363281,
+          0.717247724533081,
           0.5322328805923462
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           14,
           35
@@ -376,74 +508,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.018913984298706055,
-      "logit_difference_norm": 0.022240801830891846,
-      "action_probability_delta": 0.0026189755087181743,
-      "kl_divergence": 2.9987141763177785e-05,
-      "reverse_kl_divergence": 3.00224132835583e-05,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.1287652249599892,
+      "action_probability_delta": 0.021469594993780816,
+      "kl_divergence": 0.0013361971124847645,
+      "reverse_kl_divergence": 0.0013672533900851488,
       "top_action_probability_gap": {
-        "gap": 0.0026189755087181743,
+        "gap": 0.021469594993780816,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.004373656386439884,
-      "euclidean_distance": 0.022240801830891846,
+      "logit_proportion_change": 0.03422540846864941,
+      "euclidean_distance": 0.1287652249599892,
       "chebyshev_distance_excluding_top": {
         "distance": 0.009881258010864258,
         "action": 4
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.656844072700699,
-        "top_logit_change": 0.018913984298706055,
+        "ratio": 0.9284556459716747,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.009881258010864258,
         "action": 4
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.656844072700699,
-        "top_logit_change": 0.018913984298706055,
+        "ratio": 0.9284556459716747,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.009881258010864258,
         "action": 4
       },
-      "cosine_similarity": 0.9999066739269798,
+      "cosine_similarity": 0.9963621468417809,
       "confidence_margin_change": {
-        "margin_change": 0.004246110355039523,
+        "margin_change": 0.0278829957775166,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.012202787875063764,
+        "patched_margin": 0.03583967329754084,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.21222322478807085,
-        "patched_second_prob": 0.20002043691300708
+        "patched_top_prob": 0.2310738442731335,
+        "patched_second_prob": 0.19523417097559265
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.004246110355039523,
+        "magnitude": 0.0278829957775166,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.012202787875063764,
+        "patched_margin": 0.03583967329754084,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9773710090219556,
-        "p_value": 0.004072414593565333
+        "correlation": 0.9060223268200776,
+        "p_value": 0.03409197397181373
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.022628990978044383,
-        "p_value": 0.004072414593565333
+        "reversed_correlation": 0.09397767317992245,
+        "p_value": 0.03409197397181373
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.343155927299301,
-        "top_logit_change": 0.018913984298706055,
+        "ratio": 0.07154435402832526,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.009881258010864258,
         "action": 4
       },
-      "top_logit_delta_magnitude": 0.018913984298706055,
-      "hellinger_distance": 0.002738827692339522,
-      "mahalanobis_distance": 0.022240801830891846
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.018381460661184415,
+      "mahalanobis_distance": 0.1287652249599892
     }
   },
-  "exp_5_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_14_35_48_q_net.2_3_33": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         14,
         35,
@@ -470,17 +605,21 @@
           0.5260350704193115,
           0.5703668594360352,
           0.557550311088562,
-          0.6342968344688416,
+          0.717247724533081,
           0.549568772315979
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           14,
           35,
@@ -493,74 +632,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.04528158903121948,
-      "logit_difference_norm": 0.06255960566286485,
-      "action_probability_delta": 0.004054984805790585,
-      "kl_divergence": 5.8664432511671625e-05,
-      "reverse_kl_divergence": 5.8841753206503476e-05,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.1353028109481404,
+      "action_probability_delta": 0.018322175601265644,
+      "kl_divergence": 0.0009821982467996555,
+      "reverse_kl_divergence": 0.0010017368293845441,
       "top_action_probability_gap": {
-        "gap": 0.004054984805790585,
+        "gap": 0.018322175601265644,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.00604295008270897,
-      "euclidean_distance": 0.06255960566286485,
+      "logit_proportion_change": 0.028095385530029243,
+      "euclidean_distance": 0.1353028109481404,
       "chebyshev_distance_excluding_top": {
         "distance": 0.02721714973449707,
         "action": 4
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6245845064297029,
-        "top_logit_change": 0.04528158903121948,
+        "ratio": 0.8249133817697253,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.02721714973449707,
         "action": 4
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6245845064297029,
-        "top_logit_change": 0.04528158903121948,
+        "ratio": 0.8249133817697253,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.02721714973449707,
         "action": 4
       },
-      "cosine_similarity": 0.9998492887222298,
+      "cosine_similarity": 0.9975270910426537,
       "confidence_margin_change": {
-        "margin_change": 0.005275092362128836,
+        "margin_change": 0.023178794192499075,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.013231769882153077,
+        "patched_margin": 0.031135471712523316,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.21365923408514326,
-        "patched_second_prob": 0.20042746420299018
+        "patched_top_prob": 0.22792642488061832,
+        "patched_second_prob": 0.196790953168095
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.005275092362128836,
+        "magnitude": 0.023178794192499075,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.013231769882153077,
+        "patched_margin": 0.031135471712523316,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9722523553684448,
-        "p_value": 0.005525316396400355
+        "correlation": 0.9174232020566818,
+        "p_value": 0.028129829772821514
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.027747644631555213,
-        "p_value": 0.005525316396400355
+        "reversed_correlation": 0.08257679794331818,
+        "p_value": 0.028129829772821514
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.37541549357029713,
-        "top_logit_change": 0.04528158903121948,
+        "ratio": 0.17508661823027472,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.02721714973449707,
         "action": 4
       },
-      "top_logit_delta_magnitude": 0.04528158903121948,
-      "hellinger_distance": 0.00383251694543893,
-      "mahalanobis_distance": 0.06255960566286485
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.015746841712447883,
+      "mahalanobis_distance": 0.1353028109481404
     }
   },
-  "exp_6_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_14_35_48_q_net.2_3_10_33": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         14,
         35,
@@ -588,17 +730,21 @@
           0.5265680551528931,
           0.5757028460502625,
           0.5595161318778992,
-          0.6419510245323181,
+          0.717247724533081,
           0.547107458114624
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           14,
           35,
@@ -612,74 +758,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.052935779094696045,
-      "logit_difference_norm": 0.06973437915601255,
-      "action_probability_delta": 0.0051119709189990925,
-      "kl_divergence": 8.395116750160945e-05,
-      "reverse_kl_divergence": 8.436302675675529e-05,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.13603034816863252,
+      "action_probability_delta": 0.01808043384663277,
+      "kl_divergence": 0.0009536900955472256,
+      "reverse_kl_divergence": 0.0009725584451669329,
       "top_action_probability_gap": {
-        "gap": 0.0051119709189990925,
+        "gap": 0.01808043384663277,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.0077064221098361585,
-      "euclidean_distance": 0.06973437915601255,
+      "logit_proportion_change": 0.027644431733297725,
+      "euclidean_distance": 0.13603034816863252,
       "chebyshev_distance_excluding_top": {
         "distance": 0.025387346744537354,
         "action": 1
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6758639732505826,
-        "top_logit_change": 0.052935779094696045,
+        "ratio": 0.8347391250498252,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.025387346744537354,
         "action": 1
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6758639732505826,
-        "top_logit_change": 0.052935779094696045,
+        "ratio": 0.8347391250498252,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.025387346744537354,
         "action": 1
       },
-      "cosine_similarity": 0.9997933471896568,
+      "cosine_similarity": 0.9976212271473127,
       "confidence_margin_change": {
-        "margin_change": 0.005806940187570719,
+        "margin_change": 0.02209400773004966,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.01376361770759496,
+        "patched_margin": 0.0300506852500739,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.21471622019835176,
-        "patched_second_prob": 0.2009526024907568
+        "patched_top_prob": 0.22768468312598544,
+        "patched_second_prob": 0.19763399787591154
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.005806940187570719,
+        "magnitude": 0.02209400773004966,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.01376361770759496,
+        "patched_margin": 0.0300506852500739,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9762769075268759,
-        "p_value": 0.004370582598252963
+        "correlation": 0.9274586715316344,
+        "p_value": 0.023196858914689707
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.023723092473124097,
-        "p_value": 0.004370582598252963
+        "reversed_correlation": 0.07254132846836558,
+        "p_value": 0.023196858914689707
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.32413602674941744,
-        "top_logit_change": 0.052935779094696045,
+        "ratio": 0.16526087495017483,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.025387346744537354,
         "action": 1
       },
-      "top_logit_delta_magnitude": 0.052935779094696045,
-      "hellinger_distance": 0.004586836839260108,
-      "mahalanobis_distance": 0.06973437915601255
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.015516240081895937,
+      "mahalanobis_distance": 0.13603034816863252
     }
   },
-  "exp_7_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_4n_q_net.2_3_10_33": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         14,
         35,
@@ -708,17 +857,21 @@
           0.5230328440666199,
           0.5748265385627747,
           0.5516093969345093,
-          0.6350446343421936,
+          0.717247724533081,
           0.5473597049713135
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           14,
           35,
@@ -733,74 +886,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.04602938890457153,
-      "logit_difference_norm": 0.061706203674699624,
-      "action_probability_delta": 0.0044554947191706995,
-      "kl_divergence": 7.841002213671366e-05,
-      "reverse_kl_divergence": 7.856736053538273e-05,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.1346570444647533,
+      "action_probability_delta": 0.018609924868811467,
+      "kl_divergence": 0.0010219884954335338,
+      "reverse_kl_divergence": 0.0010421788308075629,
       "top_action_probability_gap": {
-        "gap": 0.0044554947191706995,
+        "gap": 0.018609924868811467,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.006776224491355176,
-      "euclidean_distance": 0.061706203674699624,
+      "logit_proportion_change": 0.028659362469205002,
+      "euclidean_distance": 0.1346570444647533,
       "chebyshev_distance_excluding_top": {
         "distance": 0.025008082389831543,
         "action": 4
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6479592812223622,
-        "top_logit_change": 0.04602938890457153,
+        "ratio": 0.8368050715090041,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.025008082389831543,
         "action": 4
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6479592812223622,
-        "top_logit_change": 0.04602938890457153,
+        "ratio": 0.8368050715090041,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.025008082389831543,
         "action": 4
       },
-      "cosine_similarity": 0.9997936666091085,
+      "cosine_similarity": 0.9974068904678327,
       "confidence_margin_change": {
-        "margin_change": 0.0045531534917175875,
+        "margin_change": 0.022337406828621398,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.012509831011741829,
+        "patched_margin": 0.03029408434864564,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.21405974399852337,
-        "patched_second_prob": 0.20154991298678154
+        "patched_top_prob": 0.22821417414816414,
+        "patched_second_prob": 0.1979200897995185
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.0045531534917175875,
+        "magnitude": 0.022337406828621398,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.012509831011741829,
+        "patched_margin": 0.03029408434864564,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9686513299683598,
-        "p_value": 0.006631469250481737
+        "correlation": 0.921310558811125,
+        "p_value": 0.02618272720711858
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.03134867003164021,
-        "p_value": 0.006631469250481737
+        "reversed_correlation": 0.078689441188875,
+        "p_value": 0.02618272720711858
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.35204071877763776,
-        "top_logit_change": 0.04602938890457153,
+        "ratio": 0.16319492849099593,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.025008082389831543,
         "action": 4
       },
-      "top_logit_delta_magnitude": 0.04602938890457153,
-      "hellinger_distance": 0.004429674899003659,
-      "mahalanobis_distance": 0.061706203674699624
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.016062068150346942,
+      "mahalanobis_distance": 0.1346570444647533
     }
   },
-  "exp_8_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_4n_q_net.2_4n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         14,
         35,
@@ -830,17 +986,21 @@
           0.522873044013977,
           0.5748578310012817,
           0.5517160296440125,
-          0.6347818374633789,
+          0.717247724533081,
           0.5475907921791077
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           14,
           35,
@@ -856,74 +1016,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.045766592025756836,
-      "logit_difference_norm": 0.06157908147956978,
-      "action_probability_delta": 0.004402286906715069,
-      "kl_divergence": 7.704148284989398e-05,
-      "reverse_kl_divergence": 7.719041719704206e-05,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.13468842201608403,
+      "action_probability_delta": 0.018600502529296598,
+      "kl_divergence": 0.0010210254704256065,
+      "reverse_kl_divergence": 0.0010411860208685742,
       "top_action_probability_gap": {
-        "gap": 0.004402286906715069,
+        "gap": 0.018600502529296598,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.006687666378877244,
-      "euclidean_distance": 0.06157908147956978,
+      "logit_proportion_change": 0.02864169300377467,
+      "euclidean_distance": 0.13468842201608403,
       "chebyshev_distance_excluding_top": {
         "distance": 0.025239169597625732,
         "action": 4
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6445475819842612,
-        "top_logit_change": 0.045766592025756836,
+        "ratio": 0.8355450671436131,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.025239169597625732,
         "action": 4
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6445475819842612,
-        "top_logit_change": 0.045766592025756836,
+        "ratio": 0.8355450671436131,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.025239169597625732,
         "action": 4
       },
-      "cosine_similarity": 0.9997973934345961,
+      "cosine_similarity": 0.9974101154925629,
       "confidence_margin_change": {
-        "margin_change": 0.004490776325016127,
+        "margin_change": 0.022329962825244826,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.012447453845040368,
+        "patched_margin": 0.030286640345269067,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.21400653618606774,
-        "patched_second_prob": 0.20155908234102737
+        "patched_top_prob": 0.22820475180864927,
+        "patched_second_prob": 0.1979181114633802
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.004490776325016127,
+        "magnitude": 0.022329962825244826,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.012447453845040368,
+        "patched_margin": 0.030286640345269067,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9690365346802376,
-        "p_value": 0.00650999675294129
+        "correlation": 0.9216146139844643,
+        "p_value": 0.026032337987401562
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.03096346531976235,
-        "p_value": 0.00650999675294129
+        "reversed_correlation": 0.07838538601553569,
+        "p_value": 0.026032337987401562
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.3554524180157388,
-        "top_logit_change": 0.045766592025756836,
+        "ratio": 0.1644549328563869,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.025239169597625732,
         "action": 4
       },
-      "top_logit_delta_magnitude": 0.045766592025756836,
-      "hellinger_distance": 0.004390767657309837,
-      "mahalanobis_distance": 0.06157908147956978
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.01605445780429062,
+      "mahalanobis_distance": 0.13468842201608403
     }
   },
-  "exp_9_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_5n_q_net.2_4n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         14,
         35,
@@ -954,17 +1117,21 @@
           0.5236148238182068,
           0.5749329924583435,
           0.5521038770675659,
-          0.6355158090591431,
+          0.717247724533081,
           0.5479033589363098
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           14,
           35,
@@ -981,74 +1148,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.046500563621520996,
-      "logit_difference_norm": 0.0625749230299096,
-      "action_probability_delta": 0.004462663177413201,
-      "kl_divergence": 7.827550241896624e-05,
-      "reverse_kl_divergence": 7.843638503100345e-05,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.13489583859425505,
+      "action_probability_delta": 0.018534449231684236,
+      "kl_divergence": 0.0010137045693115842,
+      "reverse_kl_divergence": 0.0010336617921767985,
       "top_action_probability_gap": {
-        "gap": 0.004462663177413201,
+        "gap": 0.018534449231684236,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.006768579386174894,
-      "euclidean_distance": 0.0625749230299096,
+      "logit_proportion_change": 0.028513617439852063,
+      "euclidean_distance": 0.13489583859425505,
       "chebyshev_distance_excluding_top": {
         "distance": 0.02555173635482788,
         "action": 4
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.645372369407327,
-        "top_logit_change": 0.046500563621520996,
+        "ratio": 0.833846819952256,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.02555173635482788,
         "action": 4
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.645372369407327,
-        "top_logit_change": 0.046500563621520996,
+        "ratio": 0.833846819952256,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.02555173635482788,
         "action": 4
       },
-      "cosine_similarity": 0.99979466920513,
+      "cosine_similarity": 0.9974327595420546,
       "confidence_margin_change": {
-        "margin_change": 0.004627070929904997,
+        "margin_change": 0.022306324365788027,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.012583748449929238,
+        "patched_margin": 0.03026300188581227,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.21406691245676587,
-        "patched_second_prob": 0.20148316400683663
+        "patched_top_prob": 0.2281386985110369,
+        "patched_second_prob": 0.19787569662522464
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.004627070929904997,
+        "magnitude": 0.022306324365788027,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.012583748449929238,
+        "patched_margin": 0.03026300188581227,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9683317200445697,
-        "p_value": 0.00673281612511153
+        "correlation": 0.9209111575425692,
+        "p_value": 0.02638069943117887
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.03166827995543031,
-        "p_value": 0.00673281612511153
+        "reversed_correlation": 0.07908884245743075,
+        "p_value": 0.02638069943117887
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.354627630592673,
-        "top_logit_change": 0.046500563621520996,
+        "ratio": 0.16615318004774404,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.02555173635482788,
         "action": 4
       },
-      "top_logit_delta_magnitude": 0.046500563621520996,
-      "hellinger_distance": 0.004425927331089873,
-      "mahalanobis_distance": 0.0625749230299096
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.015996574598342517,
+      "mahalanobis_distance": 0.13489583859425505
     }
   },
-  "exp_10_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_6n_q_net.2_4n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         4,
         14,
@@ -1080,17 +1250,21 @@
           0.5236631631851196,
           0.5748209953308105,
           0.5640559792518616,
-          0.6483882665634155,
+          0.717247724533081,
           0.5484041571617126
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           4,
           14,
@@ -1108,74 +1282,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.05937302112579346,
-      "logit_difference_norm": 0.07511839346121031,
-      "action_probability_delta": 0.006108678910461907,
-      "kl_divergence": 0.00011345268719334942,
-      "reverse_kl_divergence": 0.0001142132678289856,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.13623944397110777,
+      "action_probability_delta": 0.01798620106094631,
+      "kl_divergence": 0.0009404199474048261,
+      "reverse_kl_divergence": 0.0009590922426884938,
       "top_action_probability_gap": {
-        "gap": 0.006108678910461907,
+        "gap": 0.01798620106094631,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.009289356595453352,
-      "euclidean_distance": 0.07511839346121031,
+      "logit_proportion_change": 0.027472843905422484,
+      "euclidean_distance": 0.13623944397110777,
       "chebyshev_distance_excluding_top": {
         "distance": 0.026052534580230713,
         "action": 4
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6950264539175115,
-        "top_logit_change": 0.05937302112579346,
+        "ratio": 0.8311402122431171,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.026052534580230713,
         "action": 4
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6950264539175115,
-        "top_logit_change": 0.05937302112579346,
+        "ratio": 0.8311402122431171,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.026052534580230713,
         "action": 4
       },
-      "cosine_similarity": 0.9997246121117965,
+      "cosine_similarity": 0.9976662202884103,
       "confidence_margin_change": {
-        "margin_change": 0.007343054470328875,
+        "margin_change": 0.022255705290745748,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.015299731990353116,
+        "patched_margin": 0.03021238281076999,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.21571292818981458,
-        "patched_second_prob": 0.20041319619946146
+        "patched_top_prob": 0.22759045034029898,
+        "patched_second_prob": 0.197378067529529
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.007343054470328875,
+        "magnitude": 0.022255705290745748,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.015299731990353116,
+        "patched_margin": 0.03021238281076999,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9798740540427506,
-        "p_value": 0.003417062065711455
+        "correlation": 0.9353948187022627,
+        "p_value": 0.019520047815553093
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.02012594595724937,
-        "p_value": 0.003417062065711455
+        "reversed_correlation": 0.06460518129773729,
+        "p_value": 0.019520047815553093
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.3049735460824885,
-        "top_logit_change": 0.05937302112579346,
+        "ratio": 0.16885978775688293,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.026052534580230713,
         "action": 4
       },
-      "top_logit_delta_magnitude": 0.05937302112579346,
-      "hellinger_distance": 0.005334590458203554,
-      "mahalanobis_distance": 0.07511839346121031
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.015408188817975095,
+      "mahalanobis_distance": 0.13623944397110777
     }
   },
-  "exp_11_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_7n_q_net.2_4n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         4,
         14,
@@ -1208,17 +1385,21 @@
           0.5256996154785156,
           0.5846535563468933,
           0.580377995967865,
-          0.6671677827835083,
+          0.717247724533081,
           0.5478315353393555
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           4,
           14,
@@ -1237,74 +1418,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.07815253734588623,
-      "logit_difference_norm": 0.09895100997470313,
-      "action_probability_delta": 0.008106034332407697,
-      "kl_divergence": 0.0002080525473388919,
-      "reverse_kl_divergence": 0.0002097150909823992,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.14186984167320757,
+      "action_probability_delta": 0.01675574896916962,
+      "kl_divergence": 0.0008295858265914323,
+      "reverse_kl_divergence": 0.0008445334739473377,
       "top_action_probability_gap": {
-        "gap": 0.008106034332407697,
+        "gap": 0.01675574896916962,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.012131404512420868,
-      "euclidean_distance": 0.09895100997470313,
+      "logit_proportion_change": 0.025184129022271656,
+      "euclidean_distance": 0.14186984167320757,
       "chebyshev_distance_excluding_top": {
         "distance": 0.036603569984436035,
         "action": 2
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.681031616494477,
-        "top_logit_change": 0.07815253734588623,
+        "ratio": 0.777939532847645,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.036603569984436035,
         "action": 2
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.681031616494477,
-        "top_logit_change": 0.07815253734588623,
+        "ratio": 0.777939532847645,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.036603569984436035,
         "action": 2
       },
-      "cosine_similarity": 0.9995197038459814,
+      "cosine_similarity": 0.9980246591624341,
       "confidence_margin_change": {
-        "margin_change": 0.009286338758137003,
+        "margin_change": 0.020152603887793996,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.017243016278161244,
+        "patched_margin": 0.028109281407818237,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.21771028361176037,
-        "patched_second_prob": 0.20046726733359913
+        "patched_top_prob": 0.2263599982485223,
+        "patched_second_prob": 0.19825071684070406
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.009286338758137003,
+        "magnitude": 0.020152603887793996,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.017243016278161244,
+        "patched_margin": 0.028109281407818237,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9883777536229781,
-        "p_value": 0.001501448369970424
+        "correlation": 0.9596940909368998,
+        "p_value": 0.009654809117146444
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.011622246377021916,
-        "p_value": 0.001501448369970424
+        "reversed_correlation": 0.040305909063100165,
+        "p_value": 0.009654809117146444
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.31896838350552303,
-        "top_logit_change": 0.07815253734588623,
+        "ratio": 0.22206046715235495,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.036603569984436035,
         "action": 2
       },
-      "top_logit_delta_magnitude": 0.07815253734588623,
-      "hellinger_distance": 0.00722632205501487,
-      "mahalanobis_distance": 0.09895100997470313
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.014465284095244406,
+      "mahalanobis_distance": 0.14186984167320757
     }
   },
-  "exp_12_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_8n_q_net.2_4n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         4,
         14,
@@ -1338,17 +1522,21 @@
           0.5250375866889954,
           0.5843984484672546,
           0.580321192741394,
-          0.6667691469192505,
+          0.717247724533081,
           0.5474727749824524
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           4,
           14,
@@ -1368,74 +1556,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.07775390148162842,
-      "logit_difference_norm": 0.09828412793882656,
-      "action_probability_delta": 0.008094071165508032,
-      "kl_divergence": 0.00020842050175115577,
-      "reverse_kl_divergence": 0.00021006543810657592,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.14162510124991323,
+      "action_probability_delta": 0.016813262526675365,
+      "kl_divergence": 0.0008360346573893654,
+      "reverse_kl_divergence": 0.0008511140445499618,
       "top_action_probability_gap": {
-        "gap": 0.008094071165508032,
+        "gap": 0.016813262526675365,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.012131020936497677,
-      "euclidean_distance": 0.09828412793882656,
+      "logit_proportion_change": 0.025293586229199277,
+      "euclidean_distance": 0.14162510124991323,
       "chebyshev_distance_excluding_top": {
         "distance": 0.03654676675796509,
         "action": 2
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6802576276336141,
-        "top_logit_change": 0.07775390148162842,
+        "ratio": 0.7782077066410701,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.03654676675796509,
         "action": 2
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6802576276336141,
-        "top_logit_change": 0.07775390148162842,
+        "ratio": 0.7782077066410701,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.03654676675796509,
         "action": 2
       },
-      "cosine_similarity": 0.9995174153987801,
+      "cosine_similarity": 0.9980057400423165,
       "confidence_margin_change": {
-        "margin_change": 0.009256618108803877,
+        "margin_change": 0.0202103276131681,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.017213295628828118,
+        "patched_margin": 0.02816700513319234,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.2176983204448607,
-        "patched_second_prob": 0.2004850248160326
+        "patched_top_prob": 0.22641751180602804,
+        "patched_second_prob": 0.1982505066728357
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.009256618108803877,
+        "magnitude": 0.0202103276131681,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.017213295628828118,
+        "patched_margin": 0.02816700513319234,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9888488297238867,
-        "p_value": 0.0014111941275853296
+        "correlation": 0.9601826750108675,
+        "p_value": 0.009480494353665435
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.011151170276113342,
-        "p_value": 0.0014111941275853296
+        "reversed_correlation": 0.039817324989132485,
+        "p_value": 0.009480494353665435
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.3197423723663859,
-        "top_logit_change": 0.07775390148162842,
+        "ratio": 0.22179229335892992,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.03654676675796509,
         "action": 2
       },
-      "top_logit_delta_magnitude": 0.07775390148162842,
-      "hellinger_distance": 0.007232532151159621,
-      "mahalanobis_distance": 0.09828412793882656
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.014521461063492405,
+      "mahalanobis_distance": 0.14162510124991323
     }
   },
-  "exp_13_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_8n_q_net.2_5n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         4,
         14,
@@ -1470,17 +1661,21 @@
           0.5264484286308289,
           0.5845052599906921,
           0.5802346467971802,
-          0.6682053208351135,
+          0.717247724533081,
           0.5460861325263977
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           4,
           14,
@@ -1501,74 +1696,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.07919007539749146,
-      "logit_difference_norm": 0.09941113899172754,
-      "action_probability_delta": 0.008338075490498448,
-      "kl_divergence": 0.00021971395588383721,
-      "reverse_kl_divergence": 0.00022152661577715073,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.14161594263761237,
+      "action_probability_delta": 0.01681256011258217,
+      "kl_divergence": 0.0008354939489589337,
+      "reverse_kl_divergence": 0.0008505839512408381,
       "top_action_probability_gap": {
-        "gap": 0.008338075490498448,
+        "gap": 0.01681256011258217,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.012508312711548036,
-      "euclidean_distance": 0.09941113899172754,
+      "logit_proportion_change": 0.02528993263647436,
+      "euclidean_distance": 0.14161594263761237,
       "chebyshev_distance_excluding_top": {
         "distance": 0.03646022081375122,
         "action": 2
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6847373324870001,
-        "top_logit_change": 0.07919007539749146,
+        "ratio": 0.7786166544618417,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.03646022081375122,
         "action": 2
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6847373324870001,
-        "top_logit_change": 0.07919007539749146,
+        "ratio": 0.7786166544618417,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.03646022081375122,
         "action": 2
       },
-      "cosine_similarity": 0.9994891697844472,
+      "cosine_similarity": 0.9980063085660072,
       "confidence_margin_change": {
-        "margin_change": 0.009542550112473708,
+        "margin_change": 0.020189063726912038,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.01749922763249795,
+        "patched_margin": 0.02814574124693628,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.21794232476985112,
-        "patched_second_prob": 0.20044309713735317
+        "patched_top_prob": 0.22641680939193484,
+        "patched_second_prob": 0.19827106814499856
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.009542550112473708,
+        "magnitude": 0.020189063726912038,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.01749922763249795,
+        "patched_margin": 0.02814574124693628,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9867493639322382,
-        "p_value": 0.0018273589303304198
+        "correlation": 0.9586990282838954,
+        "p_value": 0.01001302524697216
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.013250636067761778,
-        "p_value": 0.0018273589303304198
+        "reversed_correlation": 0.041300971716104584,
+        "p_value": 0.01001302524697216
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.3152626675129999,
-        "top_logit_change": 0.07919007539749146,
+        "ratio": 0.2213833455381583,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.03646022081375122,
         "action": 2
       },
-      "top_logit_delta_magnitude": 0.07919007539749146,
-      "hellinger_distance": 0.007426554102207562,
-      "mahalanobis_distance": 0.09941113899172754
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.014516852107943394,
+      "mahalanobis_distance": 0.14161594263761237
     }
   },
-  "exp_14_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_8n_q_net.2_6n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         4,
         14,
@@ -1604,17 +1802,21 @@
           0.5247918367385864,
           0.5837337374687195,
           0.5833632349967957,
-          0.6714155673980713,
+          0.717247724533081,
           0.5490446090698242
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           4,
           14,
@@ -1636,74 +1838,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.08240032196044922,
-      "logit_difference_norm": 0.10325368764777962,
-      "action_probability_delta": 0.00872662820571829,
-      "kl_divergence": 0.0002431509672370536,
-      "reverse_kl_divergence": 0.0002451975500561208,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.14253097785620805,
+      "action_probability_delta": 0.016649350568021803,
+      "kl_divergence": 0.0008238985751502165,
+      "reverse_kl_divergence": 0.0008384781981719174,
       "top_action_probability_gap": {
-        "gap": 0.00872662820571829,
+        "gap": 0.016649350568021803,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.013068156806586934,
-      "euclidean_distance": 0.10325368764777962,
+      "logit_proportion_change": 0.024989661441556427,
+      "euclidean_distance": 0.14253097785620805,
       "chebyshev_distance_excluding_top": {
         "distance": 0.0395888090133667,
         "action": 2
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6754726526463132,
-        "top_logit_change": 0.08240032196044922,
+        "ratio": 0.7641013870415235,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.0395888090133667,
         "action": 2
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6754726526463132,
-        "top_logit_change": 0.08240032196044922,
+        "ratio": 0.7641013870415235,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.0395888090133667,
         "action": 2
       },
-      "cosine_similarity": 0.9994357534145952,
+      "cosine_similarity": 0.9980440766750918,
       "confidence_margin_change": {
-        "margin_change": 0.010371699496113523,
+        "margin_change": 0.02032157661909592,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.018328377016137765,
+        "patched_margin": 0.028278254139120163,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.21833087748507096,
-        "patched_second_prob": 0.2000025004689332
+        "patched_top_prob": 0.22625359984737448,
+        "patched_second_prob": 0.1979753457082543
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.010371699496113523,
+        "magnitude": 0.02032157661909592,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.018328377016137765,
+        "patched_margin": 0.028278254139120163,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9867852362650548,
-        "p_value": 0.0018199532077616389
+        "correlation": 0.961326115115976,
+        "p_value": 0.009076638245285143
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.013214763734945234,
-        "p_value": 0.0018199532077616389
+        "reversed_correlation": 0.03867388488402401,
+        "p_value": 0.009076638245285143
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.3245273473536868,
-        "top_logit_change": 0.08240032196044922,
+        "ratio": 0.23589861295847647,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.0395888090133667,
         "action": 2
       },
-      "top_logit_delta_magnitude": 0.08240032196044922,
-      "hellinger_distance": 0.007812932768084558,
-      "mahalanobis_distance": 0.10325368764777962
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.014414474207026453,
+      "mahalanobis_distance": 0.14253097785620805
     }
   },
-  "exp_15_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_9n_q_net.2_6n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         4,
         14,
@@ -1740,17 +1945,21 @@
           0.5251096487045288,
           0.5841079354286194,
           0.5839815139770508,
-          0.6709444522857666,
+          0.717247724533081,
           0.5496609210968018
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           4,
           14,
@@ -1773,74 +1982,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.08192920684814453,
-      "logit_difference_norm": 0.10346800299923964,
-      "action_probability_delta": 0.00856386223245681,
-      "kl_divergence": 0.0002352703191154798,
-      "reverse_kl_divergence": 0.000237195322301468,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.1429573412065709,
+      "action_probability_delta": 0.01656482887670996,
+      "kl_divergence": 0.0008162462799249587,
+      "reverse_kl_divergence": 0.0008305997609782722,
       "top_action_probability_gap": {
-        "gap": 0.00856386223245681,
+        "gap": 0.01656482887670996,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.012791314576157536,
-      "euclidean_distance": 0.10346800299923964,
+      "logit_proportion_change": 0.0248318535700848,
+      "euclidean_distance": 0.1429573412065709,
       "chebyshev_distance_excluding_top": {
         "distance": 0.040207087993621826,
         "action": 2
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.670801475410792,
-        "top_logit_change": 0.08192920684814453,
+        "ratio": 0.7612966551470202,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.040207087993621826,
         "action": 2
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.670801475410792,
-        "top_logit_change": 0.08192920684814453,
+        "ratio": 0.7612966551470202,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.040207087993621826,
         "action": 2
       },
-      "cosine_similarity": 0.999457056037989,
+      "cosine_similarity": 0.9980674572886948,
       "confidence_margin_change": {
-        "margin_change": 0.01018902555222495,
+        "margin_change": 0.020236944542106616,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.018145703072249192,
+        "patched_margin": 0.028193622062130858,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.21816811151180948,
-        "patched_second_prob": 0.2000224084395603
+        "patched_top_prob": 0.22616907815606263,
+        "patched_second_prob": 0.19797545609393177
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.01018902555222495,
+        "magnitude": 0.020236944542106616,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.018145703072249192,
+        "patched_margin": 0.028193622062130858,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.987313456092304,
-        "p_value": 0.001712066642712139
+        "correlation": 0.961688266171292,
+        "p_value": 0.00894993602830063
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.012686543907695969,
-        "p_value": 0.001712066642712139
+        "reversed_correlation": 0.038311733828708006,
+        "p_value": 0.00894993602830063
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.32919852458920795,
-        "top_logit_change": 0.08192920684814453,
+        "ratio": 0.23870334485297984,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.040207087993621826,
         "action": 2
       },
-      "top_logit_delta_magnitude": 0.08192920684814453,
-      "hellinger_distance": 0.007684833909923159,
-      "mahalanobis_distance": 0.10346800299923964
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.014346989579025497,
+      "mahalanobis_distance": 0.1429573412065709
     }
   },
-  "exp_16_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_9n_q_net.2_7n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         4,
         14,
@@ -1878,17 +2090,21 @@
           0.5252905488014221,
           0.583795964717865,
           0.5831132531166077,
-          0.6717346906661987,
+          0.717247724533081,
           0.5502827763557434
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           4,
           14,
@@ -1912,74 +2128,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.08271944522857666,
-      "logit_difference_norm": 0.103865632445896,
-      "action_probability_delta": 0.008716504678731696,
-      "kl_divergence": 0.0002405803277116124,
-      "reverse_kl_divergence": 0.00024263886412892672,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.14279051676995147,
+      "action_probability_delta": 0.016583106056169555,
+      "kl_divergence": 0.0008155569998084906,
+      "reverse_kl_divergence": 0.0008300050833991721,
       "top_action_probability_gap": {
-        "gap": 0.008716504678731696,
+        "gap": 0.016583106056169555,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.01302986717265009,
-      "euclidean_distance": 0.103865632445896,
+      "logit_proportion_change": 0.024862756461674962,
+      "euclidean_distance": 0.14279051676995147,
       "chebyshev_distance_excluding_top": {
         "distance": 0.03933882713317871,
         "action": 2
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6777045386620167,
-        "top_logit_change": 0.08271944522857666,
+        "ratio": 0.7652412689555087,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.03933882713317871,
         "action": 2
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6777045386620167,
-        "top_logit_change": 0.08271944522857666,
+        "ratio": 0.7652412689555087,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.03933882713317871,
         "action": 2
       },
-      "cosine_similarity": 0.9994439066352999,
+      "cosine_similarity": 0.9980680062248644,
       "confidence_margin_change": {
-        "margin_change": 0.010422220514231334,
+        "margin_change": 0.020300980826657128,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.018378898034255575,
+        "patched_margin": 0.02825765834668137,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.21832075395808437,
-        "patched_second_prob": 0.1999418559238288
+        "patched_top_prob": 0.22618735533552223,
+        "patched_second_prob": 0.19792969698884086
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.010422220514231334,
+        "magnitude": 0.020300980826657128,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.018378898034255575,
+        "patched_margin": 0.02825765834668137,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9861767248009038,
-        "p_value": 0.0019469183179313195
+        "correlation": 0.9604773954907482,
+        "p_value": 0.009375850029212275
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.013823275199096208,
-        "p_value": 0.0019469183179313195
+        "reversed_correlation": 0.039522604509251824,
+        "p_value": 0.009375850029212275
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.32229546133798326,
-        "top_logit_change": 0.08271944522857666,
+        "ratio": 0.2347587310444913,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.03933882713317871,
         "action": 2
       },
-      "top_logit_delta_magnitude": 0.08271944522857666,
-      "hellinger_distance": 0.007771793024012335,
-      "mahalanobis_distance": 0.103865632445896
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.014341393314633145,
+      "mahalanobis_distance": 0.14279051676995147
     }
   },
-  "exp_17_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_9n_q_net.2_8n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         4,
         14,
@@ -2018,17 +2237,21 @@
           0.5256086587905884,
           0.5834652185440063,
           0.5825923085212708,
-          0.6711462140083313,
+          0.717247724533081,
           0.5503557920455933
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           4,
           14,
@@ -2053,74 +2276,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.08213096857070923,
-      "logit_difference_norm": 0.1031827208896917,
-      "action_probability_delta": 0.008637061299476861,
-      "kl_divergence": 0.00023495834776664183,
-      "reverse_kl_divergence": 0.00023697639015715774,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.14263501178464044,
+      "action_probability_delta": 0.0166046175787139,
+      "kl_divergence": 0.0008160141134116788,
+      "reverse_kl_divergence": 0.0008305512583093207,
       "top_action_probability_gap": {
-        "gap": 0.008637061299476861,
+        "gap": 0.0166046175787139,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.012910866219147166,
-      "euclidean_distance": 0.1031827208896917,
+      "logit_proportion_change": 0.024900472278155034,
+      "euclidean_distance": 0.14263501178464044,
       "chebyshev_distance_excluding_top": {
         "distance": 0.0388178825378418,
         "action": 2
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6790553837430959,
-        "top_logit_change": 0.08213096857070923,
+        "ratio": 0.7676276648845853,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.0388178825378418,
         "action": 2
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6790553837430959,
-        "top_logit_change": 0.08213096857070923,
+        "ratio": 0.7676276648845853,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.0388178825378418,
         "action": 2
       },
-      "cosine_similarity": 0.9994569984549151,
+      "cosine_similarity": 0.9980654481089845,
       "confidence_margin_change": {
-        "margin_change": 0.010364013732817534,
+        "margin_change": 0.02036912815808442,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.018320691252841775,
+        "patched_margin": 0.028325805678108662,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.21824131057882953,
-        "patched_second_prob": 0.19992061932598776
+        "patched_top_prob": 0.22620886685806657,
+        "patched_second_prob": 0.1978830611799579
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.010364013732817534,
+        "magnitude": 0.02036912815808442,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.018320691252841775,
+        "patched_margin": 0.028325805678108662,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9857221296075858,
-        "p_value": 0.002043603798906026
+        "correlation": 0.9593679387680333,
+        "p_value": 0.009771750253870072
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.014277870392414238,
-        "p_value": 0.002043603798906026
+        "reversed_correlation": 0.04063206123196672,
+        "p_value": 0.009771750253870072
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.32094461625690407,
-        "top_logit_change": 0.08213096857070923,
+        "ratio": 0.23237233511541466,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.0388178825378418,
         "action": 2
       },
-      "top_logit_delta_magnitude": 0.08213096857070923,
-      "hellinger_distance": 0.007680512599182962,
-      "mahalanobis_distance": 0.1031827208896917
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.014345762356574887,
+      "mahalanobis_distance": 0.14263501178464044
     }
   },
-  "exp_18_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_9n_q_net.2_9n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         4,
         14,
@@ -2160,17 +2386,21 @@
           0.5267717242240906,
           0.5851268172264099,
           0.5817888975143433,
-          0.6725507974624634,
+          0.717247724533081,
           0.5515843033790588
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           4,
           14,
@@ -2196,74 +2426,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.08353555202484131,
-      "logit_difference_norm": 0.10514192805157768,
-      "action_probability_delta": 0.008739416087488128,
-      "kl_divergence": 0.00023755368126745363,
-      "reverse_kl_divergence": 0.00023967047842015157,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.14324875314387728,
+      "action_probability_delta": 0.01646378510039684,
+      "kl_divergence": 0.0008000919974949974,
+      "reverse_kl_divergence": 0.0008143167150778128,
       "top_action_probability_gap": {
-        "gap": 0.008739416087488128,
+        "gap": 0.01646378510039684,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.013024751818405178,
-      "euclidean_distance": 0.10514192805157768,
+      "logit_proportion_change": 0.024634598626129045,
+      "euclidean_distance": 0.14324875314387728,
       "chebyshev_distance_excluding_top": {
         "distance": 0.03801447153091431,
         "action": 2
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6872524538656126,
-        "top_logit_change": 0.08353555202484131,
+        "ratio": 0.7713373300092431,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.03801447153091431,
         "action": 2
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6872524538656126,
-        "top_logit_change": 0.08353555202484131,
+        "ratio": 0.7713373300092431,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.03801447153091431,
         "action": 2
       },
-      "cosine_similarity": 0.9994551044031401,
+      "cosine_similarity": 0.9981124535172804,
       "confidence_margin_change": {
-        "margin_change": 0.010321192755852193,
+        "margin_change": 0.02002262247903952,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.018277870275876434,
+        "patched_margin": 0.02797929999906376,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.2183436653668408,
-        "patched_second_prob": 0.20006579509096437
+        "patched_top_prob": 0.2260680343797495,
+        "patched_second_prob": 0.19808873438068575
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.010321192755852193,
+        "magnitude": 0.02002262247903952,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.018277870275876434,
+        "patched_margin": 0.02797929999906376,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9854137530783351,
-        "p_value": 0.002110069234895063
+        "correlation": 0.9593182161345606,
+        "p_value": 0.009789618697583739
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.01458624692166488,
-        "p_value": 0.002110069234895063
+        "reversed_correlation": 0.040681783865439414,
+        "p_value": 0.009789618697583739
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.3127475461343874,
-        "top_logit_change": 0.08353555202484131,
+        "ratio": 0.2286626699907569,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.03801447153091431,
         "action": 2
       },
-      "top_logit_delta_magnitude": 0.08353555202484131,
-      "hellinger_distance": 0.007723430998264232,
-      "mahalanobis_distance": 0.10514192805157768
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.014204998667716367,
+      "mahalanobis_distance": 0.14324875314387728
     }
   },
-  "exp_19_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_9n_q_net.2_10n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         4,
         14,
@@ -2304,17 +2537,21 @@
           0.5275570750236511,
           0.5891380906105042,
           0.5830830335617065,
-          0.6763126254081726,
+          0.717247724533081,
           0.5528936982154846
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           4,
           14,
@@ -2341,74 +2578,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.08729737997055054,
-      "logit_difference_norm": 0.11049492022316747,
-      "action_probability_delta": 0.009062237770979198,
-      "kl_divergence": 0.00025755383914828666,
-      "reverse_kl_divergence": 0.00025987846718281095,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.1450236654493631,
+      "action_probability_delta": 0.01613654178922072,
+      "kl_divergence": 0.0007727622452894205,
+      "reverse_kl_divergence": 0.0007860977105628546,
       "top_action_probability_gap": {
-        "gap": 0.009062237770979198,
+        "gap": 0.01613654178922072,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.013430700969007725,
-      "euclidean_distance": 0.11049492022316747,
+      "logit_proportion_change": 0.024031339235717708,
+      "euclidean_distance": 0.1450236654493631,
       "chebyshev_distance_excluding_top": {
         "distance": 0.03930860757827759,
         "action": 2
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6895201529700997,
-        "top_logit_change": 0.08729737997055054,
+        "ratio": 0.7653792962954593,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.03930860757827759,
         "action": 2
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6895201529700997,
-        "top_logit_change": 0.08729737997055054,
+        "ratio": 0.7653792962954593,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.03930860757827759,
         "action": 2
       },
-      "cosine_similarity": 0.9994167250823244,
+      "cosine_similarity": 0.9981978989026352,
       "confidence_margin_change": {
-        "margin_change": 0.010298231115680095,
+        "margin_change": 0.019187089880368352,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.018254908635704337,
+        "patched_margin": 0.027143767400392593,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.21866648705033187,
-        "patched_second_prob": 0.20041157841462753
+        "patched_top_prob": 0.2257407910685734,
+        "patched_second_prob": 0.1985970236681808
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.010298231115680095,
+        "magnitude": 0.019187089880368352,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.018254908635704337,
+        "patched_margin": 0.027143767400392593,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9871449391898367,
-        "p_value": 0.001746247728957287
+        "correlation": 0.9638010813332811,
+        "p_value": 0.008222520441593084
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.012855060810163299,
-        "p_value": 0.001746247728957287
+        "reversed_correlation": 0.03619891866671887,
+        "p_value": 0.008222520441593084
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.3104798470299003,
-        "top_logit_change": 0.08729737997055054,
+        "ratio": 0.2346207037045407,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.03930860757827759,
         "action": 2
       },
-      "top_logit_delta_magnitude": 0.08729737997055054,
-      "hellinger_distance": 0.008042209866620893,
-      "mahalanobis_distance": 0.11049492022316747
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.013958501786177444,
+      "mahalanobis_distance": 0.1450236654493631
     }
   },
-  "exp_20_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_10n_q_net.2_10n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         4,
         14,
@@ -2450,17 +2690,21 @@
           0.5358699560165405,
           0.5934665203094482,
           0.5960240960121155,
-          0.6848132610321045,
+          0.717247724533081,
           0.5611621737480164
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           4,
           14,
@@ -2488,74 +2732,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.09579801559448242,
-      "logit_difference_norm": 0.12789089123088096,
-      "action_probability_delta": 0.009068394006412545,
-      "kl_divergence": 0.0002627864716588349,
-      "reverse_kl_divergence": 0.0002650833203193268,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.1536957675505596,
+      "action_probability_delta": 0.014660517851374344,
+      "kl_divergence": 0.0006473306342899042,
+      "reverse_kl_divergence": 0.0006572887377674502,
       "top_action_probability_gap": {
-        "gap": 0.009068394006412545,
+        "gap": 0.014660517851374344,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.013000433868693623,
-      "euclidean_distance": 0.12789089123088096,
+      "logit_proportion_change": 0.02130972040433715,
+      "euclidean_distance": 0.1536957675505596,
       "chebyshev_distance_excluding_top": {
         "distance": 0.05224967002868652,
         "action": 2
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6470754009192212,
-        "top_logit_change": 0.09579801559448242,
+        "ratio": 0.710499512814443,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.05224967002868652,
         "action": 2
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6470754009192212,
-        "top_logit_change": 0.09579801559448242,
+        "ratio": 0.710499512814443,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.05224967002868652,
         "action": 2
       },
-      "cosine_similarity": 0.9994406740227599,
+      "cosine_similarity": 0.9985648494628383,
       "confidence_margin_change": {
-        "margin_change": 0.011133185033519483,
+        "margin_change": 0.018153764720434645,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.019089862553543724,
+        "patched_margin": 0.026110442240458887,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.21867264328576522,
-        "patched_second_prob": 0.1995827807322215
+        "patched_top_prob": 0.22426476713072702,
+        "patched_second_prob": 0.19815432489026813
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.011133185033519483,
+        "magnitude": 0.018153764720434645,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.019089862553543724,
+        "patched_margin": 0.026110442240458887,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9842229314071587,
-        "p_value": 0.002373246614850798
+        "correlation": 0.966268168599411,
+        "p_value": 0.007399187498260917
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.015777068592841337,
-        "p_value": 0.002373246614850798
+        "reversed_correlation": 0.033731831400588996,
+        "p_value": 0.007399187498260917
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.3529245990807788,
-        "top_logit_change": 0.09579801559448242,
+        "ratio": 0.289500487185557,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.05224967002868652,
         "action": 2
       },
-      "top_logit_delta_magnitude": 0.09579801559448242,
-      "hellinger_distance": 0.008122918926706016,
-      "mahalanobis_distance": 0.12789089123088096
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.012769697222743235,
+      "mahalanobis_distance": 0.1536957675505596
     }
   },
-  "exp_21_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_11n_q_net.2_10n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         1,
         4,
@@ -2598,17 +2845,21 @@
           0.5358601808547974,
           0.593448281288147,
           0.5960128903388977,
-          0.684799313545227,
+          0.717247724533081,
           0.5611583590507507
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           1,
           4,
@@ -2637,74 +2888,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.09578406810760498,
-      "logit_difference_norm": 0.12786604218343217,
-      "action_probability_delta": 0.009067861260051047,
-      "kl_divergence": 0.0002627494866457385,
-      "reverse_kl_divergence": 0.00026504602239780205,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.15368378488110018,
+      "action_probability_delta": 0.014662401842133299,
+      "kl_divergence": 0.0006474806990917799,
+      "reverse_kl_divergence": 0.0006574428048551854,
       "top_action_probability_gap": {
-        "gap": 0.009067861260051047,
+        "gap": 0.014662401842133299,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.013000159692231172,
-      "euclidean_distance": 0.12786604218343217,
+      "logit_proportion_change": 0.021313141452715983,
+      "euclidean_distance": 0.15368378488110018,
       "chebyshev_distance_excluding_top": {
         "distance": 0.05223846435546875,
         "action": 2
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6470911316612592,
-        "top_logit_change": 0.09578406810760498,
+        "ratio": 0.7105436286438687,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.05223846435546875,
         "action": 2
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6470911316612592,
-        "top_logit_change": 0.09578406810760498,
+        "ratio": 0.7105436286438687,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.05223846435546875,
         "action": 2
       },
-      "cosine_similarity": 0.9994407026811681,
+      "cosine_similarity": 0.9985644072070023,
       "confidence_margin_change": {
-        "margin_change": 0.011133995037842986,
+        "margin_change": 0.01815759820591442,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.019090672557867228,
+        "patched_margin": 0.026114275725938663,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.21867211053940372,
-        "patched_second_prob": 0.1995814379815365
+        "patched_top_prob": 0.22426665112148597,
+        "patched_second_prob": 0.1981523753955473
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.011133995037842986,
+        "magnitude": 0.01815759820591442,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.019090672557867228,
+        "patched_margin": 0.026114275725938663,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.984213866335566,
-        "p_value": 0.0023752890657411894
+        "correlation": 0.9662499323959273,
+        "p_value": 0.007405168081839878
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.015786133664434043,
-        "p_value": 0.0023752890657411894
+        "reversed_correlation": 0.03375006760407273,
+        "p_value": 0.007405168081839878
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.3529088683387408,
-        "top_logit_change": 0.09578406810760498,
+        "ratio": 0.28945637135613134,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.05223846435546875,
         "action": 2
       },
-      "top_logit_delta_magnitude": 0.09578406810760498,
-      "hellinger_distance": 0.008122347382457939,
-      "mahalanobis_distance": 0.12786604218343217
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.012771185444521565,
+      "mahalanobis_distance": 0.15368378488110018
     }
   },
-  "exp_22_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_12n_q_net.2_10n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         1,
         4,
@@ -2748,17 +3002,21 @@
           0.5355356335639954,
           0.593399167060852,
           0.5956377983093262,
-          0.6847366094589233,
+          0.717247724533081,
           0.5610688924789429
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           1,
           4,
@@ -2788,74 +3046,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.09572136402130127,
-      "logit_difference_norm": 0.12753930229261884,
-      "action_probability_delta": 0.009092854945723927,
-      "kl_divergence": 0.00026390735848454356,
-      "reverse_kl_divergence": 0.00026622320675128135,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.153451173974515,
+      "action_probability_delta": 0.014698761177135339,
+      "kl_divergence": 0.0006503783054380196,
+      "reverse_kl_divergence": 0.0006604152135135715,
       "top_action_probability_gap": {
-        "gap": 0.009092854945723927,
+        "gap": 0.014698761177135339,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.013048952986957518,
-      "euclidean_distance": 0.12753930229261884,
+      "logit_proportion_change": 0.021379795638590382,
+      "euclidean_distance": 0.153451173974515,
       "chebyshev_distance_excluding_top": {
         "distance": 0.05186337232589722,
         "action": 2
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6485857977294798,
-        "top_logit_change": 0.09572136402130127,
+        "ratio": 0.7120235031080261,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.05186337232589722,
         "action": 2
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6485857977294798,
-        "top_logit_change": 0.09572136402130127,
+        "ratio": 0.7120235031080261,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.05186337232589722,
         "action": 2
       },
-      "cosine_similarity": 0.999437329016249,
+      "cosine_similarity": 0.9985562358753679,
       "confidence_margin_change": {
-        "margin_change": 0.011133464442830754,
+        "margin_change": 0.01817156543459697,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.019090141962854995,
+        "patched_margin": 0.02612824295462121,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.2186971042250766,
-        "patched_second_prob": 0.1996069622622216
+        "patched_top_prob": 0.224303010456488,
+        "patched_second_prob": 0.1981747675018668
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.011133464442830754,
+        "magnitude": 0.01817156543459697,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.019090141962854995,
+        "patched_margin": 0.02612824295462121,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.984387434190761,
-        "p_value": 0.0023362837836336443
+        "correlation": 0.9663682693477558,
+        "p_value": 0.0073663876505591554
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.015612565809238976,
-        "p_value": 0.0023362837836336443
+        "reversed_correlation": 0.03363173065224423,
+        "p_value": 0.0073663876505591554
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.3514142022705202,
-        "top_logit_change": 0.09572136402130127,
+        "ratio": 0.2879764968919739,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.05186337232589722,
         "action": 2
       },
-      "top_logit_delta_magnitude": 0.09572136402130127,
-      "hellinger_distance": 0.008140294082333188,
-      "mahalanobis_distance": 0.12753930229261884
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.012799875411832265,
+      "mahalanobis_distance": 0.153451173974515
     }
   },
-  "exp_23_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_12n_q_net.2_11n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         1,
         4,
@@ -2900,17 +3161,21 @@
           0.5330682992935181,
           0.5917171239852905,
           0.5950020551681519,
-          0.6827296018600464,
+          0.717247724533081,
           0.5598815083503723
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           1,
           4,
@@ -2941,74 +3206,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.09371435642242432,
-      "logit_difference_norm": 0.12423132152430309,
-      "action_probability_delta": 0.00900297340120515,
-      "kl_divergence": 0.0002625571520014215,
-      "reverse_kl_divergence": 0.00026476421638077464,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.15196910654133924,
+      "action_probability_delta": 0.014956530366983467,
+      "kl_divergence": 0.000675746524468601,
+      "reverse_kl_divergence": 0.0006862556800534348,
       "top_action_probability_gap": {
-        "gap": 0.00900297340120515,
+        "gap": 0.014956530366983467,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.012992391767067735,
-      "euclidean_distance": 0.12423132152430309,
+      "logit_proportion_change": 0.021855800830223343,
+      "euclidean_distance": 0.15196910654133924,
       "chebyshev_distance_excluding_top": {
         "distance": 0.0512276291847229,
         "action": 2
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6465645959326966,
-        "top_logit_change": 0.09371435642242432,
+        "ratio": 0.7145458690117449,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.0512276291847229,
         "action": 2
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6465645959326966,
-        "top_logit_change": 0.09371435642242432,
+        "ratio": 0.7145458690117449,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.0512276291847229,
         "action": 2
       },
-      "cosine_similarity": 0.9994331120330878,
+      "cosine_similarity": 0.9984849522859208,
       "confidence_margin_change": {
-        "margin_change": 0.011060769594444547,
+        "margin_change": 0.018535033089781494,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.01901744711446879,
+        "patched_margin": 0.026491710609805735,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.21860722268055782,
-        "patched_second_prob": 0.19958977556608903
+        "patched_top_prob": 0.22456077964633614,
+        "patched_second_prob": 0.1980690690365304
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.011060769594444547,
+        "magnitude": 0.018535033089781494,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.01901744711446879,
+        "patched_margin": 0.026491710609805735,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9852116671550443,
-        "p_value": 0.0021540062558379094
+        "correlation": 0.9666530250488308,
+        "p_value": 0.007273344643794908
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.014788332844955732,
-        "p_value": 0.0021540062558379094
+        "reversed_correlation": 0.03334697495116923,
+        "p_value": 0.007273344643794908
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.35343540406730345,
-        "top_logit_change": 0.09371435642242432,
+        "ratio": 0.2854541309882551,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.0512276291847229,
         "action": 2
       },
-      "top_logit_delta_magnitude": 0.09371435642242432,
-      "hellinger_distance": 0.008118700242718643,
-      "mahalanobis_distance": 0.12423132152430309
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.013047489932077714,
+      "mahalanobis_distance": 0.15196910654133924
     }
   },
-  "exp_24_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_12n_q_net.2_12n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         1,
         4,
@@ -3054,17 +3322,21 @@
           0.5423461198806763,
           0.587434709072113,
           0.6094769835472107,
-          0.696528434753418,
+          0.717247724533081,
           0.5618116855621338
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           1,
           4,
@@ -3096,74 +3368,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.1075131893157959,
-      "logit_difference_norm": 0.14268520466951448,
-      "action_probability_delta": 0.010448958510382161,
-      "kl_divergence": 0.0003772042968007059,
-      "reverse_kl_divergence": 0.0003805219612569859,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.15888219047361601,
+      "action_probability_delta": 0.014025623712947244,
+      "kl_divergence": 0.0006306810947587504,
+      "reverse_kl_divergence": 0.0006389908759291043,
       "top_action_probability_gap": {
-        "gap": 0.010448958510382161,
+        "gap": 0.014025623712947244,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.01488944777137688,
-      "euclidean_distance": 0.14268520466951448,
+      "logit_proportion_change": 0.020158910508096428,
+      "euclidean_distance": 0.15888219047361601,
       "chebyshev_distance_excluding_top": {
         "distance": 0.06570255756378174,
         "action": 2
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6206894649622811,
-        "top_logit_change": 0.1075131893157959,
+        "ratio": 0.6612135756297212,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.06570255756378174,
         "action": 2
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6206894649622811,
-        "top_logit_change": 0.1075131893157959,
+        "ratio": 0.6612135756297212,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.06570255756378174,
         "action": 2
       },
-      "cosine_similarity": 0.9991757843154289,
+      "cosine_similarity": 0.9986094508858984,
       "confidence_margin_change": {
-        "margin_change": 0.014786619249096189,
+        "margin_change": 0.01926810449825539,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.02274329676912043,
+        "patched_margin": 0.02722478201827963,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.22005320778973483,
-        "patched_second_prob": 0.1973099110206144
+        "patched_top_prob": 0.22362987299229992,
+        "patched_second_prob": 0.19640509097402029
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.014786619249096189,
+        "magnitude": 0.01926810449825539,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.02274329676912043,
+        "patched_margin": 0.02722478201827963,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9608062024828184,
-        "p_value": 0.009259553278033324
+        "correlation": 0.9520952310983428,
+        "p_value": 0.012495580225223816
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.03919379751718155,
-        "p_value": 0.009259553278033324
+        "reversed_correlation": 0.04790476890165718,
+        "p_value": 0.012495580225223816
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.37931053503771894,
-        "top_logit_change": 0.1075131893157959,
+        "ratio": 0.33878642437027884,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.06570255756378174,
         "action": 2
       },
-      "top_logit_delta_magnitude": 0.1075131893157959,
-      "hellinger_distance": 0.009732029009795983,
-      "mahalanobis_distance": 0.14268520466951448
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.012597558812509511,
+      "mahalanobis_distance": 0.15888219047361601
     }
   },
-  "exp_25_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_13n_q_net.2_12n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         1,
         4,
@@ -3210,17 +3485,21 @@
           0.5447055101394653,
           0.5894851088523865,
           0.6094468235969543,
-          0.6965563297271729,
+          0.717247724533081,
           0.5629235506057739
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           1,
           4,
@@ -3253,74 +3532,77 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.10754108428955078,
-      "logit_difference_norm": 0.1442142518985116,
-      "action_probability_delta": 0.010221088965956165,
-      "kl_divergence": 0.000356093002865294,
-      "reverse_kl_divergence": 0.000359236404472251,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.16023805520363263,
+      "action_probability_delta": 0.013790271789164754,
+      "kl_divergence": 0.0006044363738418324,
+      "reverse_kl_divergence": 0.0006124077482431737,
       "top_action_probability_gap": {
-        "gap": 0.010221088965956165,
+        "gap": 0.013790271789164754,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.014471681000953585,
-      "euclidean_distance": 0.1442142518985116,
+      "logit_proportion_change": 0.019727351103247914,
+      "euclidean_distance": 0.16023805520363263,
       "chebyshev_distance_excluding_top": {
         "distance": 0.06567239761352539,
         "action": 2
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6208586251250403,
-        "top_logit_change": 0.10754108428955078,
+        "ratio": 0.6613164207405714,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.06567239761352539,
         "action": 2
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6208586251250403,
-        "top_logit_change": 0.10754108428955078,
+        "ratio": 0.6613164207405714,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.06567239761352539,
         "action": 2
       },
-      "cosine_similarity": 0.9992326793424295,
+      "cosine_similarity": 0.9986809477344992,
       "confidence_margin_change": {
-        "margin_change": 0.014364017692472558,
+        "margin_change": 0.018836754827264657,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.0223206952124968,
+        "patched_margin": 0.026793432347288898,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.21982533824530884,
-        "patched_second_prob": 0.19750464303281204
+        "patched_top_prob": 0.22339452106851743,
+        "patched_second_prob": 0.19660108872122853
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.014364017692472558,
+        "magnitude": 0.018836754827264657,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.0223206952124968,
+        "patched_margin": 0.026793432347288898,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9619837936037688,
-        "p_value": 0.008846976684956822
+        "correlation": 0.9527263768672464,
+        "p_value": 0.012250629492003456
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.038016206396231156,
-        "p_value": 0.008846976684956822
+        "reversed_correlation": 0.04727362313275363,
+        "p_value": 0.012250629492003456
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.3791413748749597,
-        "top_logit_change": 0.10754108428955078,
+        "ratio": 0.3386835792594286,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.06567239761352539,
         "action": 2
       },
-      "top_logit_delta_magnitude": 0.10754108428955078,
-      "hellinger_distance": 0.00945584900626715,
-      "mahalanobis_distance": 0.1442142518985116
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.012332709037681458,
+      "mahalanobis_distance": 0.16023805520363263
     }
   },
-  "exp_26_q_net.0-q_net.2": {
+  "q_net.4_3_q_net.0_14n_q_net.2_12n": {
     "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
       "q_net.0": [
         1,
         4,
@@ -3368,17 +3650,21 @@
           0.5422202348709106,
           0.5987858772277832,
           0.6041148900985718,
-          0.6979217529296875,
+          0.717247724533081,
           0.5718287825584412
         ]
       ],
       "patched_action": 3,
       "patched_layers": [
+        "q_net.4",
         "q_net.0",
         "q_net.2"
       ],
       "action_changed": "False",
       "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
         "q_net.0": [
           1,
           4,
@@ -3412,70 +3698,580 @@
       }
     },
     "patch_analysis": {
-      "output_logit_delta": 0.10890650749206543,
-      "logit_difference_norm": 0.14777448559553083,
-      "action_probability_delta": 0.010010621229168237,
-      "kl_divergence": 0.000317682644565059,
-      "reverse_kl_divergence": 0.00032077164794435363,
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.16254304018896584,
+      "action_probability_delta": 0.013340728262946938,
+      "kl_divergence": 0.0005432686250798216,
+      "reverse_kl_divergence": 0.0005507250270991161,
       "top_action_probability_gap": {
-        "gap": 0.010010621229168237,
+        "gap": 0.013340728262946938,
         "baseline_top_action": 3,
         "patched_top_action": 3
       },
-      "logit_proportion_change": 0.014020284846725073,
-      "euclidean_distance": 0.14777448559553083,
+      "logit_proportion_change": 0.01891520147552067,
+      "euclidean_distance": 0.16254304018896584,
       "chebyshev_distance_excluding_top": {
         "distance": 0.06034046411514282,
         "action": 2
       },
       "directed_saturating_chebyshev": {
-        "ratio": 0.6434768456623858,
-        "top_logit_change": 0.10890650749206543,
+        "ratio": 0.6800152601120777,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.06034046411514282,
         "action": 2
       },
       "undirected_saturating_chebyshev": {
-        "ratio": 0.6434768456623858,
-        "top_logit_change": 0.10890650749206543,
+        "ratio": 0.6800152601120777,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.06034046411514282,
         "action": 2
       },
-      "cosine_similarity": 0.9993505386377033,
+      "cosine_similarity": 0.9988548738600304,
       "confidence_margin_change": {
-        "margin_change": 0.012770651272233313,
+        "margin_change": 0.01694946335762143,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.020727328792257554,
+        "patched_margin": 0.02490614087764567,
         "top_action": 3,
         "second_action": 1,
         "baseline_top_prob": 0.20960424927935267,
         "baseline_second_prob": 0.20164757175932843,
-        "patched_top_prob": 0.2196148705085209,
-        "patched_second_prob": 0.19888754171626336
+        "patched_top_prob": 0.2229449775422996,
+        "patched_second_prob": 0.19803883666465394
       },
       "confidence_margin_magnitude": {
-        "magnitude": 0.012770651272233313,
+        "magnitude": 0.01694946335762143,
         "baseline_margin": 0.007956677520024241,
-        "patched_margin": 0.020727328792257554,
+        "patched_margin": 0.02490614087764567,
         "top_action": 3,
         "second_action": 1
       },
       "pearson_correlation": {
-        "correlation": 0.9786213619236312,
-        "p_value": 0.003740298821506596
+        "correlation": 0.9680154369623968,
+        "p_value": 0.006833604681174205
       },
       "reversed_pearson_correlation": {
-        "reversed_correlation": 0.02137863807636875,
-        "p_value": 0.003740298821506596
+        "reversed_correlation": 0.03198456303760322,
+        "p_value": 0.006833604681174205
       },
       "reversed_undirected_saturating_chebyshev": {
-        "ratio": 0.35652315433761417,
-        "top_logit_change": 0.10890650749206543,
+        "ratio": 0.3199847398879223,
+        "top_logit_change": 0.12823247909545898,
         "chebyshev_excl_top": 0.06034046411514282,
         "action": 2
       },
-      "top_logit_delta_magnitude": 0.10890650749206543,
-      "hellinger_distance": 0.008933306656435916,
-      "mahalanobis_distance": 0.14777448559553083
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.011693616719430694,
+      "mahalanobis_distance": 0.16254304018896584
+    }
+  },
+  "q_net.4_3_q_net.0_15n_q_net.2_12n": {
+    "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
+      "q_net.0": [
+        1,
+        4,
+        8,
+        14,
+        17,
+        26,
+        28,
+        29,
+        35,
+        42,
+        44,
+        45,
+        48,
+        56,
+        61
+      ],
+      "q_net.2": [
+        3,
+        5,
+        10,
+        16,
+        22,
+        33,
+        34,
+        41,
+        44,
+        50,
+        59,
+        63
+      ]
+    },
+    "results": {
+      "baseline_output": [
+        [
+          0.5029986500740051,
+          0.5503154993057251,
+          0.543774425983429,
+          0.5890152454376221,
+          0.5223516225814819
+        ]
+      ],
+      "baseline_action": 3,
+      "patched_output": [
+        [
+          0.5405452251434326,
+          0.5985379219055176,
+          0.5984423756599426,
+          0.717247724533081,
+          0.5764659643173218
+        ]
+      ],
+      "patched_action": 3,
+      "patched_layers": [
+        "q_net.4",
+        "q_net.0",
+        "q_net.2"
+      ],
+      "action_changed": "False",
+      "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
+        "q_net.0": [
+          1,
+          4,
+          8,
+          14,
+          17,
+          26,
+          28,
+          29,
+          35,
+          42,
+          44,
+          45,
+          48,
+          56,
+          61
+        ],
+        "q_net.2": [
+          3,
+          5,
+          10,
+          16,
+          22,
+          33,
+          34,
+          41,
+          44,
+          50,
+          59,
+          63
+        ]
+      }
+    },
+    "patch_analysis": {
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.1615415201709503,
+      "action_probability_delta": 0.013472901702774764,
+      "kl_divergence": 0.0005498445133320221,
+      "reverse_kl_divergence": 0.0005575488934269788,
+      "top_action_probability_gap": {
+        "gap": 0.013472901702774764,
+        "baseline_top_action": 3,
+        "patched_top_action": 3
+      },
+      "logit_proportion_change": 0.01914590116053047,
+      "euclidean_distance": 0.1615415201709503,
+      "chebyshev_distance_excluding_top": {
+        "distance": 0.05466794967651367,
+        "action": 2
+      },
+      "directed_saturating_chebyshev": {
+        "ratio": 0.7011054041060759,
+        "top_logit_change": 0.12823247909545898,
+        "chebyshev_excl_top": 0.05466794967651367,
+        "action": 2
+      },
+      "undirected_saturating_chebyshev": {
+        "ratio": 0.7011054041060759,
+        "top_logit_change": 0.12823247909545898,
+        "chebyshev_excl_top": 0.05466794967651367,
+        "action": 2
+      },
+      "cosine_similarity": 0.9988320072106077,
+      "confidence_margin_change": {
+        "margin_change": 0.017013356824650494,
+        "baseline_margin": 0.007956677520024241,
+        "patched_margin": 0.024970034344674735,
+        "top_action": 3,
+        "second_action": 1,
+        "baseline_top_prob": 0.20960424927935267,
+        "baseline_second_prob": 0.20164757175932843,
+        "patched_top_prob": 0.22307715098212744,
+        "patched_second_prob": 0.1981071166374527
+      },
+      "confidence_margin_magnitude": {
+        "magnitude": 0.017013356824650494,
+        "baseline_margin": 0.007956677520024241,
+        "patched_margin": 0.024970034344674735,
+        "top_action": 3,
+        "second_action": 1
+      },
+      "pearson_correlation": {
+        "correlation": 0.9640075568410407,
+        "p_value": 0.008152525558913954
+      },
+      "reversed_pearson_correlation": {
+        "reversed_correlation": 0.03599244315895933,
+        "p_value": 0.008152525558913954
+      },
+      "reversed_undirected_saturating_chebyshev": {
+        "ratio": 0.2988945958939241,
+        "top_logit_change": 0.12823247909545898,
+        "chebyshev_excl_top": 0.05466794967651367,
+        "action": 2
+      },
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.011765003358612764,
+      "mahalanobis_distance": 0.1615415201709503
+    }
+  },
+  "q_net.4_3_q_net.0_15n_q_net.2_13n": {
+    "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
+      "q_net.0": [
+        1,
+        4,
+        8,
+        14,
+        17,
+        26,
+        28,
+        29,
+        35,
+        42,
+        44,
+        45,
+        48,
+        56,
+        61
+      ],
+      "q_net.2": [
+        3,
+        5,
+        10,
+        16,
+        22,
+        33,
+        34,
+        40,
+        41,
+        44,
+        50,
+        59,
+        63
+      ]
+    },
+    "results": {
+      "baseline_output": [
+        [
+          0.5029986500740051,
+          0.5503154993057251,
+          0.543774425983429,
+          0.5890152454376221,
+          0.5223516225814819
+        ]
+      ],
+      "baseline_action": 3,
+      "patched_output": [
+        [
+          0.5465366244316101,
+          0.5927456021308899,
+          0.613135576248169,
+          0.717247724533081,
+          0.5742321014404297
+        ]
+      ],
+      "patched_action": 3,
+      "patched_layers": [
+        "q_net.4",
+        "q_net.0",
+        "q_net.2"
+      ],
+      "action_changed": "False",
+      "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
+        "q_net.0": [
+          1,
+          4,
+          8,
+          14,
+          17,
+          26,
+          28,
+          29,
+          35,
+          42,
+          44,
+          45,
+          48,
+          56,
+          61
+        ],
+        "q_net.2": [
+          3,
+          5,
+          10,
+          16,
+          22,
+          33,
+          34,
+          40,
+          41,
+          44,
+          50,
+          59,
+          63
+        ]
+      }
+    },
+    "patch_analysis": {
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.1662588066376227,
+      "action_probability_delta": 0.01292128776213261,
+      "kl_divergence": 0.0005358469049506331,
+      "reverse_kl_divergence": 0.0005423374613628693,
+      "top_action_probability_gap": {
+        "gap": 0.01292128776213261,
+        "baseline_top_action": 3,
+        "patched_top_action": 3
+      },
+      "logit_proportion_change": 0.018161893832735143,
+      "euclidean_distance": 0.1662588066376227,
+      "chebyshev_distance_excluding_top": {
+        "distance": 0.06936115026473999,
+        "action": 2
+      },
+      "directed_saturating_chebyshev": {
+        "ratio": 0.6489707155325505,
+        "top_logit_change": 0.12823247909545898,
+        "chebyshev_excl_top": 0.06936115026473999,
+        "action": 2
+      },
+      "undirected_saturating_chebyshev": {
+        "ratio": 0.6489707155325505,
+        "top_logit_change": 0.12823247909545898,
+        "chebyshev_excl_top": 0.06936115026473999,
+        "action": 2
+      },
+      "cosine_similarity": 0.9988683323984867,
+      "confidence_margin_change": {
+        "margin_change": 0.01809296573774022,
+        "baseline_margin": 0.007956677520024241,
+        "patched_margin": 0.02604964325776446,
+        "top_action": 3,
+        "second_action": 1,
+        "baseline_top_prob": 0.20960424927935267,
+        "baseline_second_prob": 0.20164757175932843,
+        "patched_top_prob": 0.22252553704148528,
+        "patched_second_prob": 0.19647589378372082
+      },
+      "confidence_margin_magnitude": {
+        "magnitude": 0.01809296573774022,
+        "baseline_margin": 0.007956677520024241,
+        "patched_margin": 0.02604964325776446,
+        "top_action": 3,
+        "second_action": 1
+      },
+      "pearson_correlation": {
+        "correlation": 0.9544280724205115,
+        "p_value": 0.011598150619970589
+      },
+      "reversed_pearson_correlation": {
+        "reversed_correlation": 0.04557192757948847,
+        "p_value": 0.011598150619970589
+      },
+      "reversed_undirected_saturating_chebyshev": {
+        "ratio": 0.3510292844674495,
+        "top_logit_change": 0.12823247909545898,
+        "chebyshev_excl_top": 0.06936115026473999,
+        "action": 2
+      },
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.011608849205055507,
+      "mahalanobis_distance": 0.1662588066376227
+    }
+  },
+  "q_net.4_3_q_net.0_16n_q_net.2_13n": {
+    "patch_configuration": {
+      "q_net.4": [
+        3
+      ],
+      "q_net.0": [
+        1,
+        3,
+        4,
+        8,
+        14,
+        17,
+        26,
+        28,
+        29,
+        35,
+        42,
+        44,
+        45,
+        48,
+        56,
+        61
+      ],
+      "q_net.2": [
+        3,
+        5,
+        10,
+        16,
+        22,
+        33,
+        34,
+        40,
+        41,
+        44,
+        50,
+        59,
+        63
+      ]
+    },
+    "results": {
+      "baseline_output": [
+        [
+          0.5029986500740051,
+          0.5503154993057251,
+          0.543774425983429,
+          0.5890152454376221,
+          0.5223516225814819
+        ]
+      ],
+      "baseline_action": 3,
+      "patched_output": [
+        [
+          0.5309383869171143,
+          0.5792547464370728,
+          0.5882548093795776,
+          0.717247724533081,
+          0.5599921345710754
+        ]
+      ],
+      "patched_action": 3,
+      "patched_layers": [
+        "q_net.4",
+        "q_net.0",
+        "q_net.2"
+      ],
+      "action_changed": "False",
+      "patch_configuration": {
+        "q_net.4": [
+          3
+        ],
+        "q_net.0": [
+          1,
+          3,
+          4,
+          8,
+          14,
+          17,
+          26,
+          28,
+          29,
+          35,
+          42,
+          44,
+          45,
+          48,
+          56,
+          61
+        ],
+        "q_net.2": [
+          3,
+          5,
+          10,
+          16,
+          22,
+          33,
+          34,
+          40,
+          41,
+          44,
+          50,
+          59,
+          63
+        ]
+      }
+    },
+    "patch_analysis": {
+      "output_logit_delta": 0.12823247909545898,
+      "logit_difference_norm": 0.14648204758353783,
+      "action_probability_delta": 0.015895871039478898,
+      "kl_divergence": 0.0007541117499160485,
+      "reverse_kl_divergence": 0.0007668215863995149,
+      "top_action_probability_gap": {
+        "gap": 0.015895871039478898,
+        "baseline_top_action": 3,
+        "patched_top_action": 3
+      },
+      "logit_proportion_change": 0.023563199058632495,
+      "euclidean_distance": 0.14648204758353783,
+      "chebyshev_distance_excluding_top": {
+        "distance": 0.04448038339614868,
+        "action": 2
+      },
+      "directed_saturating_chebyshev": {
+        "ratio": 0.742460504511897,
+        "top_logit_change": 0.12823247909545898,
+        "chebyshev_excl_top": 0.04448038339614868,
+        "action": 2
+      },
+      "undirected_saturating_chebyshev": {
+        "ratio": 0.742460504511897,
+        "top_logit_change": 0.12823247909545898,
+        "chebyshev_excl_top": 0.04448038339614868,
+        "action": 2
+      },
+      "cosine_similarity": 0.9982415138914863,
+      "confidence_margin_change": {
+        "margin_change": 0.02110920366302793,
+        "baseline_margin": 0.007956677520024241,
+        "patched_margin": 0.029065881183052172,
+        "top_action": 3,
+        "second_action": 1,
+        "baseline_top_prob": 0.20960424927935267,
+        "baseline_second_prob": 0.20164757175932843,
+        "patched_top_prob": 0.22550012031883157,
+        "patched_second_prob": 0.1964342391357794
+      },
+      "confidence_margin_magnitude": {
+        "magnitude": 0.02110920366302793,
+        "baseline_margin": 0.007956677520024241,
+        "patched_margin": 0.029065881183052172,
+        "top_action": 3,
+        "second_action": 1
+      },
+      "pearson_correlation": {
+        "correlation": 0.9470677956130631,
+        "p_value": 0.014502245177290922
+      },
+      "reversed_pearson_correlation": {
+        "reversed_correlation": 0.05293220438693691,
+        "p_value": 0.014502245177290922
+      },
+      "reversed_undirected_saturating_chebyshev": {
+        "ratio": 0.25753949548810295,
+        "top_logit_change": 0.12823247909545898,
+        "chebyshev_excl_top": 0.04448038339614868,
+        "action": 2
+      },
+      "top_logit_delta_magnitude": 0.12823247909545898,
+      "hellinger_distance": 0.013787673174658803,
+      "mahalanobis_distance": 0.14648204758353783
     }
   }
 }
