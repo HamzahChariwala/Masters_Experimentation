@@ -46,7 +46,7 @@ except ImportError as e:
 # Import the coalition to experiments converter
 try:
     sys.path.insert(0, os.path.join(neuron_selection_dir, 'ExperimentTooling'))
-    from coalition_to_experiments import main as convert_coalitions_to_experiments
+    from ExperimentTooling.coalition_to_experiments import main as convert_coalitions_to_experiments
 except ImportError as e:
     print(f"Warning: Could not import coalition to experiments converter: {e}")
     convert_coalitions_to_experiments = None
@@ -54,8 +54,8 @@ except ImportError as e:
 # Import the circuit experiments runner
 try:
     sys.path.insert(0, os.path.join(neuron_selection_dir, 'CircuitTooling'))
-    from run_circuit_experiments import run_all_circuit_experiments
-    from visualize_circuit_results import create_circuit_visualization
+    from CircuitTooling.run_circuit_experiments import run_all_circuit_experiments
+    from CircuitTooling.visualize_circuit_results import create_circuit_visualization
 except ImportError as e:
     print(f"Warning: Could not import circuit experiments runner or visualizer: {e}")
     run_all_circuit_experiments = None
