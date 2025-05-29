@@ -14,7 +14,18 @@ SEQUENTIAL FUNCTION CALLS:
    Generates: activation_inputs/ and activation_logging/ folders
    Dependencies: Requires agent.zip file
 
-2. GRADIENT ANALYSIS
+2. LINEAR PROBES TRAINING
+   Command: python Neuron_Selection/CircuitTooling/linear_probes.py --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
+   Generates: activation_probing/ folder with trained logistic regression models
+   Dependencies: Requires activation_logging/clean_activations_readable.json and corrupted_activations_readable.json
+   Notes: 
+   - Trains L2-regularized logistic regression probes on each non-logits layer
+   - Uses L-BFGS solver for guaranteed convergence to global optimum
+   - Provides full neuron rankings with discriminative weights
+   - Includes dataset size warnings for small datasets
+   - Optional parameters: --test_size 0.2 --random_state 42 --output_dir custom_path
+
+3. GRADIENT ANALYSIS
    Command: python Parameter_Selection/SaliencyTooling/gradients.py --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
    Generates: gradient_analysis/weight_gradients.json
    Dependencies: Requires agent.zip and activation_inputs/
@@ -23,34 +34,34 @@ SEQUENTIAL FUNCTION CALLS:
    Generates: gradient_analysis/average_gradients.json
    Dependencies: Requires weight_gradients.json
 
-3. EVALUATION GENERATION
+4. EVALUATION GENERATION
    Command: python Agent_Evaluation/generate_evaluations.py --path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
    Generates: evaluation_logs/, evaluation_summary/, final_eval.json
    Dependencies: Requires agent.zip file
    Note: Automatically includes behavioral metrics (blocked, chose_safety, chose_safety_optimally, into_wall)
 
-3.1. BEHAVIORAL METRICS (STANDALONE - if needed on existing evaluations)
+4.1. BEHAVIORAL METRICS (STANDALONE - if needed on existing evaluations)
    Command: python Agent_Evaluation/add_metrics.py "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
    Generates: Updates evaluation_logs/ and evaluation_summary/ with 4 new behavioral metrics
    Dependencies: Requires evaluation_logs/ and Behaviour_Specification/Evaluations/ dijkstra data
 
-3.2. CATEGORY SUMMARIES GENERATION
+4.2. CATEGORY SUMMARIES GENERATION
    Command: python Agent_Evaluation/category_summaries.py --base "LavaTests/NoDeath/0.100_penalty" --agent "0.100_penalty"
    Generates: category_summary.json with statistics across agent versions
    Dependencies: Requires evaluation_summary/ from multiple agent versions
    Note: Automatically updates behavioral metrics before processing
 
-4. PATCHING SELECTION
+5. PATCHING SELECTION
    Command: python Neuron_Selection/SelectionTooling/analyze_metrics.py --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
    Generates: patching_selection/ folder
    Dependencies: Requires activation_inputs/ and activation_logging/
 
-5. ACTIVATION PATCHING EXPERIMENTS
+6. ACTIVATION PATCHING EXPERIMENTS
    Command: python Neuron_Selection/activation_patching.py --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6" --experiment_file "Neuron_Selection/ExperimentTooling/Definitions/layer_experiment.json"
    Generates: patching_results/ folder with raw experiment data
    Dependencies: Requires activation_inputs/, activation_logging/, and patching_selection/
 
-6. COMPREHENSIVE CIRCUIT VERIFICATION WORKFLOW
+7. COMPREHENSIVE CIRCUIT VERIFICATION WORKFLOW
    Command: python Neuron_Selection/SelectionTooling/filter_metrics.py --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
    Generates: 
    - patching_results/filtered/ (filtered experiment results)
@@ -60,15 +71,15 @@ SEQUENTIAL FUNCTION CALLS:
    - circuit_verification/experiments/ (experiment format files)
    - circuit_verification/results/ (circuit experiment results)
    - circuit_verification/plots/ (visualization plots)
-   Dependencies: Requires patching_results/ from step 5
+   Dependencies: Requires patching_results/ from step 6
 
 ALTERNATIVE EVALUATION COMMANDS:
 - For specific agent groups, use bash scripts in Useful_Bash_Scripts/EvalBashScripts/
 - Example: bash Useful_Bash_Scripts/EvalBashScripts/0.100_penalty.sh
 
 NOTES:
-- Steps 1-5 can be run independently if their dependencies are met
-- Step 6 is a comprehensive workflow that includes multiple sub-processes
+- Steps 1-6 can be run independently if their dependencies are met
+- Step 7 is a comprehensive workflow that includes multiple sub-processes
 - All paths should be adjusted based on actual agent location
 - Some steps may take significant time depending on data size
 - Error handling is built into most scripts for missing dependencies 
