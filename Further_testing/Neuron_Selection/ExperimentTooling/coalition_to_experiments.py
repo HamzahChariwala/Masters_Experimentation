@@ -185,8 +185,8 @@ def main():
     
     # Set up paths
     agent_path = Path(args.agent_path)
-    descriptions_dir = agent_path / "circuit_verification" / "descriptions"
-    experiments_dir = agent_path / "circuit_verification" / "experiments"
+    descriptions_dir = agent_path / "circuit_verification" / "descending" / "descriptions"
+    experiments_dir = agent_path / "circuit_verification" / "descending" / "experiments"
     
     # Create experiments directory
     experiments_dir.mkdir(parents=True, exist_ok=True)

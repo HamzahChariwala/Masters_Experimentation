@@ -408,7 +408,7 @@ def filter_metrics(agent_path: str, max_experiments: int = 30) -> None:
             # Run circuit experiments
             if run_all_circuit_experiments:
                 print(f"Running circuit experiments...")
-                run_all_circuit_experiments(agent_path, subfolder="descending")
+                run_all_circuit_experiments(agent_path, subfolder="descending/results")
                 
                 # Generate visualizations
                 if create_circuit_visualization:

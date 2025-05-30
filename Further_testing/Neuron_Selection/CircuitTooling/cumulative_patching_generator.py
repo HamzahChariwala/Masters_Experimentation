@@ -162,9 +162,9 @@ def generate_cumulative_experiments(agent_path: str, input_files: List[str] = No
     """
     agent_path = Path(agent_path)
     filtered_dir = agent_path / "patching_results" / "filtered"
-    circuit_verification_dir = agent_path / "circuit_verification" / "descriptions"
+    circuit_verification_dir = agent_path / "circuit_verification" / "descending" / "descriptions"
     
-    # Create circuit_verification/descriptions directory if it doesn't exist
+    # Create circuit_verification/descending/descriptions directory if it doesn't exist
     circuit_verification_dir.mkdir(parents=True, exist_ok=True)
     
     # Check if filtered directory exists

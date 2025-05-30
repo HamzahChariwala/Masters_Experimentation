@@ -145,26 +145,29 @@ def create_circuit_visualization(
     agent_path: str,
     output_dir: str = None,
     max_experiments: int = 30,
-    max_metrics: int = 5,
+    max_metrics: int = 10,
     max_examples: int = 5,
     subfolder: str = "results"
 ) -> None:
     """
-    Create circuit verification visualization plots.
+    Create visualizations for circuit verification results.
     
     Args:
         agent_path: Path to the agent directory
-        output_dir: Directory to save plots (defaults to circuit_verification/plots)
+        output_dir: Directory to save plots (default: circuit_verification/descending/plots)
         max_experiments: Maximum number of experiments to plot
         max_metrics: Maximum number of metrics to include
         max_examples: Maximum number of input examples to include
         subfolder: Subfolder name within circuit_verification for results (default: "results")
     """
     agent_path = Path(agent_path)
-    results_dir = agent_path / "circuit_verification" / subfolder
+    if subfolder == "descending":
+        results_dir = agent_path / "circuit_verification" / "descending" / "results"
+    else:
+        results_dir = agent_path / "circuit_verification" / subfolder
     
     if output_dir is None:
-        output_dir = agent_path / "circuit_verification" / "plots"
+        output_dir = agent_path / "circuit_verification" / "descending" / "plots"
     else:
         output_dir = Path(output_dir)
     
@@ -378,11 +381,11 @@ def main():
     parser.add_argument("--agent_path", type=str, required=True,
                        help="Path to the agent directory")
     parser.add_argument("--output_dir", type=str,
-                       help="Directory to save plots (default: circuit_verification/plots)")
+                       help="Directory to save plots (default: circuit_verification/descending/plots)")
     parser.add_argument("--max_experiments", type=int, default=30,
                        help="Maximum number of experiments to plot (default: 30)")
-    parser.add_argument("--max_metrics", type=int, default=5,
-                       help="Maximum number of metrics to include (default: 5)")
+    parser.add_argument("--max_metrics", type=int, default=10,
+                       help="Maximum number of metrics to include (default: 10)")
     parser.add_argument("--max_examples", type=int, default=5,
                        help="Maximum number of input examples to include (default: 5)")
     parser.add_argument("--subfolder", type=str, default="results",

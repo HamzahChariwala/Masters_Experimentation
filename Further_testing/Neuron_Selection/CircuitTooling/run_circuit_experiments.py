@@ -63,6 +63,15 @@ def run_experiments_from_file(
     # Initialize patching experiment
     experiment = PatchingExperiment(agent_path, device=device)
     
+    # Override the output directory for circuit verification
+    # Create experiment-specific output directory
+    exp_name = experiment_file.stem.replace('experiments_', '')
+    exp_output_dir = output_dir / exp_name
+    exp_output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Override the default output directory in the experiment
+    experiment.output_dir = str(exp_output_dir)
+    
     # Load patch configurations from file
     try:
         patch_configs = load_patches_from_file(str(experiment_file))
@@ -91,6 +100,7 @@ def run_experiments_from_file(
     print(f"  Corrupted activations: {target_activations}")
     print(f"  Number of patch configurations: {len(patch_configs)}")
     print(f"  Excluded layer: {EXCLUDED_LAYER}")
+    print(f"  Output directory: {exp_output_dir}")
     print("--------------------------------------------------")
     
     try:
@@ -108,59 +118,12 @@ def run_experiments_from_file(
         print(f"  Clean → Corrupted: {len(clean_to_corrupted)} result files")
         print(f"  Corrupted → Clean: {len(corrupted_to_clean)} result files")
         
-        # Create experiment-specific output directory
-        exp_name = experiment_file.stem.replace('experiments_', '')
-        exp_output_dir = output_dir / exp_name
-        exp_output_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Move results to the experiment-specific directory
-        moved_files = {"denoising": [], "noising": []}
-        
-        # Move denoising results
-        if clean_to_corrupted:
-            denoising_dir = exp_output_dir / "denoising"
-            denoising_dir.mkdir(exist_ok=True)
-            
-            for input_id, result_file in clean_to_corrupted.items():
-                if os.path.exists(result_file):
-                    new_path = denoising_dir / os.path.basename(result_file)
-                    os.rename(result_file, new_path)
-                    moved_files["denoising"].append(str(new_path))
-        
-        # Move noising results
-        if corrupted_to_clean:
-            noising_dir = exp_output_dir / "noising"
-            noising_dir.mkdir(exist_ok=True)
-            
-            for input_id, result_file in corrupted_to_clean.items():
-                if os.path.exists(result_file):
-                    new_path = noising_dir / os.path.basename(result_file)
-                    os.rename(result_file, new_path)
-                    moved_files["noising"].append(str(new_path))
-        
-        # Clean up the original output directory if it's empty
-        original_output_dir = Path(experiment.output_dir)
-        try:
-            if original_output_dir.exists():
-                # Remove empty subdirectories
-                for subdir in ["denoising", "noising"]:
-                    subdir_path = original_output_dir / subdir
-                    if subdir_path.exists() and not any(subdir_path.iterdir()):
-                        subdir_path.rmdir()
-                
-                # Remove main directory if empty
-                if not any(original_output_dir.iterdir()):
-                    original_output_dir.rmdir()
-        except OSError:
-            pass  # Directory not empty or other issue
-        
         return {
             "success": True,
             "file": str(experiment_file),
             "experiment_name": exp_name,
             "output_directory": str(exp_output_dir),
             "patch_count": len(patch_configs),
-            "results": moved_files,
             "clean_to_corrupted_count": len(clean_to_corrupted),
             "corrupted_to_clean_count": len(corrupted_to_clean)
         }
@@ -193,8 +156,17 @@ def run_all_circuit_experiments(
         Dictionary with summary of all experiments
     """
     agent_path = Path(agent_path)
-    experiments_dir = agent_path / "circuit_verification" / "experiments"
-    results_dir = agent_path / "circuit_verification" / subfolder
+    
+    # Handle descending subfolder structure properly
+    if subfolder.startswith("descending"):
+        # For descending structure, experiments are in descending/experiments
+        # and results go to the specified subfolder path
+        experiments_dir = agent_path / "circuit_verification" / "descending" / "experiments"
+        results_dir = agent_path / "circuit_verification" / subfolder
+    else:
+        # For non-descending structure, maintain original behavior
+        experiments_dir = agent_path / "circuit_verification" / "experiments" 
+        results_dir = agent_path / "circuit_verification" / subfolder
     
     # Create results directory
     results_dir.mkdir(parents=True, exist_ok=True)
