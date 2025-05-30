@@ -203,14 +203,32 @@ Example usage:
         print(f"{'='*60}")
         
         try:
-            # Import and run visualization script
-            from Neuron_Selection.CircuitTooling.MonotonicTooling.visualize_monotonic_results import create_monotonic_visualizations
-            create_monotonic_visualizations(args.agent_path)
-            print("✓ Visualizations generated successfully!")
-        except Exception as e:
-            print(f"✗ Error generating visualizations: {e}")
+            # Import and run the individual plots script
+            cmd = [
+                sys.executable, "-m", "Neuron_Selection.CircuitTooling.MonotonicTooling.create_individual_plots",
+                "--agent_path", args.agent_path
+            ]
+            
+            if args.metrics:
+                cmd.extend(["--metrics"] + metrics_to_run)
+            
+            start_time = time.time()
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            end_time = time.time()
+            
+            print(f"✓ Visualizations generated successfully in {end_time - start_time:.1f} seconds!")
+            print("STDOUT:", result.stdout)
+            
+        except subprocess.CalledProcessError as e:
+            print(f"✗ Error generating visualizations!")
+            print("STDOUT:", e.stdout)
+            print("STDERR:", e.stderr)
             print("You can manually generate them with:")
-            print(f"python -m Neuron_Selection.CircuitTooling.MonotonicTooling.visualize_monotonic_results --agent_path \"{args.agent_path}\"")
+            print(f"python -m Neuron_Selection.CircuitTooling.MonotonicTooling.create_individual_plots --agent_path \"{args.agent_path}\"")
+        except Exception as e:
+            print(f"✗ Unexpected error generating visualizations: {e}")
+            print("You can manually generate them with:")
+            print(f"python -m Neuron_Selection.CircuitTooling.MonotonicTooling.create_individual_plots --agent_path \"{args.agent_path}\"")
 
 if __name__ == "__main__":
     main() 

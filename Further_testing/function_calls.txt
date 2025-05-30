@@ -57,7 +57,7 @@ SEQUENTIAL FUNCTION CALLS:
    Dependencies: Requires activation_inputs/ and activation_logging/
 
 6. ACTIVATION PATCHING EXPERIMENTS
-   Command: python Neuron_Selection/activation_patching.py --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6" --experiment_file "Neuron_Selection/ExperimentTooling/Definitions/layer_experiment.json"
+   Command: python Neuron_Selection/activation_patching.py --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6" --patches_file "Neuron_Selection/ExperimentTooling/Definitions/all_neurons.json"
    Generates: patching_results/ folder with raw experiment data
    Dependencies: Requires activation_inputs/, activation_logging/, and patching_selection/
 
@@ -67,10 +67,10 @@ SEQUENTIAL FUNCTION CALLS:
    - patching_results/filtered/ (filtered experiment results)
    - patching_results/analysis/ (analysis plots and histograms)
    - patching_results/cross_metric_summary.json
-   - circuit_verification/descriptions/ (coalition descriptions)
-   - circuit_verification/experiments/ (experiment format files)
-   - circuit_verification/results/ (circuit experiment results)
-   - circuit_verification/plots/ (visualization plots)
+   - circuit_verification/descending/descriptions/ (coalition descriptions)
+   - circuit_verification/descending/experiments/ (experiment format files)
+   - circuit_verification/descending/results/ (circuit experiment results)
+   - circuit_verification/descending/plots/ (visualization plots)
    Dependencies: Requires patching_results/ from step 6
 
 ALTERNATIVE EVALUATION COMMANDS:
@@ -192,3 +192,142 @@ FINAL STATUS: ✅ ALL CRITICAL OBJECTIVES ACHIEVED
 ✅ No breaking changes to existing functionality
 
 The circuit verification workflow now automatically executes when analyze_metrics.py runs, ensuring consistent and up-to-date results for all subsequent analyses. 
+
+# Monotonic Coalition Builder - Complete Invocation Guide
+
+## Overview
+This document describes the commands needed to generate the complete monotonic coalition analysis, including coalition building and individual plot generation.
+
+## Prerequisites
+- Agent path: `Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6`
+- All required input files (clean_inputs.json, corrupted_inputs.json, clean_activations.npz, corrupted_activations.npz)
+- Python environment with all dependencies installed
+
+## Step 1: Monotonic Coalition Building
+Run the monotonic coalition building algorithm for all 7 metrics:
+
+```bash
+python -m Neuron_Selection.CircuitTooling.MonotonicTooling.run_all_coalition_builders \
+    --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6" \
+    --candidate_pool_size 50 \
+    --max_coalition_size 30 \
+    --highest true
+```
+
+**This command automatically builds coalitions AND generates individual plots for all 7 metrics.**
+
+**Expected Output**: Creates complete monotonic analysis for all metrics:
+```
+Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6/circuit_verification/monotonic/
+├── kl_divergence/
+│   ├── results/
+│   │   ├── iteration_001_*.json (coalition building iterations)
+│   │   └── iteration_NNN_*.json
+│   ├── plots/
+│   │   └── coalition_verification_kl_divergence.png
+│   └── summary.json
+├── reverse_kl_divergence/
+│   ├── results/
+│   ├── plots/
+│   │   └── coalition_verification_reverse_kl_divergence.png
+│   └── summary.json
+├── undirected_saturating_chebyshev/
+│   ├── results/
+│   ├── plots/
+│   │   └── coalition_verification_undirected_saturating_chebyshev.png
+│   └── summary.json
+├── reversed_undirected_saturating_chebyshev/
+│   ├── results/
+│   ├── plots/
+│   │   └── coalition_verification_reversed_undirected_saturating_chebyshev.png
+│   └── summary.json
+├── confidence_margin_magnitude/
+│   ├── results/
+│   ├── plots/
+│   │   └── coalition_verification_confidence_margin_magnitude.png
+│   └── summary.json
+├── reversed_pearson_correlation/
+│   ├── results/
+│   ├── plots/
+│   │   └── coalition_verification_reversed_pearson_correlation.png
+│   └── summary.json
+└── top_logit_delta_magnitude/
+    ├── results/
+    ├── plots/
+    │   └── coalition_verification_top_logit_delta_magnitude.png
+    └── summary.json
+```
+
+## Step 2: Individual Plot Generation (Optional)
+If you need to regenerate plots separately or for specific metrics:
+
+```bash
+python -m Neuron_Selection.CircuitTooling.MonotonicTooling.create_individual_plots \
+    --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
+```
+
+### Alternative: Generate plots for specific metrics only
+```bash
+python -m Neuron_Selection.CircuitTooling.MonotonicTooling.create_individual_plots \
+    --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6" \
+    --metrics "kl_divergence" "top_logit_delta_magnitude"
+```
+
+## Expected Output Structure After Complete Process
+```
+Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6/circuit_verification/monotonic/
+├── kl_divergence/
+│   ├── plots/
+│   │   └── coalition_verification_kl_divergence.png
+│   ├── results/
+│   │   └── [cleaned up - individual iteration files removed by plot generation script]
+│   └── summary.json
+├── reverse_kl_divergence/
+│   ├── plots/
+│   │   └── coalition_verification_reverse_kl_divergence.png
+│   ├── results/
+│   └── summary.json
+├── undirected_saturating_chebyshev/
+│   ├── plots/
+│   │   └── coalition_verification_undirected_saturating_chebyshev.png
+│   ├── results/
+│   └── summary.json
+├── reversed_undirected_saturating_chebyshev/
+│   ├── plots/
+│   │   └── coalition_verification_reversed_undirected_saturating_chebyshev.png
+│   ├── results/
+│   └── summary.json
+├── confidence_margin_magnitude/
+│   ├── plots/
+│   │   └── coalition_verification_confidence_margin_magnitude.png
+│   ├── results/
+│   └── summary.json
+├── reversed_pearson_correlation/
+│   ├── plots/
+│   │   └── coalition_verification_reversed_pearson_correlation.png
+│   ├── results/
+│   └── summary.json
+└── top_logit_delta_magnitude/
+    ├── plots/
+    │   └── coalition_verification_top_logit_delta_magnitude.png
+    ├── results/
+    └── summary.json
+```
+
+## Plot Features
+Each individual plot includes:
+- 5×2 grid format (5 environments × 2 experiment types)
+- Left column: Noising experiments
+- Right column: Denoising experiments  
+- X-axis: Coalition size (0=baseline, 1-30=progressive coalition building)
+- Y-axis: Logit values (5 colored lines per subplot)
+- Per-row axis scaling (consistent within each environment row)
+- Real logit data extracted from actual patching experiments
+
+## Notes
+- Step 1 builds coalitions AND generates plots for all 7 metrics automatically in one command
+- Step 2 is optional - only needed for regenerating plots separately or for specific metrics
+- The individual plot generation script automatically cleans up coalition building result files
+- Each metric gets its own dedicated plot saved in its plots/ directory
+- All plots use real experimental data, not synthetic/mock data
+- Environment names positioned to avoid overlap with Y-axis labels 

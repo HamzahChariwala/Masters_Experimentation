@@ -111,9 +111,33 @@ def extract_logits_from_experiments(data: Dict[str, Any], max_experiments: int =
         experiment_names = sorted([k for k in experiment_keys if k.startswith('cumulative_')], 
                                  key=lambda x: int(x.split('_')[1]))
     else:
-        # Use individual neuron experiments, sorted alphabetically for consistency
-        experiment_names = sorted([k for k in experiment_keys 
-                                 if not k.startswith('baseline')])  # Exclude any baseline-only entries
+        # For descending circuit results, experiments are NOT cumulative - they are individual patches
+        # The alphabetical sorting creates false patterns in the plots
+        # We should either:
+        # 1. Skip plotting if there are no cumulative experiments, OR
+        # 2. Sort by some meaningful order (e.g., number of neurons patched)
+        
+        # For now, let's sort by the number of neurons being patched to get a meaningful progression
+        def count_neurons_in_experiment(exp_key):
+            """Count total neurons being patched in this experiment"""
+            count = 0
+            # Handle patterns like "q_net.4_neuron_2" (1 neuron) or "q_net.4_neurons_0_1_2_3_4" (5 neurons)
+            if '_neuron_' in exp_key:
+                count += 1
+            elif '_neurons_' in exp_key:
+                # Count numbers after the last '_neurons_'
+                neurons_part = exp_key.split('_neurons_')[-1]
+                count += len([x for x in neurons_part.split('_') if x.isdigit()])
+            # Handle patterns like "q_net.4_5n_q_net.0_10n_q_net.2_9n" (5+10+9=24 neurons)
+            elif '_n' in exp_key:
+                parts = exp_key.split('_')
+                for i, part in enumerate(parts):
+                    if part.endswith('n') and part[:-1].isdigit():
+                        count += int(part[:-1])
+            return count
+        
+        experiment_names = sorted([k for k in experiment_keys if not k.startswith('baseline')], 
+                                 key=count_neurons_in_experiment)
     
     # Take only the first max_experiments
     experiment_names = experiment_names[:max_experiments]
@@ -191,7 +215,13 @@ def create_circuit_visualization(
     
     # Collect data for all metrics and examples
     all_data = {}
-    all_examples = set()
+    all_examples = [
+        "MiniGrid_LavaCrossingS11N5_v0_81109_2_3_1_0115",
+        "MiniGrid_LavaCrossingS11N5_v0_81103_4_1_0_0026", 
+        "MiniGrid_LavaCrossingS11N5_v0_81104_5_2_0_0253",
+        "MiniGrid_LavaCrossingS11N5_v0_81109_7_5_0_0145",
+        "MiniGrid_LavaCrossingS11N5_v0_81102_7_8_0_0106"
+    ]
     # Track min/max per environment for consistent scaling across noising/denoising
     environment_limits = {}
     
@@ -215,7 +245,6 @@ def create_circuit_visualization(
             
             for result_file in result_files:
                 example_name = result_file.stem
-                all_examples.add(example_name)
                 
                 # Load and extract logits
                 data = load_experiment_results(result_file)
@@ -235,10 +264,7 @@ def create_circuit_visualization(
                             environment_limits[example_name]['min'] = min(environment_limits[example_name]['min'], env_min)
                             environment_limits[example_name]['max'] = max(environment_limits[example_name]['max'], env_max)
     
-    # Convert to sorted list for consistent ordering
-    all_examples = sorted(list(all_examples))[:max_examples]
-    
-    if not all_data or not all_examples:
+    if not all_data:
         print(f"No data found")
         return
     
@@ -335,7 +361,7 @@ def create_circuit_visualization(
                 
                 # Add environment name on the left for leftmost column with better formatting
                 if j == 0:
-                    ax.text(-0.12, 0.5, formatted_name, rotation=90, verticalalignment='center', 
+                    ax.text(-0.2, 0.5, formatted_name, rotation=90, verticalalignment='center', 
                            horizontalalignment='center', fontsize=10, fontweight='bold',
                            transform=ax.transAxes)
                 
@@ -363,7 +389,7 @@ def create_circuit_visualization(
                     fontsize=14, y=0.95)
         
         # Adjust layout with better spacing to accommodate more environments
-        plt.subplots_adjust(left=0.18, right=0.95, top=0.88, bottom=0.08, 
+        plt.subplots_adjust(left=0.22, right=0.95, top=0.88, bottom=0.08, 
                            hspace=0.25, wspace=0.15)
         
         # Save the plot

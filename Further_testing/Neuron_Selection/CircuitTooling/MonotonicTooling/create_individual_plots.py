@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
+import re
 
 # Add the project directories to path
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -28,6 +29,29 @@ project_root = os.path.abspath(os.path.join(neuron_selection_dir, ".."))
 for path in [neuron_selection_dir, project_root]:
     if path not in sys.path:
         sys.path.append(path)
+
+
+def format_environment_name(raw_name: str) -> str:
+    """
+    Clean up environment names for display by removing common prefixes and suffixes.
+    
+    Args:
+        raw_name: Original environment name (e.g., "MiniGrid_LavaCrossingS11N5_v0_81102_7_8_0_0106")
+        
+    Returns:
+        Cleaned environment name (e.g., "S11N5_v0_81102_7_8_0")
+    """
+    # Remove "MiniGrid_LavaCrossing" prefix if present
+    if raw_name.startswith("MiniGrid_LavaCrossing"):
+        name = raw_name[len("MiniGrid_LavaCrossing"):]
+    else:
+        name = raw_name
+    
+    # Remove the last "_" and four digits if the pattern matches
+    # Look for pattern like "_1234" at the end
+    name = re.sub(r'_\d{4}$', '', name)
+    
+    return name
 
 
 def load_coalition_progression(summary_file: Path) -> Tuple[List[str], List[str]]:
@@ -180,8 +204,24 @@ def extract_logit_progression(metric_dir: Path, input_examples: List[str]) -> Di
             # Extract baseline logits first (coalition size 0)
             baseline_logits = None
             
-            # Extract logits for each coalition size (ordered by experiment key)
-            for exp_key in sorted(denoising_data.keys()):
+            # Extract logits for each coalition size (MUST BE SORTED BY COALITION SIZE, NOT ALPHABETICALLY!)
+            def extract_coalition_size(exp_key):
+                """Extract total neurons in coalition from experiment key"""
+                # Count neurons using same logic as descending fix
+                count = 0
+                # Handle patterns like "q_net.4_2_3_4_q_net.0_10n_q_net.2_2_35" 
+                parts = exp_key.split('_')
+                for i, part in enumerate(parts):
+                    if part.endswith('n') and part[:-1].isdigit():
+                        count += int(part[:-1])
+                    elif part.isdigit() and i > 0:
+                        # Handle explicit neuron lists like "2_3_4"
+                        if parts[i-1] in ['net.4', 'net.0', 'net.2']:
+                            count += 1
+                return count
+            
+            # Sort by coalition size (smallest to largest)
+            for exp_key in sorted(denoising_data.keys(), key=extract_coalition_size):
                 exp_data = denoising_data[exp_key]
                 if 'results' in exp_data:
                     # Get baseline logits from first experiment (all experiments should have same baseline)
@@ -203,8 +243,24 @@ def extract_logit_progression(metric_dir: Path, input_examples: List[str]) -> Di
             # Extract baseline logits first (coalition size 0)
             baseline_logits = None
             
-            # Extract logits for each coalition size (ordered by experiment key)
-            for exp_key in sorted(noising_data.keys()):
+            # Extract logits for each coalition size (MUST BE SORTED BY COALITION SIZE, NOT ALPHABETICALLY!)
+            def extract_coalition_size(exp_key):
+                """Extract total neurons in coalition from experiment key"""
+                # Count neurons using same logic as descending fix
+                count = 0
+                # Handle patterns like "q_net.4_2_3_4_q_net.0_10n_q_net.2_2_35" 
+                parts = exp_key.split('_')
+                for i, part in enumerate(parts):
+                    if part.endswith('n') and part[:-1].isdigit():
+                        count += int(part[:-1])
+                    elif part.isdigit() and i > 0:
+                        # Handle explicit neuron lists like "2_3_4"
+                        if parts[i-1] in ['net.4', 'net.0', 'net.2']:
+                            count += 1
+                return count
+            
+            # Sort by coalition size (smallest to largest)
+            for exp_key in sorted(noising_data.keys(), key=extract_coalition_size):
                 exp_data = noising_data[exp_key]
                 if 'results' in exp_data:
                     # Get baseline logits from first experiment (all experiments should have same baseline)
@@ -260,10 +316,8 @@ def create_individual_plot(metric_name: str, logit_data: Dict[str, Dict[str, Lis
     
     # Create plots
     for i, example in enumerate(input_examples):
-        # Format example name
-        formatted_name = example.replace("MiniGrid-", "").replace("-v0", "")
-        if len(formatted_name) > 20:
-            formatted_name = formatted_name[:20] + "..."
+        # Format example name to match descending convention
+        formatted_name = format_environment_name(example)
         
         for j, experiment_type in enumerate(experiment_types):
             ax = axes[i, j]
