@@ -39,8 +39,8 @@ for path in [neuron_selection_dir, project_root]:
 from Neuron_Selection.PatchingTooling.patching_experiment import PatchingExperiment
 from Neuron_Selection.AnalysisTooling.metrics import METRIC_FUNCTIONS
 
-# Default parameters
-DEFAULT_CANDIDATE_POOL_SIZE = 20
+# Configuration constants
+DEFAULT_CANDIDATE_POOL_SIZE = 50
 DEFAULT_MAX_COALITION_SIZE = 30
 DEFAULT_HIGHEST = True
 DEFAULT_INPUT_IDS = None  # Process all available input IDs by default
@@ -437,14 +437,44 @@ class MonotonicCoalitionBuilder:
                 break
             
             best_candidate, best_score, best_results = max(candidate_scores, key=lambda x: x[1])
+            current_score = self.coalition[-1][1]["score"] if self.coalition else 0.0
             
-            # Add the best candidate to the coalition
+            # Check if the best candidate actually improves the score
+            if best_score <= current_score:
+                print(f"Warning: Best candidate {best_candidate} (score: {best_score:.6f}) does not improve current score ({current_score:.6f})")
+                print("Applying fallback strategy: selecting highest-ranked unused neuron")
+                
+                # Fallback: select the highest-ranked unused neuron from the candidate pool
+                # (since candidate_pool is already ordered by rank)
+                fallback_candidate = candidate_pool[0]  # First in pool = highest ranked
+                
+                # Find its score from the candidate_scores
+                fallback_score = None
+                for candidate, score, results in candidate_scores:
+                    if candidate == fallback_candidate:
+                        fallback_score = score
+                        fallback_results = results
+                        break
+                
+                if fallback_score is not None:
+                    best_candidate = fallback_candidate
+                    best_score = fallback_score 
+                    best_results = fallback_results
+                    selection_reason = f"fallback_highest_ranked_of_{len(candidate_pool)}_candidates"
+                    print(f"Fallback selection: {best_candidate} (score: {best_score:.6f})")
+                else:
+                    print("Error: Could not find fallback candidate score. Stopping coalition building.")
+                    break
+            else:
+                selection_reason = f"best_of_{len(candidate_pool)}_candidates"
+            
+            # Add the selected candidate to the coalition
             self.coalition.append((best_candidate, {
                 "iteration": iteration,
                 "score": best_score,
-                "selection_reason": f"best_of_{len(candidate_pool)}_candidates",
+                "selection_reason": selection_reason,
                 "experiments_run": len(candidate_pool),
-                "improvement": best_score - initial_score if iteration == 1 else best_score - self.coalition[-2][1]["score"]
+                "improvement": best_score - current_score
             }))
             
             # Remove the selected candidate from available neurons

@@ -115,8 +115,8 @@ Example usage:
                        help="Path to the agent directory")
     
     # Optional arguments
-    parser.add_argument("--candidate_pool_size", type=int, default=20,
-                       help="Number of candidate partners to consider each iteration (default: 20)")
+    parser.add_argument("--candidate_pool_size", type=int, default=50,
+                       help="Number of candidate partners to consider each iteration (default: 50)")
     parser.add_argument("--max_coalition_size", type=int, default=30,
                        help="Maximum coalition size to build (default: 30)")
     parser.add_argument("--highest", type=str, default="true", choices=["true", "false"],
