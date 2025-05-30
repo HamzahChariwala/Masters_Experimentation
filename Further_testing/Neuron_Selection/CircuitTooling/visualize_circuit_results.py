@@ -239,12 +239,16 @@ def create_circuit_visualization(
             
             # Find result files (should be common across metrics)
             result_files = list(type_dir.glob("*.json"))
-            result_files = sorted(result_files)[:max_examples]
+            # Don't limit result files here - we'll filter to our specific examples below
             
             all_data[metric_name][experiment_type] = {}
             
             for result_file in result_files:
                 example_name = result_file.stem
+                
+                # Only process files that match our expected examples
+                if example_name not in all_examples:
+                    continue
                 
                 # Load and extract logits
                 data = load_experiment_results(result_file)

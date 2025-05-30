@@ -68,11 +68,11 @@ def load_coalition_progression(summary_file: Path) -> Tuple[List[str], List[str]
     
     # Use standard input examples for consistency with existing experiments
     input_examples = [
-        "MiniGrid-LavaCrossingS11N5-v0-81109-2,3,1-0115",
-        "MiniGrid-LavaCrossingS11N5-v0-81103-4,1,0-0026", 
-        "MiniGrid-LavaCrossingS11N5-v0-81104-5,2,0-0253",
-        "MiniGrid-LavaCrossingS11N5-v0-81109-7,5,0-0145",
-        "MiniGrid-LavaCrossingS11N5-v0-81102-7,8,0-0106"
+        "MiniGrid_LavaCrossingS11N5_v0_81109_2_3_1_0115",
+        "MiniGrid_LavaCrossingS11N5_v0_81103_4_1_0_0026", 
+        "MiniGrid_LavaCrossingS11N5_v0_81104_5_2_0_0253",
+        "MiniGrid_LavaCrossingS11N5_v0_81109_7_5_0_0145",
+        "MiniGrid_LavaCrossingS11N5_v0_81102_7_8_0_0106"
     ]
     
     return final_coalition, input_examples
@@ -82,17 +82,9 @@ def cleanup_coalition_results(metric_dir: Path):
     """
     Clean up the massive number of individual coalition building result files.
     """
-    results_dir = metric_dir / "results"
-    if not results_dir.exists():
-        return
-    
-    # Count existing files
-    existing_files = list(results_dir.glob("iteration_*.json"))
-    if existing_files:
-        print(f"Cleaning up {len(existing_files)} coalition building result files...")
-        for file in existing_files:
-            file.unlink()
-        print("Cleanup complete.")
+    # This function was causing data loss - commenting out the cleanup
+    # The coalition building files should be preserved for analysis
+    pass
 
 
 def create_experiment_folders(metric_dir: Path, coalition_neurons: List[str], input_examples: List[str]):
@@ -192,12 +184,24 @@ def extract_logit_progression(metric_dir: Path, input_examples: List[str]) -> Di
     
     # Process each input example
     for example in input_examples:
-        # Convert example name to filename format
-        safe_name = example.replace("-", "_").replace(",", "_")
+        # Convert example name to filename format - try both underscore format and original
+        safe_name = example  # Already in correct format with underscores
+        
+        # Also try with the original dash format conversion
+        alt_safe_name = example.replace("-", "_").replace(",", "_")
+        
+        # Try to find the file with either format
+        file_candidates = [safe_name, alt_safe_name]
         
         # Load denoising results
-        denoising_file = denoising_dir / f"{safe_name}.json"
-        if denoising_file.exists():
+        denoising_file = None
+        for candidate in file_candidates:
+            potential_file = denoising_dir / f"{candidate}.json"
+            if potential_file.exists():
+                denoising_file = potential_file
+                break
+                
+        if denoising_file and denoising_file.exists():
             with open(denoising_file, 'r') as f:
                 denoising_data = json.load(f)
             
@@ -235,8 +239,14 @@ def extract_logit_progression(metric_dir: Path, input_examples: List[str]) -> Di
                         logit_data[example]['denoising'].append(patched_logits)
         
         # Load noising results  
-        noising_file = noising_dir / f"{safe_name}.json"
-        if noising_file.exists():
+        noising_file = None
+        for candidate in file_candidates:
+            potential_file = noising_dir / f"{candidate}.json"
+            if potential_file.exists():
+                noising_file = potential_file
+                break
+                
+        if noising_file and noising_file.exists():
             with open(noising_file, 'r') as f:
                 noising_data = json.load(f)
             
@@ -421,20 +431,13 @@ def process_metric(agent_path: str, metric_name: str):
     print(f"Coalition size: {len(coalition_neurons)}")
     print(f"Input examples: {len(input_examples)}")
     
-    # Step 1: Clean up existing result files
-    cleanup_coalition_results(metric_dir)
+    # Skip experiment creation - just use existing patching data directly
+    print("Using existing patching data from agent directory...")
     
-    # Step 2: Create proper experiment folders and run experiments
-    success = create_experiment_folders(metric_dir, coalition_neurons, input_examples)
-    
-    if not success:
-        print(f"Failed to create experiments for {metric_name}")
-        return
-    
-    # Step 3: Extract actual logit progression from experiment results
+    # Extract actual logit progression from existing experiment results
     logit_data = extract_logit_progression(metric_dir, input_examples)
     
-    # Step 4: Create the individual plot
+    # Create the individual plot
     safe_metric_name = metric_name.replace("/", "_").replace("\\", "_")
     plots_dir = metric_dir / "plots"
     output_file = plots_dir / f"coalition_verification_{safe_metric_name}.png"
