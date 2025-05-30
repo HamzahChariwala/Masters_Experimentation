@@ -32,23 +32,31 @@ TASK 2: MONOTONIC COALITION BUILDER ALGORITHM
 ================================================
 
 ALGORITHM DESCRIPTION:
-1. Start with the highest-scoring neuron for a given metric
-2. Run patching experiment to establish baseline impact
+FOR EACH OF THE 7 METRICS SEPARATELY:
+1. Start with the highest-scoring neuron for that specific metric
+2. Run patching experiment to establish baseline impact using ONLY that metric
 3. Iteratively add neurons by testing combinations:
-   - Consider next m highest-scoring neurons (default m=20) as potential partners
+   - Consider next m highest-scoring neurons (default m=20) as potential partners for that metric
    - Test current coalition + each potential partner (m tests for noising + m tests for denoising)
-   - Select best partner based on metric improvement over current coalition
+   - Evaluate ALL candidates using ONLY the target metric (not any combination of metrics)
+   - Select best partner based on ONLY that metric's improvement over current coalition
    - Add selected partner to coalition
 4. Repeat until coalition reaches maximum size k (default k=30)
 
+CRITICAL CLARIFICATION:
+- We build 7 SEPARATE coalitions, one for each metric
+- Each coalition building process uses ONLY its target metric for all evaluations
+- We NEVER combine or mix metrics within a single coalition building process
+- The "combined_metric_score" should be renamed to reflect it's the single target metric
+
 SELECTION CRITERIA:
 - Configurable boolean 'highest' parameter (default=True)
-- When highest=True: For each potential partner, take max(noising_score, denoising_score)
-- Select partner that maximizes the chosen metric relative to current coalition output
-- CRITICAL: Measure metric against current coalition logits, NOT original logits
+- When highest=True: For each potential partner, take max(noising_score, denoising_score) for the TARGET METRIC ONLY
+- Select partner that maximizes the TARGET METRIC relative to current coalition output
+- CRITICAL: Measure TARGET METRIC against current coalition logits, NOT original logits
 
 PARAMETERS:
-- metric: Which metric to optimize for (run for all 7 metrics)
+- metric: Which SINGLE metric to optimize for (run the entire process separately for all 7 metrics)
 - m: Number of candidate partners to consider each iteration (default=20)
 - k: Maximum coalition size (default=30)
 - highest: Boolean for selection method (default=True)
