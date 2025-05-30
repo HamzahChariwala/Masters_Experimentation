@@ -176,7 +176,8 @@ def run_all_circuit_experiments(
     agent_path: str,
     device: str = "cpu",
     input_ids: List[str] = None,
-    analyze_results: bool = True
+    analyze_results: bool = True,
+    subfolder: str = "results"
 ) -> Dict[str, Any]:
     """
     Run activation patching experiments on all files in circuit_verification/experiments.
@@ -186,13 +187,14 @@ def run_all_circuit_experiments(
         device: Device to run on ('cpu' or 'cuda')
         input_ids: Optional list of input IDs to process
         analyze_results: Whether to analyze results after running experiments
+        subfolder: Subfolder name within circuit_verification for results (default: "results")
         
     Returns:
         Dictionary with summary of all experiments
     """
     agent_path = Path(agent_path)
     experiments_dir = agent_path / "circuit_verification" / "experiments"
-    results_dir = agent_path / "circuit_verification" / "results"
+    results_dir = agent_path / "circuit_verification" / subfolder
     
     # Create results directory
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -284,6 +286,8 @@ def main():
                        help="Comma-separated list of input IDs to process (optional)")
     parser.add_argument("--no_analyze", action="store_true",
                        help="Skip analysis of results after running experiments")
+    parser.add_argument("--subfolder", type=str, default="results",
+                       help="Subfolder name within circuit_verification for results (default: results)")
     
     args = parser.parse_args()
     
@@ -297,7 +301,8 @@ def main():
         args.agent_path,
         args.device,
         input_ids,
-        analyze_results=not args.no_analyze
+        analyze_results=not args.no_analyze,
+        subfolder=args.subfolder
     )
     
     # Exit with appropriate code

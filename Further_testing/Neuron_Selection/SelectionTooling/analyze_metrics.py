@@ -37,7 +37,7 @@ except ImportError as e:
 
 try:
     sys.path.insert(0, os.path.join(neuron_selection_dir, 'ExperimentTooling'))
-    from coalition_to_experiments import main as convert_coalitions_to_experiments
+    from ExperimentTooling.coalition_to_experiments import main as convert_coalitions_to_experiments
 except ImportError as e:
     print(f"Warning: Could not import coalition to experiments converter: {e}")
     convert_coalitions_to_experiments = None
@@ -1287,7 +1287,7 @@ def analyze_metrics(agent_path: str, metrics_thresholds: Dict[str, float] = None
             if run_all_circuit_experiments:
                 print("Running circuit experiments...")
                 try:
-                    circuit_results = run_all_circuit_experiments(agent_path)
+                    circuit_results = run_all_circuit_experiments(agent_path, subfolder="descending")
                     print(f"Circuit experiments completed: {circuit_results.get('successful', 0)} successful")
                 except Exception as e:
                     print(f"Error running circuit experiments: {e}")
@@ -1296,7 +1296,7 @@ def analyze_metrics(agent_path: str, metrics_thresholds: Dict[str, float] = None
                 if create_circuit_visualization:
                     print("Generating circuit verification visualizations...")
                     try:
-                        create_circuit_visualization(agent_path, max_experiments=max_experiments)
+                        create_circuit_visualization(agent_path, max_experiments=max_experiments, subfolder="descending")
                         print("Circuit visualization completed")
                     except Exception as e:
                         print(f"Error generating circuit visualization: {e}")

@@ -146,7 +146,8 @@ def create_circuit_visualization(
     output_dir: str = None,
     max_experiments: int = 30,
     max_metrics: int = 5,
-    max_examples: int = 5
+    max_examples: int = 5,
+    subfolder: str = "results"
 ) -> None:
     """
     Create circuit verification visualization plots.
@@ -157,9 +158,10 @@ def create_circuit_visualization(
         max_experiments: Maximum number of experiments to plot
         max_metrics: Maximum number of metrics to include
         max_examples: Maximum number of input examples to include
+        subfolder: Subfolder name within circuit_verification for results (default: "results")
     """
     agent_path = Path(agent_path)
-    results_dir = agent_path / "circuit_verification" / "results"
+    results_dir = agent_path / "circuit_verification" / subfolder
     
     if output_dir is None:
         output_dir = agent_path / "circuit_verification" / "plots"
@@ -383,6 +385,8 @@ def main():
                        help="Maximum number of metrics to include (default: 5)")
     parser.add_argument("--max_examples", type=int, default=5,
                        help="Maximum number of input examples to include (default: 5)")
+    parser.add_argument("--subfolder", type=str, default="results",
+                       help="Subfolder name within circuit_verification for results (default: results)")
     
     args = parser.parse_args()
     
@@ -391,7 +395,8 @@ def main():
         args.output_dir,
         args.max_experiments,
         args.max_metrics,
-        args.max_examples
+        args.max_examples,
+        subfolder=args.subfolder
     )
 
 
