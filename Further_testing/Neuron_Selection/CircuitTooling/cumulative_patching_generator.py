@@ -27,8 +27,14 @@ def collect_all_experiments(data: Dict[str, Any]) -> List[Tuple[str, float]]:
     """
     experiments = {}
     
-    # First collect from 'common' section (these appear in both noising and denoising)
-    if 'common' in data:
+    # First try to collect from 'averaged' section (new format)
+    if 'averaged' in data:
+        for exp_name, exp_data in data['averaged'].items():
+            # Use the noising mean score for ordering (could also use denoising)
+            if 'noising' in exp_data and 'mean' in exp_data['noising']:
+                experiments[exp_name] = exp_data['noising']['mean']
+    # Fall back to 'common' section (old format, for backward compatibility)
+    elif 'common' in data:
         for exp_name, exp_data in data['common'].items():
             # Use the noising mean score for ordering (could also use denoising)
             if 'noising' in exp_data and 'mean' in exp_data['noising']:

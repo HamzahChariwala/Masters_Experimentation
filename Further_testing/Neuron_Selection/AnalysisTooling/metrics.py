@@ -602,8 +602,9 @@ def reversed_pearson_correlation(baseline_output: List[List[float]],
 def reversed_undirected_saturating_chebyshev(baseline_output: List[List[float]], 
                                        patched_output: List[List[float]]) -> Dict[str, Any]:
     """
-    Calculate 1 minus the undirected saturating Chebyshev ratio.
-    This provides a measure of dissimilarity where higher values indicate stronger effects.
+    Calculate 1 minus the undirected saturating Chebyshev ratio, but return 0 for neurons
+    with no effect (original ratio = 0). This provides a measure of dissimilarity where 
+    higher values indicate stronger effects, but we don't care about neurons with no effect.
     
     Args:
         baseline_output: Baseline model output logits
@@ -615,8 +616,13 @@ def reversed_undirected_saturating_chebyshev(baseline_output: List[List[float]],
     # Get the undirected result first
     undirected_result = undirected_saturating_chebyshev(baseline_output, patched_output)
     
-    # Calculate 1 minus the ratio
-    reversed_ratio = 1.0 - undirected_result["ratio"]
+    # If the original ratio is 0 (no effect), return 0 instead of 1
+    # We don't care about neurons with no effect
+    if undirected_result["ratio"] == 0.0:
+        reversed_ratio = 0.0
+    else:
+        # Calculate 1 minus the ratio for neurons with actual effects
+        reversed_ratio = 1.0 - undirected_result["ratio"]
     
     return {
         "ratio": float(reversed_ratio),

@@ -163,6 +163,8 @@ def create_circuit_visualization(
     agent_path = Path(agent_path)
     if subfolder == "descending":
         results_dir = agent_path / "circuit_verification" / "descending" / "results"
+    elif subfolder == "descending/results":
+        results_dir = agent_path / "circuit_verification" / "descending" / "results"
     else:
         results_dir = agent_path / "circuit_verification" / subfolder
     

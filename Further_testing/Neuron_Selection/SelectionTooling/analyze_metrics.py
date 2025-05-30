@@ -362,68 +362,105 @@ def write_filtered_results(
     denoising_stats = calculate_summary_statistics(denoising_filtered, metric_name)
     common_stats = calculate_summary_statistics(common_experiments, metric_name, is_common=True)
     
-    # Simplify common experiments - keep only essential information and sort by importance
-    simplified_common = {}
-    
-    # Sort common experiments by average within-run normalized value (descending)
-    if common_experiments:
-        sorted_common = []
-        for exp_name, exp_data in common_experiments.items():
-            # Calculate average importance for sorting
-            noising_score = exp_data.get('noising', {}).get('within_run_normalized_value', 0.0)
-            denoising_score = exp_data.get('denoising', {}).get('within_run_normalized_value', 0.0)
-            
-            # Count valid scores to avoid division by zero
-            valid_scores = 0
-            total_score = 0
-            if 'noising' in exp_data:
-                total_score += noising_score
-                valid_scores += 1
-            if 'denoising' in exp_data:
-                total_score += denoising_score  
-                valid_scores += 1
-                
-            avg_importance = total_score / valid_scores if valid_scores > 0 else 0.0
-            
-            sorted_common.append((exp_name, exp_data, avg_importance))
+    # Create 'averaged' section - rank by averaged normalized values across noising and denoising
+    averaged_experiments = {}
+    for exp_name, exp_data in common_experiments.items():
+        # Get importance scores from both noising and denoising
+        noising_score = 0.0
+        denoising_score = 0.0
         
-        # Sort by average importance (highest first)
-        sorted_common.sort(key=lambda x: x[2], reverse=True)
+        if 'noising' in exp_data:
+            noising_score = exp_data['noising'].get('within_run_normalized_value', 0.0)
+        if 'denoising' in exp_data:
+            denoising_score = exp_data['denoising'].get('within_run_normalized_value', 0.0)
         
-        # Create simplified common dictionary
-        for exp_name, exp_data, avg_importance in sorted_common:
-            simplified_entry = {
-                'average_importance': avg_importance
+        averaged_score = (noising_score + denoising_score) / 2
+        
+        # Create simplified entry with essential information
+        averaged_entry = {
+            'averaged_normalized_value': averaged_score
+        }
+        
+        # Add simplified noising data if available
+        if 'noising' in exp_data:
+            averaged_entry['noising'] = {
+                'within_run_normalized_value': exp_data['noising']['within_run_normalized_value'],
+                'raw_mean': exp_data['noising']['mean']
             }
-            
-            # Add simplified noising data if available
-            if 'noising' in exp_data:
-                simplified_entry['noising'] = {
-                    'within_run_normalized_value': exp_data['noising']['within_run_normalized_value'],
-                    'raw_mean': exp_data['noising']['mean']
-                }
-            
-            # Add simplified denoising data if available
-            if 'denoising' in exp_data:
-                simplified_entry['denoising'] = {
-                    'within_run_normalized_value': exp_data['denoising']['within_run_normalized_value'],
-                    'raw_mean': exp_data['denoising']['mean']
-                }
-            
-            simplified_common[exp_name] = simplified_entry
+        
+        # Add simplified denoising data if available
+        if 'denoising' in exp_data:
+            averaged_entry['denoising'] = {
+                'within_run_normalized_value': exp_data['denoising']['within_run_normalized_value'],
+                'raw_mean': exp_data['denoising']['mean']
+            }
+        
+        averaged_experiments[exp_name] = averaged_entry
     
-    # Prepare the output data with common section first
+    # Sort by averaged normalized value (highest to lowest)
+    averaged_experiments_sorted = dict(sorted(
+        averaged_experiments.items(), 
+        key=lambda x: x[1]['averaged_normalized_value'], 
+        reverse=True
+    ))
+    
+    # Create 'highest' section - rank by highest normalized value across noising and denoising
+    highest_experiments = {}
+    for exp_name, exp_data in common_experiments.items():
+        # Get importance scores from both noising and denoising
+        noising_score = 0.0
+        denoising_score = 0.0
+        
+        if 'noising' in exp_data:
+            noising_score = exp_data['noising'].get('within_run_normalized_value', 0.0)
+        if 'denoising' in exp_data:
+            denoising_score = exp_data['denoising'].get('within_run_normalized_value', 0.0)
+        
+        highest_score = max(noising_score, denoising_score)
+        
+        # Create simplified entry with essential information
+        highest_entry = {
+            'highest_normalized_value': highest_score
+        }
+        
+        # Add simplified noising data if available
+        if 'noising' in exp_data:
+            highest_entry['noising'] = {
+                'within_run_normalized_value': exp_data['noising']['within_run_normalized_value'],
+                'raw_mean': exp_data['noising']['mean']
+            }
+        
+        # Add simplified denoising data if available
+        if 'denoising' in exp_data:
+            highest_entry['denoising'] = {
+                'within_run_normalized_value': exp_data['denoising']['within_run_normalized_value'],
+                'raw_mean': exp_data['denoising']['mean']
+            }
+        
+        highest_experiments[exp_name] = highest_entry
+    
+    # Sort by highest normalized value (highest to lowest)
+    highest_experiments_sorted = dict(sorted(
+        highest_experiments.items(), 
+        key=lambda x: x[1]['highest_normalized_value'], 
+        reverse=True
+    ))
+    
+    # Prepare the output data with new structure (averaged and highest sections first)
     output_data = {
         'metric': metric_name,
         'threshold': threshold,
+        'averaged': averaged_experiments_sorted,  # Move to top and use new name
+        'highest': highest_experiments_sorted,   # Add new highest section
         'summary': {
             'noising': noising_stats,
             'denoising': denoising_stats,
-            'common': common_stats
+            'averaged': common_stats,  # Update key name in summary too
+            'highest': common_stats   # Use same stats for highest (count is same)
         },
-        'common': simplified_common,  # Common section first
         'noising': noising_filtered,
-        'denoising': denoising_filtered
+        'denoising': denoising_filtered,
+        # Note: 'common' section is replaced by 'averaged' and 'highest' above
     }
     
     # Ensure directory exists
@@ -436,7 +473,8 @@ def write_filtered_results(
     print(f"Filtered results saved to {output_file}")
     print(f"  Noising: {noising_stats['count']} experiments")
     print(f"  Denoising: {denoising_stats['count']} experiments")
-    print(f"  Common: {common_stats['count']} experiments (sorted by importance)")
+    print(f"  Averaged: {len(averaged_experiments_sorted)} experiments (sorted by averaged importance)")
+    print(f"  Highest: {len(highest_experiments_sorted)} experiments (sorted by highest importance)")
 
 def write_cross_metric_summary(
     output_file: str,
@@ -1287,7 +1325,7 @@ def analyze_metrics(agent_path: str, metrics_thresholds: Dict[str, float] = None
             if run_all_circuit_experiments:
                 print("Running circuit experiments...")
                 try:
-                    circuit_results = run_all_circuit_experiments(agent_path, subfolder="descending")
+                    circuit_results = run_all_circuit_experiments(agent_path, subfolder="descending/results")
                     print(f"Circuit experiments completed: {circuit_results.get('successful', 0)} successful")
                 except Exception as e:
                     print(f"Error running circuit experiments: {e}")

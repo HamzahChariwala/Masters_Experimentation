@@ -206,18 +206,61 @@ def write_filtered_results(
     denoising_stats = calculate_summary_statistics(denoising_filtered, metric_name)
     common_stats = calculate_summary_statistics(common_experiments, metric_name, is_common=True)
     
-    # Prepare the output data
+    # Create 'averaged' section - rank by averaged normalized values across noising and denoising
+    averaged_experiments = {}
+    for exp_name, exp_data in common_experiments.items():
+        noising_norm = exp_data['noising']['normalized_value']
+        denoising_norm = exp_data['denoising']['normalized_value']
+        averaged_score = (noising_norm + denoising_norm) / 2
+        
+        averaged_experiments[exp_name] = {
+            'noising': exp_data['noising'],
+            'denoising': exp_data['denoising'],
+            'averaged_normalized_value': averaged_score
+        }
+    
+    # Sort by averaged normalized value (highest to lowest)
+    averaged_experiments_sorted = dict(sorted(
+        averaged_experiments.items(), 
+        key=lambda x: x[1]['averaged_normalized_value'], 
+        reverse=True
+    ))
+    
+    # Create 'highest' section - rank by highest normalized value across noising and denoising
+    highest_experiments = {}
+    for exp_name, exp_data in common_experiments.items():
+        noising_norm = exp_data['noising']['normalized_value']
+        denoising_norm = exp_data['denoising']['normalized_value']
+        highest_score = max(noising_norm, denoising_norm)
+        
+        highest_experiments[exp_name] = {
+            'noising': exp_data['noising'],
+            'denoising': exp_data['denoising'],
+            'highest_normalized_value': highest_score
+        }
+    
+    # Sort by highest normalized value (highest to lowest)
+    highest_experiments_sorted = dict(sorted(
+        highest_experiments.items(), 
+        key=lambda x: x[1]['highest_normalized_value'], 
+        reverse=True
+    ))
+    
+    # Prepare the output data with new structure
     output_data = {
         'metric': metric_name,
         'threshold': threshold,
+        'averaged': averaged_experiments_sorted,  # Move to top and use new name
+        'highest': highest_experiments_sorted,   # Add new highest section
         'summary': {
             'noising': noising_stats,
             'denoising': denoising_stats,
-            'common': common_stats
+            'averaged': common_stats,  # Update key name in summary too
+            'highest': common_stats   # Use same stats for highest (count is same)
         },
         'noising': noising_filtered,
         'denoising': denoising_filtered,
-        'common': common_experiments
+        # Note: 'common' section is replaced by 'averaged' and 'highest' above
     }
     
     # Ensure directory exists
@@ -230,7 +273,8 @@ def write_filtered_results(
     print(f"Filtered results saved to {output_file}")
     print(f"  Noising: {noising_stats['count']} experiments")
     print(f"  Denoising: {denoising_stats['count']} experiments")
-    print(f"  Common: {common_stats['count']} experiments")
+    print(f"  Averaged: {len(averaged_experiments_sorted)} experiments")
+    print(f"  Highest: {len(highest_experiments_sorted)} experiments")
 
 def write_cross_metric_summary(
     output_file: str,
