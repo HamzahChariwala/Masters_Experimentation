@@ -64,12 +64,12 @@ Prerequisites: Trained agent.zip file in agent directory, Python environment wit
     Dependencies: circuit_verification/monotonic/ folders with summary.json files from step 11
 
 13. OPTIMIZATION STATE FILTERING
-    Command: python Optimisation_Formulation/optimization_state_filter.py --path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6" --alter "blocked:is:false" "next_cell_is_lava:is:true" "cell_type:eq:floor"
+    Command: python Optimisation_Formulation/StateTooling/optimization_state_filter.py --path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6" --alter "blocked:is:false" "next_cell_is_lava:is:true" "cell_type:eq:floor"
     Generates: optimisation_states/alter/states.json (324 states), optimisation_states/preserve/states.json (2876 states)
     Dependencies: evaluation_logs/ from step 5
 
 14. ADD DESIRED ACTIONS TO ALTER STATES
-    Command: python Optimisation_Formulation/add_desired_actions.py --alter_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6/optimisation_states/alter/states.json" --ruleset standard
+    Command: python Optimisation_Formulation/StateTooling/add_desired_actions.py --alter_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6/optimisation_states/alter/states.json" --ruleset standard
     Generates: Updates alter/states.json with desired_action field from dijkstra agent behavior
     Dependencies: optimisation_states/alter/states.json from step 13, Behaviour_Specification/Evaluations/ dijkstra data
 
