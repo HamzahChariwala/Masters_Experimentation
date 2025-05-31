@@ -12,7 +12,8 @@ import sys
 import json
 import argparse
 import math
-from typing import Dict, Any, Optional, Tuple
+import random
+from typing import Dict, Any, Optional, Tuple, List
 
 def load_json_file(file_path: str) -> Dict[str, Any]:
     """Load and return contents of a JSON file."""
@@ -127,6 +128,46 @@ def parse_input_grid(input_array: list) -> Tuple[int, list, list]:
     
     return grid_size, lava_grid, barrier_grid
 
+def convert_desired_action_to_array(alter_states: Dict[str, Any]) -> None:
+    """Convert desired_action from int to array format for all states."""
+    for state_data in alter_states.values():
+        if 'desired_action' in state_data:
+            desired_action = state_data['desired_action']
+            if isinstance(desired_action, int):
+                state_data['desired_action'] = [desired_action]
+            elif not isinstance(desired_action, list):
+                state_data['desired_action'] = []
+
+def randomize_state_order(state_keys: List[str], seed: int = 811) -> List[str]:
+    """
+    Randomize the order of state keys using the 4-digit suffix as unique identifier.
+    
+    Args:
+        state_keys: List of state keys
+        seed: Random seed for reproducible results
+        
+    Returns:
+        Randomized list of state keys
+    """
+    # Extract 4-digit suffix from each key and pair with original key
+    keyed_states = []
+    for key in state_keys:
+        # Extract last 4 digits (after last dash)
+        suffix = key.split('-')[-1]
+        try:
+            unique_id = int(suffix)
+        except ValueError:
+            # Fallback if suffix is not numeric
+            unique_id = hash(suffix) % 10000
+        keyed_states.append((unique_id, key))
+    
+    # Set seed and randomize based on unique IDs
+    random.seed(seed)
+    random.shuffle(keyed_states)
+    
+    # Return just the keys in randomized order
+    return [key for _, key in keyed_states]
+
 class StateVisualizerGUI:
     """GUI for visualizing and interacting with alter states."""
     
@@ -140,15 +181,16 @@ class StateVisualizerGUI:
         self.tk = tk
         self.messagebox = messagebox
         self.alter_states = alter_states
-        self.state_keys = list(alter_states.keys())
+        self.state_keys = randomize_state_order(list(alter_states.keys()))
         self.current_index = 0
         self.user_choices = {}  # Will store user decisions for each state
         self.terminated = False
+        self.action_buttons = []  # Store action button references
         
         # Create main window
         self.root = tk.Tk()
         self.root.title("State Visualizer")
-        self.root.geometry("600x700")
+        self.root.geometry("700x800")
         
         # Create UI elements
         self.setup_ui()
@@ -169,6 +211,30 @@ class StateVisualizerGUI:
         # Grid frame
         self.grid_frame = self.tk.Frame(self.root)
         self.grid_frame.pack(pady=20)
+        
+        # Action selection frame
+        self.action_frame = self.tk.Frame(self.root)
+        self.action_frame.pack(pady=10)
+        
+        self.action_label = self.tk.Label(self.action_frame, text="Action Selection:", font=("Arial", 11, "bold"))
+        self.action_label.pack()
+        
+        self.action_buttons_frame = self.tk.Frame(self.action_frame)
+        self.action_buttons_frame.pack(pady=5)
+        
+        # Manual verification frame
+        self.verification_frame = self.tk.Frame(self.action_frame)
+        self.verification_frame.pack(pady=5)
+        
+        self.manually_verified_var = self.tk.BooleanVar()
+        self.verification_checkbox = self.tk.Checkbutton(
+            self.verification_frame,
+            text="Manually Verified",
+            variable=self.manually_verified_var,
+            command=self.toggle_manual_verification,
+            font=("Arial", 10)
+        )
+        self.verification_checkbox.pack()
         
         # Button frame
         self.button_frame = self.tk.Frame(self.root)
@@ -209,6 +275,109 @@ class StateVisualizerGUI:
         self.progress_label = self.tk.Label(self.root, text="", font=("Arial", 10))
         self.progress_label.pack(pady=10)
     
+    def create_action_buttons(self, state_data: Dict[str, Any]):
+        """Create action selection buttons."""
+        # Clear existing action buttons
+        for widget in self.action_buttons_frame.winfo_children():
+            widget.destroy()
+        self.action_buttons = []
+        
+        action_taken = state_data.get('action_taken')
+        desired_actions = state_data.get('desired_action', [])
+        if not isinstance(desired_actions, list):
+            desired_actions = [desired_actions] if desired_actions is not None else []
+        
+        # Update manual verification checkbox
+        manually_verified = state_data.get('manually_verified', False)
+        self.manually_verified_var.set(manually_verified)
+        
+        # Create 5 action buttons (indices 0-4)
+        for action_idx in range(5):
+            is_taken = action_idx == action_taken
+            is_desired = action_idx in desired_actions
+            
+            # Determine button color and state
+            if is_taken:
+                bg_color = "lightgray"
+                button_state = "disabled"
+            elif is_desired:
+                bg_color = "lightblue"
+                button_state = "normal"
+            else:
+                bg_color = "white"
+                button_state = "normal"
+            
+            # Create button with proper command binding - made narrower
+            def make_command(idx):
+                return lambda: self.toggle_action(idx)
+            
+            button = self.tk.Button(
+                self.action_buttons_frame,
+                text=str(action_idx),
+                width=6,
+                height=2,
+                bg=bg_color,
+                state=button_state,
+                font=("Arial", 12),
+                command=make_command(action_idx)
+            )
+            button.pack(side=self.tk.LEFT, padx=5)
+            self.action_buttons.append(button)
+    
+    def toggle_manual_verification(self):
+        """Toggle the manual verification flag."""
+        state_key = self.state_keys[self.current_index]
+        state_data = self.alter_states[state_key]
+        state_data['manually_verified'] = self.manually_verified_var.get()
+        
+        # Update info display
+        self.update_current_display()
+    
+    def toggle_action(self, action_idx: int):
+        """Toggle selection of an action."""
+        state_key = self.state_keys[self.current_index]
+        state_data = self.alter_states[state_key]
+        
+        # Ensure desired_action is a list
+        if 'desired_action' not in state_data:
+            state_data['desired_action'] = []
+        elif not isinstance(state_data['desired_action'], list):
+            current = state_data['desired_action']
+            state_data['desired_action'] = [current] if current is not None else []
+        
+        desired_actions = state_data['desired_action']
+        
+        # Toggle the action
+        if action_idx in desired_actions:
+            desired_actions.remove(action_idx)
+        else:
+            desired_actions.append(action_idx)
+        
+        # Update the info display and button colors
+        self.update_current_display()
+    
+    def update_current_display(self):
+        """Update the current state display without rebuilding the entire grid."""
+        if self.current_index >= len(self.state_keys):
+            return
+            
+        state_key = self.state_keys[self.current_index]
+        state_data = self.alter_states[state_key]
+        
+        # Update info text
+        desired_actions = state_data.get('desired_action', [])
+        if not isinstance(desired_actions, list):
+            desired_actions = [desired_actions] if desired_actions is not None else []
+        
+        info_text = f"Grid Size: 7x7 | " \
+                   f"Action Taken: {state_data.get('action_taken', 'N/A')} | " \
+                   f"Desired Actions: {desired_actions} | " \
+                   f"Manually Verified: {state_data.get('manually_verified', False)}"
+        self.info_label.config(text=info_text)
+        
+        # Recreate action buttons to reflect changes
+        self.create_action_buttons(state_data)
+    
     def display_current_state(self):
         """Display the current state in the GUI."""
         if self.current_index >= len(self.state_keys):
@@ -225,9 +394,14 @@ class StateVisualizerGUI:
         input_array = state_data['input']
         grid_size, lava_grid, barrier_grid = parse_input_grid(input_array)
         
+        desired_actions = state_data.get('desired_action', [])
+        if not isinstance(desired_actions, list):
+            desired_actions = [desired_actions] if desired_actions is not None else []
+        
         info_text = f"Grid Size: {grid_size}x{grid_size} | " \
                    f"Action Taken: {state_data.get('action_taken', 'N/A')} | " \
-                   f"Desired Action: {state_data.get('desired_action', 'N/A')}"
+                   f"Desired Actions: {desired_actions} | " \
+                   f"Manually Verified: {state_data.get('manually_verified', False)}"
         self.info_label.config(text=info_text)
         
         # Clear previous grid
@@ -238,11 +412,11 @@ class StateVisualizerGUI:
         cell_size = 40
         for i in range(grid_size):
             for j in range(grid_size):
-                # Determine cell color
+                # Determine cell color - FIXED: barrier=gray, lava=black
                 if barrier_grid[i][j] == 1:
-                    color = "black"  # Wall/barrier
+                    color = "gray"   # Wall/barrier
                 elif lava_grid[i][j] == 1:
-                    color = "gray"   # Lava
+                    color = "black"  # Lava
                 else:
                     color = "white"  # Empty space
                 
@@ -256,6 +430,20 @@ class StateVisualizerGUI:
                 )
                 cell.grid(row=i, column=j, padx=1, pady=1)
                 cell.grid_propagate(False)
+                
+                # Add agent arrow at middle of first column (j=0, i=grid_size//2)
+                if j == 0 and i == grid_size // 2:
+                    arrow_label = self.tk.Label(
+                        cell,
+                        text="▶",
+                        font=("Arial", 24, "bold"),
+                        bg=color,
+                        fg="lightgray"
+                    )
+                    arrow_label.place(relx=0.5, rely=0.5, anchor="center")
+        
+        # Create action selection buttons
+        self.create_action_buttons(state_data)
         
         # Update progress
         progress_text = f"State {self.current_index + 1} of {len(self.state_keys)}"
@@ -326,7 +514,7 @@ def add_desired_actions(alter_states_path: str, dijkstra_base_path: str,
     
     print(f"Processing {stats['total_states']} alter states with ruleset '{ruleset}'")
     
-    # Add desired actions first
+    # Add desired actions first and convert to array format
     for state_key, state_data in alter_states.items():
         # Parse the state key to get environment and coordinates
         environment, coordinates = parse_alter_state_key(state_key)
@@ -336,20 +524,28 @@ def add_desired_actions(alter_states_path: str, dijkstra_base_path: str,
         desired_action = get_dijkstra_action(environment, coordinates, ruleset, dijkstra_base_path)
         
         if desired_action is not None:
-            state_data['desired_action'] = desired_action
+            state_data['desired_action'] = [desired_action]  # Store as array
             stats['actions_found'] += 1
         else:
+            state_data['desired_action'] = []  # Empty array if no action found
             stats['actions_missing'] += 1
             print(f"Warning: No action found for {environment} state {coordinates}")
+    
+    # Convert any existing desired_action values to array format
+    convert_desired_action_to_array(alter_states)
     
     # Run GUI mode if enabled
     gui_stats = {}
     if gui_mode:
         print("\nStarting GUI visualization mode...")
         print("Instructions:")
-        print("- Black tiles = walls/barriers")
-        print("- Gray tiles = lava")
+        print("- Black tiles = lava")
+        print("- Gray tiles = walls/barriers")
         print("- White tiles = empty space")
+        print("- Gray arrow = agent position")
+        print("- Click action numbers to add/remove desired actions")
+        print("- Gray action button = action taken (unclickable)")
+        print("- Blue action button = currently selected desired action")
         print("- Skip: Skip current state")
         print("- Accept: Accept current state")
         print("- Terminate & Save: Stop and save progress")
@@ -411,8 +607,8 @@ Examples:
     
     parser.add_argument('--alter_path', required=True,
                        help='Path to the alter states JSON file')
-    parser.add_argument('--dijkstra_path', default="../Behaviour_Specification/Evaluations",
-                       help='Path to directory containing dijkstra evaluation files (default: ../Behaviour_Specification/Evaluations)')
+    parser.add_argument('--dijkstra_path', default="Behaviour_Specification/Evaluations",
+                       help='Path to directory containing dijkstra evaluation files (default: Behaviour_Specification/Evaluations)')
     parser.add_argument('--ruleset', default="standard",
                        choices=['standard', 'conservative', 'dangerous_1', 'dangerous_2', 'dangerous_3', 'dangerous_4', 'dangerous_5'],
                        help='Dijkstra agent ruleset to use as reference (default: standard)')
