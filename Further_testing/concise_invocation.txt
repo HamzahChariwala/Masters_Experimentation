@@ -68,10 +68,16 @@ Prerequisites: Trained agent.zip file in agent directory, Python environment wit
     Generates: optimisation_states/alter/states.json (324 states), optimisation_states/preserve/states.json (2876 states)
     Dependencies: evaluation_logs/ from step 5
 
+14. ADD DESIRED ACTIONS TO ALTER STATES
+    Command: python Optimisation_Formulation/add_desired_actions.py --alter_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6/optimisation_states/alter/states.json" --ruleset standard
+    Generates: Updates alter/states.json with desired_action field from dijkstra agent behavior
+    Dependencies: optimisation_states/alter/states.json from step 13, Behaviour_Specification/Evaluations/ dijkstra data
+
 ALTERNATIVE COMMANDS:
 - Specific metrics only: Add --metrics "kl_divergence" "top_logit_delta_magnitude" to step 11 or 12
 - Agent group evaluations: Use bash scripts in Useful_Bash_Scripts/EvalBashScripts/
 - Custom preserve criteria: Add --preserve "criteria1" "criteria2" to step 13
+- Different dijkstra rulesets: Use --ruleset conservative, dangerous_1, dangerous_2, dangerous_3, dangerous_4, or dangerous_5 in step 14
 
 NOTES:
 - Steps 1-10 must be run in order due to dependencies
@@ -79,4 +85,5 @@ NOTES:
 - Step 12 is optional - only needed if running plots separately or for specific metrics
 - Step 10 includes integrated circuit verification workflow for descending analysis
 - Step 13 filters states for optimization: ALTER (states to modify) and PRESERVE (states to maintain)
+- Step 14 adds reference actions from dijkstra agents; standard ruleset avoids lava, conservative takes longer safer paths
 - All paths should be adjusted for actual agent location 
