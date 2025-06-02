@@ -1,0 +1,202 @@
+MONOTONIC COALITION BUILDER PROJECT TASKS
+================================================
+
+OVERVIEW:
+This project implements a monotonic coalition building algorithm for neuron circuit analysis. 
+The goal is to iteratively build coalitions of neurons starting from the highest-scoring individual 
+neuron and progressively adding neurons that maximize disruption to the current coalition's output.
+
+================================================
+TASK 1: FIX FILTERED RESULTS STRUCTURE
+================================================
+
+CURRENT ISSUES:
+- The 'common' key in filtered metric files is not at the top of the structure
+- Neurons within 'common' are not ranked from highest to lowest by averaged normalized values
+- Need to add additional ranking method based on highest (not averaged) normalized values
+
+REQUIRED CHANGES:
+1. Rename 'common' key to 'averaged'
+2. Move 'averaged' section to the top of the JSON structure (before 'noising' and 'denoising')
+3. Reorder neurons within 'averaged' by descending averaged normalized values across noising/denoising runs
+4. Add new 'highest' key that ranks neurons by taking the maximum of normalized values (not averaging)
+5. Verify that existing scripts in circuit_verification/descending still work after these changes
+
+VALIDATION REQUIREMENTS:
+- Confirm analyze_metrics.py and cumulative_patching_generator.py still function correctly
+- Ensure circuit verification workflow remains intact
+- Verify that ranking logic correctly implements averaging vs maximum selection
+
+================================================
+TASK 2: MONOTONIC COALITION BUILDER ALGORITHM
+================================================
+
+ALGORITHM DESCRIPTION:
+FOR EACH OF THE 7 METRICS SEPARATELY:
+1. Start with the highest-scoring neuron for that specific metric
+2. Run patching experiment to establish baseline impact using ONLY that metric
+3. Iteratively add neurons by testing combinations:
+   - Consider next m highest-scoring neurons (default m=20) as potential partners for that metric
+   - Test current coalition + each potential partner (m tests for noising + m tests for denoising)
+   - Evaluate ALL candidates using ONLY the target metric (not any combination of metrics)
+   - Select best partner based on ONLY that metric's improvement over current coalition
+   - Add selected partner to coalition
+4. Repeat until coalition reaches maximum size k (default k=30)
+
+CRITICAL CLARIFICATION:
+- We build 7 SEPARATE coalitions, one for each metric
+- Each coalition building process uses ONLY its target metric for all evaluations
+- We NEVER combine or mix metrics within a single coalition building process
+- The "combined_metric_score" should be renamed to reflect it's the single target metric
+
+SELECTION CRITERIA:
+- Configurable boolean 'highest' parameter (default=True)
+- When highest=True: For each potential partner, take max(noising_score, denoising_score) for the TARGET METRIC ONLY
+- Select partner that maximizes the TARGET METRIC relative to current coalition output
+- CRITICAL: Measure TARGET METRIC against current coalition logits, NOT original logits
+
+PARAMETERS:
+- metric: Which SINGLE metric to optimize for (run the entire process separately for all 7 metrics)
+- m: Number of candidate partners to consider each iteration (default=20)
+- k: Maximum coalition size (default=30)
+- highest: Boolean for selection method (default=True)
+
+================================================
+TASK 3: OUTPUT STRUCTURE AND TRACEABILITY
+================================================
+
+DIRECTORY STRUCTURE:
+circuit_verification/monotonic/
+├── {metric_name}/
+│   ├── experiments/          # JSON files for patching experiments run
+│   ├── results/             # Detailed results for each iteration
+│   ├── summary.json         # High-level coalition building summary
+│   └── plots/              # Visualization plots (same format as descending)
+
+REQUIRED OUTPUT FILES:
+
+1. EXPERIMENT FILES (experiments/):
+   - JSON files containing patch configurations for each test
+   - Organized by iteration and candidate neuron
+   - Full traceability of all experiments run
+
+2. RESULTS FILES (results/):
+   - Detailed results for each patching experiment
+   - Metric values, logit changes, selection rationale
+   - Iteration-by-iteration coalition building decisions
+
+3. SUMMARY FILE (summary.json):
+   Key information required:
+   - Coalition growth progression (neuron added at each step)
+   - Metric improvement at each step
+   - Selection rationale (why each neuron was chosen)
+   - Final coalition composition and performance
+   - Algorithm parameters used
+   - Total experiments run and computational cost
+
+4. PLOTS (plots/):
+   - Exact same format as circuit_verification/descending/plots/
+   - Cross-environment and cross-input-state visualizations
+   - Coalition performance progression over time
+   - Comparative analysis across different metrics
+
+================================================
+TASK 4: IMPLEMENTATION REQUIREMENTS
+================================================
+
+SCRIPT LOCATION:
+- Neuron_Selection/CircuitTooling/monotonic_coalition_builder.py
+
+COMMAND LINE INTERFACE:
+python -m Neuron_Selection.CircuitTooling.monotonic_coalition_builder \
+    --agent_path "path/to/agent" \
+    --metric "metric_name" \
+    --candidate_pool_size 20 \
+    --max_coalition_size 30 \
+    --highest true \
+    --input_ids "comma,separated,list" (optional)
+
+INTEGRATION REQUIREMENTS:
+- Must work with existing filtered results structure (after Task 1 fixes)
+- Must integrate with existing patching infrastructure
+- Must generate compatible output for visualization tools
+- Must not break existing circuit verification workflows
+
+================================================
+TASK 5: VALIDATION AND TESTING
+================================================
+
+VALIDATION CRITERIA:
+1. Algorithm produces monotonic improvement in target metric
+2. Coalition building decisions are properly documented and traceable
+3. Output format is compatible with existing visualization tools
+4. Script handles all 7 metrics correctly
+5. Generated plots match format and quality of descending folder plots
+6. Memory and computational efficiency is reasonable for default parameters
+
+ERROR HANDLING:
+- Graceful handling of missing input IDs
+- Proper validation of metric names and parameters
+- Clear error messages for configuration issues
+- Rollback capability if experiments fail mid-process
+
+TESTING REQUIREMENTS:
+- Test with existing 0.100_penalty-v6 agent
+- Verify across multiple metrics
+- Confirm plots generate correctly
+- Validate summary files contain all required information
+
+================================================
+SUCCESS CRITERIA
+================================================
+
+TASK 1 COMPLETE WHEN:
+- Filtered files have 'averaged' and 'highest' sections properly ranked
+- Existing descending workflow still functions correctly
+- Rankings are mathematically correct (averaged vs maximum selection)
+
+TASK 2 COMPLETE WHEN:
+- Monotonic coalition builder runs for all 7 metrics
+- Algorithm correctly implements the specified logic
+- Selection criteria work as designed (highest parameter)
+- Coalition building terminates at specified size
+
+TASK 3 COMPLETE WHEN:
+- All required output files are generated
+- Directory structure matches specification
+- Summary contains all key information for understanding coalition growth
+- Full traceability is maintained
+
+TASK 4 COMPLETE WHEN:
+- Script accepts all specified command line parameters
+- Integration with existing infrastructure works seamlessly
+- No breaking changes to existing functionality
+
+TASK 5 COMPLETE WHEN:
+- All validation criteria are met
+- Testing confirms correct operation across multiple scenarios
+- Error handling works appropriately
+- Performance is acceptable for intended use
+
+================================================
+NOTES AND CONSTRAINTS
+================================================
+
+CRITICAL CONSTRAINTS:
+- Do not hardcode values that should be parametric
+- Do not make changes that break existing functionality
+- Maintain compatibility with existing data formats
+- Ensure full reproducibility of results
+
+IMPLEMENTATION PRIORITIES:
+1. Task 1 (fix filtered structure) - Required foundation
+2. Task 2 (core algorithm) - Core functionality
+3. Task 3 (output structure) - Essential for usability
+4. Task 4 (CLI and integration) - Required for deployment
+5. Task 5 (validation) - Quality assurance
+
+DEPENDENCIES:
+- Existing patching infrastructure (PatchingTooling)
+- Filtered results files (patching_results/filtered/)
+- Visualization tools (CircuitTooling/visualize_circuit_results.py)
+- Circuit experiment framework (CircuitTooling/run_circuit_experiments.py) 

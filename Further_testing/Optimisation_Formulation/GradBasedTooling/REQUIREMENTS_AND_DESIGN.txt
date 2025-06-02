@@ -1,0 +1,629 @@
+GRADIENT-BASED OPTIMIZATION TOOLING - REQUIREMENTS AND DESIGN SPECIFICATION
+================================================================================
+
+PROJECT OVERVIEW
+================================================================================
+This document defines the requirements, design principles, and implementation 
+guidelines for the GradBasedTooling system, which will provide gradient-based
+optimization capabilities for neural network weight perturbations within the
+existing DQN optimization framework.
+
+INTEGRATION REQUIREMENTS
+================================================================================
+
+1. EXISTING CODEBASE INTEGRATION POINTS
+---------------------------------------
+- Must integrate seamlessly with StateTooling/ (optimization_state_filter.py, add_desired_actions.py)
+- Must utilize existing gradient computation infrastructure from Parameter_Selection/SaliencyTooling/gradients.py
+- Must work with existing weight perturbation tools from Parameter_Selection/PerturbationTooling/
+- Must leverage existing model loading infrastructure and DQN architectures
+- Must maintain compatibility with current state representation and action spaces
+
+2. DATA STRUCTURE COMPATIBILITY
+-------------------------------
+- Input: Accept weight perturbation specifications (dict format: {neuron_idx: {weight_changes}})
+- State Data: Work with filtered preserve/alter state sets from StateTooling
+- Gradient Data: Utilize existing gradient computation results (weight_gradients.json format)
+- Model Data: Compatible with existing DQN model checkpoint formats
+- Output: Produce optimization results in standardized format for downstream analysis
+
+3. CONFIGURATION CONSISTENCY
+----------------------------
+- Follow existing naming conventions and directory structures
+- Use consistent logging and error handling patterns
+- Maintain compatibility with existing command-line interface patterns
+- Support both programmatic and script-based invocation methods
+
+CORE FUNCTIONAL REQUIREMENTS
+================================================================================
+
+1. OPTIMIZATION PROBLEM FORMULATION
+-----------------------------------
+PRIMARY FOCUS: Constrained Optimization Problems with Sparsity Regularization
+
+Mathematical Framework:
+minimize    f(w) = L_objective(Q_alter(w), targets_alter) 
+                 + λ_sparse * S_sparse(Δw)                 # Sparsity in updated weights
+                 + λ_magnitude * ||Δw||₂²                  # Small update magnitudes
+
+subject to  lb ≤ Δw ≤ ub                                  # Bound constraints
+           argmax(Q_preserve_i(w)) = argmax(Q_preserve_i(w₀))  ∀i ∈ preserve_set (STRICT)
+           ||Δw||_∞ ≤ budget                              # Optional max perturbation budget
+
+where:      w = original_weights + Δw
+           Q_alter(w) = Q-values for ALTER states  
+           Q_preserve_i(w) = Q-values for preserve state i
+           λ_sparse = tunable coefficient for weight sparsity penalty
+           λ_magnitude = tunable coefficient for update magnitude penalty
+
+NORM OPTIONS AND SPARSITY TERMS:
+- S_sparse(Δw) options:
+  * ||Δw||₀ (True L0 norm - count of non-zero weights, non-convex)
+  * ||Δw||₁ (L1 approximation - convex relaxation of sparsity)
+- Additional regularization options:
+  * ||Δw||₁ (L1 norm for additional sparsity promotion)
+  * ||Δw||₂ (L2 norm for magnitude control - already included)
+  * ||Δw||_∞ (L-infinity norm for maximum perturbation bounds)
+
+L-INFINITY TERM BENEFITS:
+- Controls maximum individual weight change (worst-case perturbation)
+- Prevents any single weight from dominating the solution
+- Useful for maintaining network stability
+- Can be implemented as either objective term or constraint
+
+OBJECTIVE FUNCTION OPTIONS FOR DQN Q-VALUES:
+============================================
+
+L_objective(Q_alter(w), targets_alter) can be implemented using multiple approaches:
+
+1. MARGIN-BASED LOSS (Recommended for DQN):
+   L = Σᵢ max(0, max_a≠target(Q(sᵢ,a)) - Q(sᵢ,target) + margin)
+   
+   Pros: - Directly optimizes action preference ranking
+         - Clear semantic meaning (target action should win by margin)
+         - Robust to Q-value scale differences
+         - Efficient gradients
+   Cons: - Requires margin hyperparameter tuning
+         - May not converge if margin too large
+
+2. CROSS-ENTROPY LOSS:
+   L = -Σᵢ log(softmax(Q(sᵢ)/τ)[target_action])
+   
+   Pros: - Well-established classification approach
+         - Smooth gradients everywhere
+         - Temperature parameter τ controls sharpness
+   Cons: - Sensitive to Q-value magnitudes
+         - May over-emphasize probability mass allocation
+         - Less intuitive for Q-value optimization
+
+3. RANKING LOSS (Pairwise):
+   L = Σᵢ Σₐ≠target max(0, Q(sᵢ,a) - Q(sᵢ,target) + margin)
+   
+   Pros: - Ensures target action ranks highest against all others
+         - More comprehensive than simple margin loss
+   Cons: - Computationally more expensive (quadratic in actions)
+         - May over-constrain the optimization
+
+4. DIRECT Q-VALUE MATCHING:
+   L = Σᵢ ||Q(sᵢ) - target_Q_vector||²
+   
+   Pros: - Simple and interpretable
+         - Direct control over all Q-values
+   Cons: - Requires specifying target Q-values for all actions
+         - May conflict with DQN value function semantics
+
+5. SOFTMAX PROBABILITY MATCHING:
+   L = Σᵢ ||softmax(Q(sᵢ)/τ) - target_prob_vector||²
+   
+   Pros: - Controls action probability distribution
+         - Temperature parameter for fine-tuning
+   Cons: - Indirect relationship to Q-values
+         - Requires probability target specification
+
+6. HINGE LOSS (Action Preference):
+   L = Σᵢ max(0, 1 - (Q(sᵢ,target) - max_a≠target(Q(sᵢ,a))))
+   
+   Pros: - SVM-like formulation, well-understood
+         - Sparse gradients (efficient)
+   Cons: - Fixed margin of 1 may not suit all problems
+         - Less flexible than parametric margin
+
+RECOMMENDED APPROACH:
+Primary: Margin-based loss with small tunable margin parameter (start with 0.1)
+Secondary: Cross-entropy loss with temperature scaling
+Advanced: Combination of margin + small L2 matching term
+
+PREFERRED IMPLEMENTATION FOCUS:
+- Margin-based loss (forgiving with small margins)
+- Cross-entropy loss (smooth optimization)
+- Small initial margins to achieve results before being more stringent
+
+MULTI-TARGET ACTION HANDLING:
+===============================
+
+For ALTER states where multiple actions are acceptable (e.g., action 0 OR 1 instead of action 4):
+
+PROBLEM SPECIFICATION:
+- ALTER states can have: single target action OR set of acceptable actions
+- Input format: {state_id: [acceptable_action_indices]} 
+- Example: {state_1: [0, 1], state_2: [3]} where state_1 accepts actions 0 or 1
+
+MARGIN-BASED LOSS MODIFICATIONS:
+
+1. SINGLE ACCEPTABLE ACTION (original):
+   L = max(0, max_a≠target(Q(s,a)) - Q(s,target) + margin)
+
+2. MULTIPLE ACCEPTABLE ACTIONS (modified):
+   L = max(0, max_a∉acceptable_set(Q(s,a)) - max_a∈acceptable_set(Q(s,a)) + margin)
+   
+   Interpretation: Best non-acceptable action should not beat best acceptable action by margin
+
+3. ALTERNATIVE FORMULATION (more permissive):
+   L = max(0, max_a∉acceptable_set(Q(s,a)) - min_a∈acceptable_set(Q(s,a)) + margin)
+   
+   Interpretation: Best non-acceptable action should not beat worst acceptable action by margin
+
+CROSS-ENTROPY LOSS MODIFICATIONS:
+
+1. SINGLE ACCEPTABLE ACTION (original):
+   L = -log(softmax(Q(s)/τ)[target_action])
+
+2. MULTIPLE ACCEPTABLE ACTIONS (uniform distribution):
+   target_prob = uniform distribution over acceptable actions, 0 elsewhere
+   L = -Σ_a target_prob[a] * log(softmax(Q(s)/τ)[a])
+
+3. MULTIPLE ACCEPTABLE ACTIONS (max probability):
+   L = -log(Σ_a∈acceptable_set softmax(Q(s)/τ)[a])
+   
+   Interpretation: Maximize total probability mass on acceptable actions
+
+IMPLEMENTATION CONSIDERATIONS:
+
+1. DATA STRUCTURE REPRESENTATION:
+   - Single target: target_actions = {state_id: int}
+   - Multi-target: target_actions = {state_id: List[int]}
+   - Unified interface: always use List[int], single targets as [target]
+
+2. LOSS FUNCTION INTERFACE:
+   def compute_loss(Q_values, target_actions_dict, margin=0.1):
+       # Handle both single and multi-target cases seamlessly
+       
+3. VALIDATION REQUIREMENTS:
+   - Verify all target actions are valid (within action space)
+   - Ensure at least one acceptable action per ALTER state
+   - Check for conflicts with PRESERVE state constraints
+
+4. OPTIMIZATION IMPLICATIONS:
+   - Multi-target cases generally easier to satisfy (more flexibility)
+   - May converge faster due to increased solution space
+   - Useful for cases where multiple strategies are acceptable
+
+RECOMMENDED MULTI-TARGET APPROACH:
+- Margin-based: Use formulation #2 (best acceptable vs best non-acceptable)
+- Cross-entropy: Use formulation #3 (maximize total acceptable probability)
+- Start with small margins (0.1) for forgiving optimization
+
+PRESERVE CONSTRAINT SPECIFICATION:
+=================================
+STRICT ENFORCEMENT: argmax(Q_preserve_i(w)) = argmax(Q_preserve_i(w₀))
+
+Implementation:
+- NO tolerance allowed - index must remain exactly the same
+- Constraint violation = immediate penalty/rejection
+- Use integer comparison: argmax_index_new == argmax_index_original
+- Constraint checking at every optimization iteration
+
+CONSTRAINT BATCHING AND PRIORITIZATION STRATEGIES:
+=================================================
+
+For scaling beyond 20 preserve states (future considerations):
+
+1. CONSTRAINT BATCHING:
+   - Mini-batch preserve constraints: evaluate 50-100 at a time
+   - Rotate constraint batches across iterations
+   - Maintain constraint violation history for adaptive batching
+   - Use representative subset sampling for large preserve sets
+
+2. CONSTRAINT PRIORITIZATION:
+   - High Priority: States with recent constraint violations
+   - Medium Priority: States with high Q-value variance
+   - Low Priority: States with stable, clear action preferences
+   - Dynamic re-prioritization based on optimization progress
+
+3. HIERARCHICAL CONSTRAINT HANDLING:
+   - Level 1: Hard constraints (critical preserve states)
+   - Level 2: Soft constraints (important but flexible preserve states)  
+   - Level 3: Monitoring constraints (check but don't enforce)
+
+4. ADAPTIVE CONSTRAINT ACTIVATION:
+   - Start with all constraints active
+   - Temporarily relax constraints causing infeasibility
+   - Re-activate constraints as optimization progresses
+   - Use penalty methods for constraint relaxation
+
+5. CONSTRAINT CLUSTERING:
+   - Group similar preserve states together
+   - Use representative constraints per cluster
+   - Verify all cluster members after optimization
+   - Expand clusters if violations detected
+
+DEFAULT PARAMETER CONSIDERATIONS:
+===============================
+
+Since specific defaults are unknown, implement adaptive strategies:
+
+1. LAMBDA PARAMETER INITIALIZATION:
+   - λ_sparse: Start with 1e-4, scale based on problem size
+   - λ_magnitude: Start with 1e-3, adjust based on weight magnitudes
+   - margin: Start with 0.1 (small/forgiving), increase if needed
+   - temperature (τ): Start with 1.0 for cross-entropy
+   - Use cross-validation or grid search for calibration
+   - Implement automatic scaling based on objective function magnitudes
+
+2. ADAPTIVE PARAMETER TUNING:
+   - Monitor constraint satisfaction vs. objective improvement
+   - Increase λ_sparse if too many weights being modified
+   - Increase λ_magnitude if perturbations too large
+   - Decrease both if optimization stagnates
+
+3. PARAMETER SEARCH STRATEGIES:
+   - Bayesian optimization for λ hyperparameters
+   - Multi-objective optimization (Pareto frontier)
+   - Progressive parameter adjustment during optimization
+   - User-provided bounds with automatic refinement
+
+4. CONFIGURATION TEMPLATES:
+   - Conservative: High λ values, small perturbations
+   - Aggressive: Low λ values, larger search space  
+   - Balanced: Medium λ values with adaptive adjustment
+   - Custom: User-specified with validation
+
+2. SOLVER REQUIREMENTS
+----------------------
+a) MANDATORY SOLVERS:
+   - Constrained optimization solver (primary - SciPy optimize.minimize with constraints)
+   - L-BFGS-B for bound-constrained problems
+   - Trust-region methods for robustness
+   - Sequential Least Squares Programming (SLSQP) for equality constraints
+
+b) OPTIONAL SOLVERS (for future extension):
+   - Interior point methods
+   - Sequential quadratic programming
+   - Projected gradient descent with constraint handling
+   - Proximal gradient methods for sparsity
+   - Alternating Direction Method of Multipliers (ADMM) for decomposable problems
+
+3. OBJECTIVE FUNCTION SPECIFICATION
+-----------------------------------
+MODULAR OBJECTIVE FUNCTIONS:
+- Margin-Based Q-Value Optimization: Ensure target action wins by margin
+- Cross-Entropy Q-Value Optimization: Softmax-based action preference
+- Ranking Loss Optimization: Pairwise action preference enforcement
+- Direct Q-Value Matching: Explicit Q-value target specification
+- Multi-State Batch Optimization: Efficient batch processing across ALTER states
+- Sparsity-Regularized Objectives: L0/L1 penalties with configurable λ_sparse
+- Magnitude-Regularized Objectives: L2/L∞ penalties with configurable λ_magnitude
+
+CONSTRAINT SPECIFICATIONS:
+- Preserve Behavior Constraints: STRICT argmax(Q_preserve(s)) = argmax(Q_original(s))
+- Bound Constraints: Individual weight change limits
+- Budget Constraints: Total perturbation magnitude limits (L∞ norm)
+- Custom Constraints: User-defined constraint functions
+
+LOSS FUNCTION SELECTION INTERFACE:
+- Configurable loss function choice via factory pattern
+- Automatic loss function selection based on problem characteristics
+- Hybrid approaches combining multiple loss terms
+- Performance monitoring and automatic fallback mechanisms
+
+CUSTOM OBJECTIVE INTERFACE:
+- Abstract base class for objective functions
+- Gradient and Hessian computation support
+- Batch processing capabilities for multiple states
+- Automatic differentiation integration where applicable
+- Support for tunable regularization coefficients (λ_sparse, λ_magnitude)
+
+MODULAR DESIGN PRINCIPLES
+================================================================================
+
+1. SOLVER ABSTRACTION
+---------------------
+- Abstract BaseSolver class defining common interface
+- Each solver implements: solve(), get_solution(), get_convergence_info()
+- Solver-specific parameters handled through configuration dictionaries
+- Automatic solver selection based on problem characteristics
+
+2. OBJECTIVE FUNCTION MODULARITY
+--------------------------------
+- BaseObjective abstract class with standard interface
+- Pluggable objective functions for different optimization goals
+- Composable objectives (weighted combinations of multiple objectives)
+- Automatic gradient computation with fallback to numerical differentiation
+
+3. CONSTRAINT SYSTEM
+--------------------
+- Flexible constraint specification system
+- Support for: bounds, linear constraints, nonlinear constraints
+- Constraint validation and preprocessing
+- Automatic constraint scaling and conditioning
+
+4. CONFIGURATION MANAGEMENT
+---------------------------
+- YAML/JSON configuration files for solver parameters
+- Environment-specific configuration overrides
+- Parameter validation and default value management
+- Configuration versioning for reproducibility
+
+TECHNICAL SPECIFICATIONS
+================================================================================
+
+1. DATA FLOW ARCHITECTURE
+-------------------------
+Input Processing:
+  ALTER State Data → Target Outputs → Objective Function → Gradient Computation
+       ↓                                    ↓
+  PRESERVE State Data → Preserve Constraints → Constraint Generation
+       ↓                                    ↓
+  Weight Perturbation Spec → Bound Constraints → Solver → Solution
+       ↓                                    ↓
+  Sparsity Parameters (λ_sparse, λ_magnitude) → Regularization Terms
+
+Integration Points:
+- StateTooling: Provide preserve/alter state sets with clear separation
+- SaliencyTooling: Provide gradient computations for both objective and constraints
+- PerturbationTooling: Apply optimized weight changes
+- Model Infrastructure: Load/save model states and evaluate network outputs
+
+2. PERFORMANCE REQUIREMENTS
+---------------------------
+- Handle optimization problems with 1-50,000 variables efficiently
+- Support batch processing of ALTER states (10-1000 states) and PRESERVE states (10-10000 states)
+- Memory usage: Scale gracefully with problem size and number of preserve constraints
+- Computation time: <10 minutes for typical problems on standard hardware
+- Convergence: Provide reliable convergence diagnostics and early stopping
+- Constraint Evaluation: Efficient argmax computation for preserve constraints
+
+3. ERROR HANDLING AND ROBUSTNESS
+--------------------------------
+- Graceful degradation when solvers fail to converge
+- Automatic fallback to alternative solvers
+- Comprehensive validation of input data and constraints
+- Detailed logging of optimization progress and constraint violations
+- Recovery mechanisms for numerical instabilities
+- Validation of preserve constraint feasibility before optimization
+
+IMPLEMENTATION STRUCTURE
+================================================================================
+
+DIRECTORY ORGANIZATION:
+GradBasedTooling/
+├── core/
+│   ├── __init__.py
+│   ├── base_solver.py          # Abstract solver interface
+│   ├── base_objective.py       # Abstract objective interface
+│   └── optimization_problem.py # Problem formulation container
+├── solvers/
+│   ├── __init__.py
+│   ├── constrained_solver.py   # Primary constrained optimization
+│   ├── lbfgs_solver.py        # L-BFGS-B implementation
+│   ├── trust_region_solver.py # Trust-region methods
+│   └── solver_factory.py      # Automatic solver selection
+├── objectives/
+│   ├── __init__.py
+│   ├── margin_loss_objective.py     # Margin-based Q-value optimization (PRIMARY - small margins)
+│   ├── crossentropy_objective.py    # Cross-entropy Q-value optimization (SECONDARY)
+│   ├── multi_target_handler.py      # Utilities for handling multiple acceptable actions
+│   ├── ranking_loss_objective.py    # Pairwise ranking optimization
+│   ├── direct_matching_objective.py # Direct Q-value target matching
+│   ├── multi_state_objective.py     # Batch optimization across ALTER states
+│   ├── sparsity_objective.py        # L0/L1 sparsity penalties with λ_sparse
+│   ├── magnitude_objective.py       # L2/L∞ magnitude penalties with λ_magnitude
+│   └── hybrid_objective.py          # Combinations of multiple objectives
+├── constraints/
+│   ├── __init__.py
+│   ├── weight_bounds.py        # Simple bound constraints
+│   ├── preserve_behavior.py    # STRICT argmax preservation for PRESERVE states
+│   ├── constraint_batching.py  # Batching and prioritization for large constraint sets
+│   ├── sparsity_constraints.py # L0/L1 sparsity limits
+│   └── custom_constraints.py   # User-defined constraints
+├── utils/
+│   ├── __init__.py
+│   ├── integration_utils.py    # Interface with existing tools
+│   ├── gradient_utils.py       # Gradient computation helpers
+│   ├── validation_utils.py     # Input/output validation
+│   └── config_utils.py         # Configuration management
+├── examples/
+│   ├── basic_weight_optimization.py
+│   ├── state_action_optimization.py
+│   └── multi_objective_optimization.py
+├── configs/
+│   ├── default_solver_config.yaml
+│   ├── constrained_config.yaml
+│   └── performance_config.yaml
+└── tests/
+    ├── test_solvers.py
+    ├── test_objectives.py
+    └── test_integration.py
+
+KEY DESIGN PATTERNS
+================================================================================
+
+1. STRATEGY PATTERN FOR SOLVERS
+-------------------------------
+- Interchangeable solver algorithms
+- Runtime solver selection based on problem characteristics
+- Consistent interface regardless of underlying algorithm
+
+2. BUILDER PATTERN FOR PROBLEM CONSTRUCTION
+-------------------------------------------
+- Fluent API for building optimization problems
+- Step-by-step problem specification with validation
+- Default parameter handling and constraint inference
+
+3. FACTORY PATTERN FOR OBJECTIVE FUNCTIONS
+------------------------------------------
+- Dynamic objective function creation from configuration
+- Composite objectives with automatic weight balancing
+- Type-safe objective function registration
+
+4. ADAPTER PATTERN FOR EXTERNAL INTEGRATION
+-------------------------------------------
+- Clean interfaces to existing StateTooling and SaliencyTooling
+- Data format translation and validation
+- Backward compatibility maintenance
+
+INTEGRATION EASE REQUIREMENTS
+================================================================================
+
+1. MINIMAL EXISTING CODE MODIFICATION
+------------------------------------
+- Existing StateTooling should work unchanged (preserve/alter separation already exists)
+- New functionality accessible through extension points
+- Backward compatibility for all current interfaces
+- Optional integration - existing workflows remain functional
+
+2. STANDARDIZED INTERFACES
+-------------------------
+- Common data exchange formats (JSON/dictionary-based)
+- Consistent error handling and logging patterns
+- Uniform configuration and parameter specification for λ coefficients
+- Standard progress reporting and result formatting
+- Clear separation of ALTER and PRESERVE state handling
+
+3. PLUG-AND-PLAY ARCHITECTURE
+-----------------------------
+- Easy addition of new solvers without modifying existing code
+- Modular objective functions that can be mixed and matched
+- Constraint system that automatically adapts to problem structure
+- Configuration-driven behavior with sensible defaults for λ_sparse and λ_magnitude
+- Automatic constraint generation from preserve/alter state specifications
+
+FUTURE EXTENSIBILITY CONSIDERATIONS
+================================================================================
+
+1. ADVANCED OPTIMIZATION METHODS
+--------------------------------
+- Multi-objective optimization support
+- Stochastic optimization capabilities
+- Distributed/parallel optimization
+- Online optimization for streaming scenarios
+
+2. ENHANCED CONSTRAINT SYSTEMS
+------------------------------
+- Probabilistic constraints
+- Time-varying constraints
+- Learned constraint approximations
+- Constraint relaxation strategies
+
+3. INTEGRATION EXPANSIONS
+-------------------------
+- Support for different neural network architectures
+- Integration with reinforcement learning training loops
+- Real-time optimization during agent execution
+- Automated hyperparameter tuning for optimization settings
+
+VALIDATION AND TESTING REQUIREMENTS
+================================================================================
+
+1. UNIT TESTING
+---------------
+- Individual solver correctness
+- Objective function gradient accuracy
+- Constraint satisfaction verification
+- Configuration validation
+
+2. INTEGRATION TESTING
+----------------------
+- End-to-end optimization workflows
+- Compatibility with existing StateTooling
+- Performance regression testing
+- Memory usage and scalability testing
+
+3. BENCHMARKING
+---------------
+- Standard optimization test problems
+- Performance comparison between solvers
+- Convergence rate analysis
+- Solution quality assessment
+
+DOCUMENTATION REQUIREMENTS
+================================================================================
+
+1. API DOCUMENTATION
+--------------------
+- Complete docstrings for all public interfaces
+- Usage examples for each solver and objective
+- Configuration parameter documentation
+- Troubleshooting guides
+
+2. INTEGRATION GUIDES
+---------------------
+- Step-by-step integration with existing workflows
+- Migration guides for existing optimization code
+- Best practices for solver selection
+- Performance tuning recommendations
+
+3. THEORETICAL BACKGROUND
+------------------------
+- Mathematical formulation documentation
+- Algorithm descriptions and references
+- Convergence theory and guarantees
+- Problem formulation guidelines
+
+IMPLEMENTATION PRIORITY
+================================================================================
+
+PHASE 1 (Core Infrastructure - PROTOTYPE):
+1. Base classes and interfaces
+2. Neuron-level weight selection (all 64 weights per neuron)
+3. Basic margin-based objective with small sample sets (ALTER + PRESERVE)
+4. Random neuron selection from first 3 layers (feature_extractor, q_net.0, q_net.2)
+5. Simple constrained solver implementation with preserve behavior constraints
+6. Sparsity and magnitude regularization terms with parametric λ coefficients
+7. Integration utilities and validation
+
+PHASE 2 (Extended Capabilities):
+1. Additional solver implementations optimized for sparse solutions
+2. Multi-state optimization support with efficient constraint handling
+3. Advanced constraint systems and constraint violation handling
+4. Performance optimization for large preserve constraint sets
+
+PHASE 3 (Advanced Features):
+1. Multi-objective optimization with automatic λ tuning
+2. Automated solver selection based on sparsity requirements
+3. Real-time optimization capabilities
+4. Comprehensive benchmarking suite for constraint satisfaction
+
+WEIGHT/NEURON SELECTION SPECIFICATION:
+=======================================
+
+CURRENT APPROACH (Phase 1):
+- NEURON-LEVEL SELECTION: Specify neurons of interest, optimize all weights for those neurons
+- Each neuron corresponds to 64 weights (assuming standard DQN architecture)
+- Input format: List of neuron indices to perturb
+- Scope: First 3 layers only (feature_extractor, q_net.0, q_net.2)
+
+FUTURE APPROACH (Phase 2+):
+- INDIVIDUAL WEIGHT SELECTION: Specify exact weights within each neuron
+- Input format: {neuron_idx: [weight_indices]} for fine-grained control
+- Full network scope: All layers available for perturbation
+
+NEURON SPECIFICATION FORMAT:
+- Current: neuron_indices = [neuron_1, neuron_2, ...]
+- Future: weight_spec = {neuron_1: [w1, w2, ...], neuron_2: [w3, w4, ...]}
+
+LAYER TARGETING (Phase 1):
+- feature_extractor: Feature extraction layer
+- q_net.0: First Q-network layer  
+- q_net.2: Second Q-network layer
+- Random selection from these 3 layers for prototyping
+
+IMPLEMENTATION CONSIDERATIONS:
+- Modular weight selection interface for easy extension
+- Backward compatibility when moving to individual weight selection
+- Validation of neuron indices against actual network architecture
+- Automatic weight index calculation from neuron specifications
+
+This document serves as the definitive specification for the GradBasedTooling
+system development and should be referenced throughout the implementation process
+to ensure consistency with project goals and integration requirements. 
