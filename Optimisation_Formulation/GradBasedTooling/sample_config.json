@@ -1,18 +1,27 @@
 {
     "num_neurons": 8,
-    "seed": 42,
+    "alter_samples": 5,
+    "preserve_samples": 10,
     "weights_per_neuron": 64,
-    "neuron_selection": {
-        "method": "random"
-    },
+    "margin": 0.05,
+    "max_iterations": 100,
+    "optimizer_method": "Powell",
+    "bounds": null,
+    "seed": 42,
     "target_layers": [
         "q_net.features_extractor.mlp.0",
         "q_net.q_net.0",
         "q_net.q_net.2"
     ],
-    "alter_samples": 5,
-    "preserve_samples": 10,
-    "margin": 0.05,
-    "max_iterations": 100,
-    "save_perturbed_model": true
+    "neuron_selection": {
+        "method": "random"
+    },
+    "save_perturbed_model": true,
+    "preserve_constraints": {
+        "enabled": true,
+        "type": "soft",
+        "penalty_type": "relative_margin",
+        "penalty_weight": 1.0,
+        "margin_threshold": 0.9
+    }
 }

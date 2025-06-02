@@ -438,7 +438,11 @@ def run_enhanced_optimization(agent_path: str = None, config: dict = None, confi
     logger = EnhancedOptimizationLogger(agent_path, config)
     
     # Load data
-    alter_states, preserve_states = load_states_from_tooling(agent_path, 3, 5)
+    alter_states, preserve_states = load_states_from_tooling(
+        agent_path, 
+        alter_sample_size=config.get('alter_samples'),
+        preserve_sample_size=config.get('preserve_samples')
+    )
     original_model = load_model_from_agent_path(agent_path)
     target_actions = load_target_actions_from_tooling(alter_states)
     
