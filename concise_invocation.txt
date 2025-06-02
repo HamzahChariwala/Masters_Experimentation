@@ -73,6 +73,12 @@ Prerequisites: Trained agent.zip file in agent directory, Python environment wit
     Generates: Updates alter/states.json with desired_action field from dijkstra agent behavior
     Dependencies: optimisation_states/alter/states.json from step 13, Behaviour_Specification/Evaluations/ dijkstra data
 
+15. GRADIENT-BASED OPTIMIZATION WITH CUSTOM CONFIG
+    Command: python Optimisation_Formulation/GradBasedTooling/enhanced_optimization.py --config_path "path/to/config.json" --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
+    Generates: optimisation_results/optimisation_YYMMDD_HHMMSS/ with detailed and summary logs, optional perturbed model
+    Dependencies: optimisation_states/alter/states.json and optimisation_states/preserve/states.json from steps 13-14
+    Sample config: Optimisation_Formulation/GradBasedTooling/sample_config.json
+
 ALTERNATIVE COMMANDS:
 - Specific metrics only: Add --metrics "kl_divergence" "top_logit_delta_magnitude" to step 11 or 12
 - Agent group evaluations: Use bash scripts in Useful_Bash_Scripts/EvalBashScripts/

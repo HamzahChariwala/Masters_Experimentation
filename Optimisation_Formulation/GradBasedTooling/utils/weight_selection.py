@@ -93,6 +93,119 @@ class WeightSelector:
         selected_neurons = random.sample(available_neurons, num_neurons)
         return selected_neurons
     
+    def select_neurons_by_config(self, 
+                                model: torch.nn.Module,
+                                num_neurons: int,
+                                config: Dict,
+                                seed: Optional[int] = None) -> List[Tuple[str, int]]:
+        """
+        Select neurons based on configuration parameters.
+        
+        Args:
+            model: PyTorch model
+            num_neurons: Number of neurons to select (for random/layer_balanced methods)
+            config: Configuration dictionary with neuron_selection parameters
+            seed: Random seed for reproducibility
+            
+        Returns:
+            List of (layer_name, neuron_index) tuples
+        """
+        neuron_selection = config.get('neuron_selection', {})
+        method = neuron_selection.get('method', 'random')
+        
+        if seed is not None:
+            random.seed(seed)
+            
+        # Analyze model if not done already
+        if not self.layer_info:
+            self.analyze_model_structure(model)
+        
+        if method == 'specific':
+            # Use specifically provided neurons
+            specific_neurons = neuron_selection.get('specific_neurons', [])
+            if not specific_neurons:
+                raise ValueError("Method 'specific' requires 'specific_neurons' list in config")
+            return specific_neurons
+            
+        elif method == 'layer_balanced':
+            # Select specific number of neurons from each layer
+            layer_distribution = neuron_selection.get('layer_distribution', {})
+            if not layer_distribution:
+                raise ValueError("Method 'layer_balanced' requires 'layer_distribution' dict in config")
+            
+            selected_neurons = []
+            for layer_name, count in layer_distribution.items():
+                if layer_name not in self.layer_info:
+                    print(f"Warning: Layer '{layer_name}' not found in target layers, skipping")
+                    continue
+                    
+                available_in_layer = [(layer_name, i) for i in range(self.layer_info[layer_name]['num_neurons'])]
+                if count > len(available_in_layer):
+                    raise ValueError(f"Requested {count} neurons from layer '{layer_name}' but only {len(available_in_layer)} available")
+                
+                selected_neurons.extend(random.sample(available_in_layer, count))
+            
+            return selected_neurons
+            
+        else:  # Default to 'random'
+            return self._select_random_with_constraints(model, num_neurons, neuron_selection, seed)
+    
+    def _select_random_with_constraints(self,
+                                       model: torch.nn.Module,
+                                       num_neurons: int,
+                                       neuron_selection: Dict,
+                                       seed: Optional[int] = None) -> List[Tuple[str, int]]:
+        """
+        Select neurons randomly with optional constraints.
+        
+        Args:
+            model: PyTorch model
+            num_neurons: Number of neurons to select
+            neuron_selection: Neuron selection configuration
+            seed: Random seed for reproducibility
+            
+        Returns:
+            List of (layer_name, neuron_index) tuples
+        """
+        if seed is not None:
+            random.seed(seed)
+        
+        # Collect all available neurons
+        available_neurons = []
+        for layer_name, info in self.layer_info.items():
+            for neuron_idx in range(info['num_neurons']):
+                available_neurons.append((layer_name, neuron_idx))
+        
+        # Apply exclusions if specified
+        exclude_neurons = neuron_selection.get('exclude_neurons', [])
+        if exclude_neurons:
+            available_neurons = [n for n in available_neurons if n not in exclude_neurons]
+        
+        # Apply layer prioritization if specified
+        prioritize_layers = neuron_selection.get('prioritize_layers', [])
+        if prioritize_layers:
+            priority_neurons = [n for n in available_neurons if n[0] in prioritize_layers]
+            other_neurons = [n for n in available_neurons if n[0] not in prioritize_layers]
+            
+            # Try to select from priority layers first
+            selected_from_priority = min(num_neurons, len(priority_neurons))
+            selected_neurons = random.sample(priority_neurons, selected_from_priority)
+            
+            # Fill remaining slots from other layers
+            remaining_needed = num_neurons - selected_from_priority
+            if remaining_needed > 0:
+                if remaining_needed > len(other_neurons):
+                    raise ValueError(f"Cannot select {num_neurons} neurons: only {len(available_neurons)} available after constraints")
+                selected_neurons.extend(random.sample(other_neurons, remaining_needed))
+            
+            return selected_neurons
+        
+        # Standard random selection
+        if num_neurons > len(available_neurons):
+            raise ValueError(f"Requested {num_neurons} neurons but only {len(available_neurons)} available after constraints")
+            
+        return random.sample(available_neurons, num_neurons)
+    
     def neurons_to_weight_indices(self, 
                                  model: torch.nn.Module,
                                  neuron_specs: List[Tuple[str, int]]) -> Dict[str, List[int]]:

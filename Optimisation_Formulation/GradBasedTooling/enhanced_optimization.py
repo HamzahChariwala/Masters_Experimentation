@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from scipy.optimize import minimize
 import copy
+import argparse
 
 # Add the correct paths for imports when running from Further_Testing
 sys.path.insert(0, '.')
@@ -406,17 +407,29 @@ def create_model_backup_and_verify(model):
     return model_copy, original_state_dict, verify_original_unchanged
 
 
-def run_enhanced_optimization(agent_path: str = None, config: dict = None):
+def run_enhanced_optimization(agent_path: str = None, config: dict = None, config_path: str = None):
     """
     Run optimization with enhanced logging that saves to agent's directory.
     Creates both detailed and summary logs in timestamped subdirectory.
     IMPORTANT: Always operates on a copy of the model to preserve original.
+    
+    Args:
+        agent_path: Path to the agent directory
+        config: Configuration dictionary (takes precedence over config_path)
+        config_path: Path to JSON config file to load
     """
     if agent_path is None:
         agent_path = "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6/"
     
+    # Handle config loading
     if config is None:
-        config = OPTIMIZATION_CONFIG.copy()
+        if config_path is not None:
+            # Load config from file
+            from Optimisation_Formulation.GradBasedTooling.configs.default_config import create_config_from_file
+            config = create_config_from_file(config_path)
+        else:
+            # Use default config
+            config = OPTIMIZATION_CONFIG.copy()
     
     # Import here to avoid scope issues
     from Optimisation_Formulation.GradBasedTooling.utils.integration_utils import load_model_from_agent_path
@@ -762,22 +775,17 @@ def run_enhanced_optimization(agent_path: str = None, config: dict = None):
 
 
 if __name__ == "__main__":
-    # To improve optimization results, consider adjusting these hyperparameters:
-    # 
-    # 1. num_neurons: Increase from 8 to 16-32 for more optimization freedom
-    # 2. max_iterations: Increase from 100 to 500-1000 for more exploration  
-    # 3. margin: Reduce from 0.1 to 0.01-0.05 for easier targets
-    # 4. weights_per_neuron: Increase from 64 to all weights for full flexibility
-    # 5. optimizer: Try 'Powell' or 'BFGS' instead of 'Nelder-Mead' 
-    # 6. step_size: Add initial step size parameter to scipy.optimize options
-    # 7. lambda_sparse/lambda_magnitude: Reduce regularization if implemented
-    #
-    # Example usage:
-    # config = OPTIMIZATION_CONFIG.copy()
-    # config['num_neurons'] = 16
-    # config['max_iterations'] = 500  
-    # config['margin'] = 0.05
-    # summary = run_enhanced_optimization(config=config)
+    parser = argparse.ArgumentParser(description='Enhanced Gradient-Based Neural Network Optimization')
+    parser.add_argument('--agent_path', type=str, required=True,
+                        help='Path to the agent directory (required)')
+    parser.add_argument('--config_path', type=str, 
+                        help='Path to JSON configuration file (optional, uses default config if not provided)')
     
-    summary = run_enhanced_optimization()
+    args = parser.parse_args()
+    
+    # Run optimization with command line arguments
+    summary = run_enhanced_optimization(
+        agent_path=args.agent_path,
+        config_path=args.config_path
+    )
     print(f"\n🎯 Optimization complete! Check the agent's optimisation_results directory for detailed logs.") 

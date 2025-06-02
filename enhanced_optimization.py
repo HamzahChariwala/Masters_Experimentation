@@ -4,19 +4,32 @@ Enhanced Gradient-Based Neural Network Optimization with Comprehensive Logging
 Creates both detailed and summary logs in agent's optimisation_results directory.
 """
 import sys
+import os
 import numpy as np
 import torch
 import json
 from datetime import datetime
 from pathlib import Path
 from scipy.optimize import minimize
+import argparse
 
-sys.path.insert(0, '.')
+# Add paths for imports - handle both relative and absolute execution
+script_dir = Path(__file__).parent.absolute()
+root_dir = script_dir.parent.parent
+sys.path.insert(0, str(root_dir))
+sys.path.insert(0, str(script_dir))
 
-from configs.default_config import OPTIMIZATION_CONFIG
-from utils.integration_utils import load_model_from_agent_path, load_states_from_tooling, load_target_actions_from_tooling
-from utils.weight_selection import WeightSelector  
-from objectives.margin_loss_objective import MarginLossObjective
+try:
+    from Optimisation_Formulation.GradBasedTooling.configs.default_config import OPTIMIZATION_CONFIG
+    from Optimisation_Formulation.GradBasedTooling.utils.integration_utils import load_model_from_agent_path, load_states_from_tooling, load_target_actions_from_tooling
+    from Optimisation_Formulation.GradBasedTooling.utils.weight_selection import WeightSelector  
+    from Optimisation_Formulation.GradBasedTooling.objectives.margin_loss_objective import MarginLossObjective
+except ImportError:
+    # Fallback for local execution
+    from configs.default_config import OPTIMIZATION_CONFIG
+    from utils.integration_utils import load_model_from_agent_path, load_states_from_tooling, load_target_actions_from_tooling
+    from utils.weight_selection import WeightSelector  
+    from objectives.margin_loss_objective import MarginLossObjective
 
 
 class EnhancedOptimizationLogger:
@@ -419,16 +432,28 @@ class EnhancedOptimizationLogger:
             return obj
 
 
-def run_enhanced_optimization(agent_path: str = None, config: dict = None):
+def run_enhanced_optimization(agent_path: str = None, config: dict = None, config_path: str = None):
     """
     Run optimization with enhanced logging that saves to agent's directory.
     Creates both detailed and summary logs in timestamped subdirectory.
+    
+    Args:
+        agent_path: Path to the agent directory
+        config: Configuration dictionary (takes precedence over config_path)
+        config_path: Path to JSON config file to load
     """
     if agent_path is None:
         agent_path = "../../Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6/"
     
+    # Handle config loading
     if config is None:
-        config = OPTIMIZATION_CONFIG.copy()
+        if config_path is not None:
+            # Load config from file
+            from Optimisation_Formulation.GradBasedTooling.configs.default_config import create_config_from_file
+            config = create_config_from_file(config_path)
+        else:
+            # Use default config
+            config = OPTIMIZATION_CONFIG.copy()
     
     # Initialize enhanced logger
     logger = EnhancedOptimizationLogger(agent_path, config)
@@ -448,11 +473,24 @@ def run_enhanced_optimization(agent_path: str = None, config: dict = None):
         target_layers=config.get('target_layers'),
         weights_per_neuron=config.get('weights_per_neuron')
     )
-    selected_neurons = weight_selector.select_random_neurons(
-        model, 
-        config.get('num_neurons', 2), 
-        config.get('seed')
-    )
+    
+    # Enhanced neuron selection with config support
+    if 'neuron_selection' in config and config['neuron_selection'].get('method') != 'random':
+        # Use new config-based selection
+        selected_neurons = weight_selector.select_neurons_by_config(
+            model, 
+            config.get('num_neurons', 2), 
+            config,
+            config.get('seed')
+        )
+    else:
+        # Use legacy random selection for backwards compatibility
+        selected_neurons = weight_selector.select_random_neurons(
+            model, 
+            config.get('num_neurons', 2), 
+            config.get('seed')
+        )
+    
     initial_weights, mapping_info = weight_selector.create_optimization_vector(model, selected_neurons)
     
     objective = MarginLossObjective(
@@ -511,6 +549,55 @@ def run_enhanced_optimization(agent_path: str = None, config: dict = None):
     return summary_log
 
 
+def run_optimization_with_experiment_config(agent_path: str = None, 
+                                           experiment_name: str = 'default',
+                                           custom_overrides: dict = None):
+    """
+    Convenience function to run optimization with predefined experiment configurations.
+    
+    Args:
+        agent_path: Path to the agent directory
+        experiment_name: Name of experiment config ('default', 'few_neurons_focused', 'multi_layer_balanced', 'high_precision')
+        custom_overrides: Additional config parameters to override
+        
+    Returns:
+        Summary log dictionary
+    """
+    from Optimisation_Formulation.GradBasedTooling.configs.default_config import OPTIMIZATION_CONFIG, EXPERIMENT_CONFIGS, merge_configs
+    
+    if experiment_name == 'default':
+        base_config = OPTIMIZATION_CONFIG.copy()
+    elif experiment_name in EXPERIMENT_CONFIGS:
+        base_config = merge_configs(OPTIMIZATION_CONFIG, EXPERIMENT_CONFIGS[experiment_name])
+    else:
+        available = list(EXPERIMENT_CONFIGS.keys()) + ['default']
+        raise ValueError(f"Unknown experiment config '{experiment_name}'. Available: {available}")
+    
+    # Apply custom overrides if provided
+    if custom_overrides:
+        config = merge_configs(base_config, custom_overrides)
+    else:
+        config = base_config
+    
+    print(f"🧪 Running optimization with experiment config: '{experiment_name}'")
+    if custom_overrides:
+        print(f"📝 Custom overrides applied: {list(custom_overrides.keys())}")
+    
+    return run_enhanced_optimization(agent_path=agent_path, config=config)
+
+
 if __name__ == "__main__":
-    summary = run_enhanced_optimization()
+    parser = argparse.ArgumentParser(description='Enhanced Gradient-Based Neural Network Optimization')
+    parser.add_argument('--agent_path', type=str, 
+                        help='Path to the agent directory (default: auto-detect)')
+    parser.add_argument('--config_path', type=str, 
+                        help='Path to JSON configuration file (default: use built-in config)')
+    
+    args = parser.parse_args()
+    
+    # Run optimization with command line arguments
+    summary = run_enhanced_optimization(
+        agent_path=args.agent_path,
+        config_path=args.config_path
+    )
     print(f"\n🎯 Optimization complete! Check the agent's optimisation_results directory for detailed logs.") 
