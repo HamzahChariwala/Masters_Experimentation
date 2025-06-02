@@ -1,0 +1,60 @@
+# DQN Hyperparameter Tuning Configuration for Grid Search
+# This file defines hyperparameters to tune using Grid Search
+# The values below are placeholders that should be updated based on Optuna results
+
+# Global settings for hyperparameter tuning
+reduced_timesteps_factor: 0.25  # Run each training for 25% of the timesteps defined in base config
+
+# Grid Search Configuration
+# Each parameter is specified with an array of values to try based on promising Optuna results
+grid_search:
+  # Core DQN Parameters
+  # NOTE: These are placeholder values - replace with promising values from Optuna results
+  "model.buffer_size": [100000, 250000, 500000]
+  
+  "model.learning_starts": [50000, 100000, 150000]
+  
+  "model.batch_size": [64, 128, 256]
+  
+  "model.learning_rate": [0.0001, 0.00025, 0.0005]
+  
+  "model.gamma": [0.7, 0.85, 0.95]
+  
+  "model.train_freq": [4, 8]
+  
+  "model.target_update_interval": [1000, 5000]
+  
+  "model.exploration_fraction": [0.3, 0.5, 0.7]
+  
+  "model.exploration_final_eps": [0.05, 0.1]
+  
+  # Feature extractor parameters
+  "model.features_extractor.features_dim": [128, 256]
+  
+  "model.features_extractor.mlp.hidden_sizes": [
+    [64], 
+    [128, 64]
+  ]
+  
+  # Environment parameters
+  "environment.num_envs": [12, 16]
+  
+  # Reward function parameters
+  "reward_function.x_intercept": [100, 150]
+  
+  "reward_function.y_intercept": [1.0, 1.5]
+
+# IMPORTANT: After running Optuna optimization, update this file with the most promising
+# values found in the Bayesian optimization phase. This will create a more focused
+# grid search that explores the most promising regions of the parameter space.
+#
+# For each parameter:
+# 1. Review the top performing Optuna trials
+# 2. Select 2-3 values around the best-performing value for each parameter
+# 3. Replace the placeholder arrays above with those values
+#
+# Example update process:
+# If Optuna found that learning_rate=0.00025 performed best, you might set:
+#   "model.learning_rate": [0.0001, 0.00025, 0.0005]
+#
+# This reduces the search space to focus on the most promising areas. 

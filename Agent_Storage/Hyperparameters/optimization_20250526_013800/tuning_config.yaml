@@ -1,0 +1,43 @@
+agents_per_trial: 5
+base_output_dir: Agent_Storage/Hyperparameters/optimization_20250526_013800
+bayesian_optimization:
+  model.batch_size:
+    distribution: int_uniform
+    max: 512
+    min: 32
+  model.buffer_size:
+    distribution: int_uniform
+    max: 500000
+    min: 10000
+  model.exploration_final_eps:
+    distribution: loguniform
+    max: 0.2
+    min: 0.01
+  model.exploration_fraction:
+    distribution: uniform
+    max: 0.9
+    min: 0.1
+  model.gamma:
+    distribution: uniform
+    max: 0.999
+    min: 0.5
+  model.learning_rate:
+    distribution: loguniform
+    max: 0.001
+    min: 1.0e-06
+  model.learning_starts:
+    distribution: int_uniform
+    max: 500000
+    min: 50000
+  model.target_update_interval:
+    distribution: int_uniform
+    max: 50000
+    min: 500
+  model.train_freq:
+    distribution: int_uniform
+    max: 1000
+    min: 1
+n_trials: 50
+reduced_timesteps_factor: 1.0
+storage_name: null
+study_name: dqn_hyperparameter_optimization
