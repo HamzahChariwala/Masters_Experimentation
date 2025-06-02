@@ -127,6 +127,20 @@ class WeightSelector:
                 raise ValueError("Method 'specific' requires 'specific_neurons' list in config")
             return specific_neurons
             
+        elif method == 'metric':
+            # Load neurons from circuit verification metric results
+            from .integration_utils import load_neurons_from_metric
+            
+            metric = neuron_selection.get('metric')
+            if not metric:
+                raise ValueError("Method 'metric' requires 'metric' parameter in neuron_selection config")
+            
+            agent_path = config.get('agent_path')
+            if not agent_path:
+                raise ValueError("Method 'metric' requires 'agent_path' in config")
+            
+            return load_neurons_from_metric(agent_path, metric, num_neurons)
+            
         elif method == 'layer_balanced':
             # Select specific number of neurons from each layer
             layer_distribution = neuron_selection.get('layer_distribution', {})

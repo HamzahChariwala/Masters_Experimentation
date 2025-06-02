@@ -437,6 +437,9 @@ def run_enhanced_optimization(agent_path: str = None, config: dict = None, confi
     # Initialize enhanced logger
     logger = EnhancedOptimizationLogger(agent_path, config)
     
+    # Add agent_path to config for metric-based neuron selection
+    config['agent_path'] = agent_path
+    
     # Load data
     alter_states, preserve_states = load_states_from_tooling(
         agent_path, 
@@ -454,11 +457,24 @@ def run_enhanced_optimization(agent_path: str = None, config: dict = None, confi
         target_layers=config.get('target_layers'),
         weights_per_neuron=config.get('weights_per_neuron')
     )
-    selected_neurons = weight_selector.select_random_neurons(
-        model, 
-        config.get('num_neurons', 2), 
-        config.get('seed')
-    )
+    
+    # Select neurons using the config-based approach
+    neuron_selection_method = config.get('neuron_selection', {}).get('method', 'random')
+    if neuron_selection_method == 'random':
+        # Use the legacy method for backward compatibility
+        selected_neurons = weight_selector.select_random_neurons(
+            model, 
+            config.get('num_neurons', 2), 
+            config.get('seed')
+        )
+    else:
+        # Use the new config-based method
+        selected_neurons = weight_selector.select_neurons_by_config(
+            model,
+            config.get('num_neurons', 2),
+            config,
+            config.get('seed')
+        )
     initial_weights, mapping_info = weight_selector.create_optimization_vector(model, selected_neurons)
     
     # Calculate bounds upfront before optimization

@@ -275,3 +275,100 @@ def create_preserve_constraints(preserve_states: Dict[str, Dict],
     })
     
     return constraints 
+
+
+def load_neurons_from_metric(agent_path: str, metric: str, num_neurons: int) -> List[Tuple[str, int]]:
+    """
+    Load top N neurons from circuit verification metric results.
+    
+    Args:
+        agent_path: Path to the agent directory
+        metric: Name of the metric (e.g., 'kl_divergence', 'top_logit_delta_magnitude')
+        num_neurons: Number of top neurons to select from the coalition
+        
+    Returns:
+        List of (layer_name, neuron_index) tuples
+        
+    Raises:
+        FileNotFoundError: If summary.json doesn't exist for the metric
+        ValueError: If not enough neurons in coalition or invalid format
+    """
+    import json
+    
+    # Construct path to summary.json
+    summary_path = os.path.join(agent_path, "circuit_verification", "monotonic", metric, "summary.json")
+    
+    if not os.path.exists(summary_path):
+        raise FileNotFoundError(f"Circuit verification summary not found: {summary_path}")
+    
+    # Load the summary
+    with open(summary_path, 'r') as f:
+        summary_data = json.load(f)
+    
+    # Extract coalition neurons
+    coalition_neurons = summary_data.get('results', {}).get('final_coalition_neurons', [])
+    
+    if not coalition_neurons:
+        raise ValueError(f"No coalition neurons found in {summary_path}")
+    
+    if len(coalition_neurons) < num_neurons:
+        print(f"Warning: Only {len(coalition_neurons)} neurons available in coalition, requested {num_neurons}")
+        num_neurons = len(coalition_neurons)
+    
+    # Take top N neurons from the coalition
+    selected_neurons_raw = coalition_neurons[:num_neurons]
+    
+    # Convert format from "q_net.X_neuron_Y" to ("q_net.q_net.X", Y)
+    selected_neurons = []
+    for neuron_str in selected_neurons_raw:
+        try:
+            # Parse format: "q_net.X_neuron_Y"
+            if not neuron_str.startswith("q_net."):
+                raise ValueError(f"Unexpected neuron format: {neuron_str}")
+            
+            # Remove "q_net." prefix and split by "_neuron_"
+            remainder = neuron_str[6:]  # Remove "q_net."
+            if "_neuron_" not in remainder:
+                raise ValueError(f"Expected '_neuron_' in neuron string: {neuron_str}")
+            
+            layer_part, neuron_part = remainder.split("_neuron_", 1)
+            
+            # Convert to our format
+            layer_name = f"q_net.q_net.{layer_part}"
+            neuron_index = int(neuron_part)
+            
+            selected_neurons.append((layer_name, neuron_index))
+            
+        except (ValueError, IndexError) as e:
+            raise ValueError(f"Failed to parse neuron string '{neuron_str}': {e}")
+    
+    print(f"Loaded {len(selected_neurons)} neurons from metric '{metric}' coalition:")
+    for i, (layer, neuron_idx) in enumerate(selected_neurons):
+        print(f"  {i+1}. {layer} neuron {neuron_idx}")
+    
+    return selected_neurons
+
+
+def list_available_metrics(agent_path: str) -> List[str]:
+    """
+    List available metrics in the circuit verification monotonic directory.
+    
+    Args:
+        agent_path: Path to the agent directory
+        
+    Returns:
+        List of available metric names
+    """
+    monotonic_path = os.path.join(agent_path, "circuit_verification", "monotonic")
+    
+    if not os.path.exists(monotonic_path):
+        return []
+    
+    metrics = []
+    for item in os.listdir(monotonic_path):
+        item_path = os.path.join(monotonic_path, item)
+        summary_path = os.path.join(item_path, "summary.json")
+        if os.path.isdir(item_path) and os.path.exists(summary_path):
+            metrics.append(item)
+    
+    return sorted(metrics) 
