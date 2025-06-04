@@ -94,7 +94,7 @@ spawn:
         relative_duration: 1.0  # Relative duration of this stage
       
       # Stage 2: Same center but increase lobe size
-      - type: "gaussian_2d"
+      - type: "gaussian_2d" # Changed from gaussian_2d to gaussian_2d_directional
         params:
           center: [1.0, 1.0]  # Still at goal
           std: [0.35, 0.35]   # Larger standard deviation - increased
@@ -102,7 +102,7 @@ spawn:
         relative_duration: 1.0  # Relative duration of this stage
       
       # Stage 3: Shift center to middle of env
-      - type: "gaussian_2d"
+      - type: "gaussian_2d" # Changed from gaussian_2d to gaussian_2d_directional
         params:
           center: [0.5, 0.5]  # Center of the grid
           std: [0.25, 0.25]   # Same standard deviation as before
@@ -110,7 +110,7 @@ spawn:
         relative_duration: 1.0  # Relative duration of this stage
       
       # Stage 4: Same center but increase lobe size in direction connecting bottom left and top right corner
-      - type: "gaussian_2d"
+      - type: "gaussian_2d" # Changed from gaussian_2d to gaussian_2d_directional
         params:
           center: [0.5, 0.5]        # Still at center
           std: [0.4, 0.2]           # Elongated std
@@ -137,7 +137,7 @@ spawn:
         relative_duration: 1.0  # Longer relative duration for this complex stage
       
       # Stage 6: Revert to something similar to stage 3
-      - type: "gaussian_2d"
+      - type: "gaussian_2d" # Changed from gaussian_2d to gaussian_2d_directional
         params:
           center: [0.5, 0.5]  # Back to center
           std: [0.3, 0.3]     # Slightly wider than stage 3
@@ -145,7 +145,7 @@ spawn:
         relative_duration: 1.0  # Relative duration of this stage
       
       # Stage 7: Gaussian centered around top left with medium lobe sizes
-      - type: "gaussian_2d"
+      - type: "gaussian_2d" # Changed from gaussian_2d to gaussian_2d_directional
         params:
           center: [0.0, 0.0]  # Top-left corner
           std: [0.35, 0.35]   # Medium standard deviation - increased
@@ -153,7 +153,7 @@ spawn:
         relative_duration: 1.0  # Relative duration of this stage
       
       # Stage 8: Reduce lobe sizes to increase concentration around that corner
-      - type: "gaussian_2d"
+      - type: "gaussian_2d" # Changed from gaussian_2d to gaussian_2d_directional     
         params:
           center: [0.0, 0.0]  # Still at top-left
           std: [0.15, 0.15]   # Smaller standard deviation (more concentrated) - increased slightly
@@ -186,7 +186,7 @@ model:
   batch_size: 128
   exploration_fraction: 0.525
   exploration_final_eps: 0.01
-  gamma: 0.93
+  gamma: 0.9
   learning_rate: 0.001
   train_freq: 8
   target_update_interval: 2750

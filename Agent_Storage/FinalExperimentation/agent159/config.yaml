@@ -1,0 +1,209 @@
+diagonal_moves:
+  failure_penalty: 0
+  monitor: true
+  success_reward: 0.0
+environment:
+  id: MiniGrid-LavaCrossingS11N5-v0
+  max_episode_steps: 150
+  num_envs: 15
+  use_different_envs: true
+evaluation:
+  final:
+    episodes_per_env: 3
+    num_envs: 10
+    timeout: 3
+  training:
+    check_freq: 500000
+    disable_early_stopping: true
+    max_runtime: 0
+    min_reward_threshold: -1.0
+    n_eval_episodes: 1
+    num_envs: 15
+    target_reward_threshold: 2.0
+    timeout: 15
+experiment:
+  description: Training an agent with flexible spawn distribution in MiniGrid
+  name: minigrid_agent_training
+  output:
+    log_dir: ./logs/default_logs
+    model_save_path: default_agent
+    total_timesteps: 1000000
+  version: 1.0
+model:
+  batch_size: 85
+  buffer_size: 80509
+  exploration_final_eps: 0.03245510719586384
+  exploration_fraction: 0.6959309386060784
+  features_extractor:
+    class: CustomCombinedExtractor
+    cnn:
+      channels:
+      - 32
+      kernels:
+      - 3
+      num_layers: 1
+      paddings:
+      - 1
+      strides:
+      - 1
+    features_dim: 256
+    mlp:
+      hidden_sizes:
+      - 64
+      num_layers: 1
+  gamma: 0.8486149747977351
+  learning_rate: 0.0002452994123794723
+  learning_starts: 8520
+  policy: MultiInputPolicy
+  target_update_interval: 3515
+  train_freq: 13
+  type: DQN
+  use_mps: false
+  verbose: 1
+no_death:
+  cost: -0.1
+  enabled: true
+  types:
+  - lava
+observation:
+  cnn_keys: []
+  mlp_keys:
+  - four_way_goal_direction
+  - four_way_angle_alignment
+  - barrier_mask
+  - lava_mask
+  window_size: 7
+reward_function:
+  count_lava_steps: false
+  debug_logging: false
+  enabled: true
+  lava_step_multiplier: 5.0
+  transition_width: 10
+  type: linear
+  verbose: false
+  x_intercept: 150
+  y_intercept: 1
+seeds:
+  environment: 12345
+  evaluation: 67890
+  model: 811
+  seed_increment: 1
+spawn:
+  continuous_transition:
+    enabled: false
+    rate: 1.0
+    target_type: uniform
+  distribution_params:
+    center:
+    - 1.0
+    - 1.0
+    std:
+    - 0.2
+    - 0.2
+  distribution_type: gaussian_2d
+  exclude_goal_adjacent: false
+  stage_training:
+    curriculum_proportion: 0.8
+    distributions:
+    - description: Goal-centered tight Gaussian
+      params:
+        center:
+        - 1.0
+        - 1.0
+        std:
+        - 0.15
+        - 0.15
+      relative_duration: 1.0
+      type: gaussian_2d
+    - description: Goal-centered wider Gaussian
+      params:
+        center:
+        - 1.0
+        - 1.0
+        std:
+        - 0.35
+        - 0.35
+      relative_duration: 1.0
+      type: gaussian_2d
+    - description: Center-positioned Gaussian
+      params:
+        center:
+        - 0.5
+        - 0.5
+        std:
+        - 0.25
+        - 0.25
+      relative_duration: 1.0
+      type: gaussian_2d
+    - description: Center-positioned directional Gaussian
+      params:
+        angle: 135
+        center:
+        - 0.5
+        - 0.5
+        directional: true
+        std:
+        - 0.4
+        - 0.2
+      relative_duration: 1.0
+      type: gaussian_2d
+    - description: Bottom-left and top-right corner Gaussians
+      params:
+        distributions:
+        - params:
+            center:
+            - 0.0
+            - 1.0
+            std:
+            - 0.2
+            - 0.2
+          type: gaussian_2d
+          weight: 0.5
+        - params:
+            center:
+            - 1.0
+            - 0.0
+            std:
+            - 0.2
+            - 0.2
+          type: gaussian_2d
+          weight: 0.5
+      relative_duration: 1.0
+      type: composite
+    - description: Center-positioned wider Gaussian
+      params:
+        center:
+        - 0.5
+        - 0.5
+        std:
+        - 0.3
+        - 0.3
+      relative_duration: 1.0
+      type: gaussian_2d
+    - description: Top-left corner medium Gaussian
+      params:
+        center:
+        - 0.0
+        - 0.0
+        std:
+        - 0.35
+        - 0.35
+      relative_duration: 1.0
+      type: gaussian_2d
+    - description: Top-left corner tight Gaussian
+      params:
+        center:
+        - 0.0
+        - 0.0
+        std:
+        - 0.15
+        - 0.15
+      relative_duration: 1.0
+      type: gaussian_2d
+    enabled: true
+    num_stages: 8
+    smooth_transitions:
+      enabled: false
+      transition_proportion: 0.2
+      transition_rate: linear
+  use_flexible_spawn: true
