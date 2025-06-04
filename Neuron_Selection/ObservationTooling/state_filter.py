@@ -304,7 +304,7 @@ if __name__ == "__main__":
     # ===================================================
 
     # Set your criteria here
-    CRITERIA = ['blocked:is:false', 'chose_safety_optimally:is:true', 'action_taken:in:2,3,4']
+    CRITERIA = ['chose_safety_optimally:is:true', 'action_taken:in:2,3,4', 'blocked:is:false']
 
     parser = argparse.ArgumentParser(description='Filter states from agent evaluation logs.')
     parser.add_argument('--path', help='Path to the agent directory')

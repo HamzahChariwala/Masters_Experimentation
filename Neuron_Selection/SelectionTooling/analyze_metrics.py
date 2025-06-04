@@ -94,7 +94,8 @@ METRICS_TO_NORMALIZE = [
     'confidence_margin_magnitude', 
     'reversed_pearson_correlation',
     'reversed_undirected_saturating_chebyshev',
-    'top_logit_delta_magnitude'
+    'top_logit_delta_magnitude',
+    'logit_difference_norm'
     # undirected_saturating_chebyshev is NOT included here as it's already in an acceptable range
 ]
 
@@ -176,6 +177,13 @@ def normalize_metric_value(metric_name: str, value: float) -> float:
         # Scale based on observed maximums - most values are quite small
         # Maximum observed was around 0.5, so scale appropriately
         normalized = min(1.0, value / 0.5)
+        return normalized
+    
+    # For logit_difference_norm
+    if metric_name == 'logit_difference_norm':
+        # Scale based on observed maximums - typically around 0.02-0.05
+        # Maximum observed was around 0.05, so scale appropriately
+        normalized = min(1.0, value / 0.05)
         return normalized
     
     # Default normalization: just clamp to [0, 1]
@@ -972,26 +980,50 @@ def plot_metric_distributions(
     use_normalized: bool = True  # Set default to True to ensure we use normalized values
 ) -> None:
     """
-    Generate distribution plots for metric pairs.
+    Generate individual distribution plots for each metric.
     
     Args:
         agent_path: Path to the agent directory
-        metrics_pairs: List of lists containing pairs of metrics to plot together
+        metrics_pairs: List of lists containing pairs of metrics to plot together (unused, kept for compatibility)
         use_normalized: Whether to use pre-computed normalized values (default: True)
     """
     # Always use normalized values regardless of the parameter passed
     use_normalized = True
     
-    # Set default metrics pairs if not provided
-    if metrics_pairs is None:
-        metrics_pairs = DEFAULT_METRICS_PAIRS
+    # List of all metrics to plot individually (sorted alphabetically for consistent color assignment)
+    metrics_to_plot = sorted([
+        'kl_divergence',
+        'reverse_kl_divergence', 
+        'confidence_margin_magnitude',
+        'undirected_saturating_chebyshev',
+        'reversed_pearson_correlation',
+        'reversed_undirected_saturating_chebyshev',
+        'top_logit_delta_magnitude',
+        'logit_difference_norm'
+    ])
     
     # Set output directory
     results_dir = os.path.join(agent_path, "patching_results")
     
-    # Create analysis subfolder
+    # Create analysis subfolder and separate noising/denoising folders
     analysis_dir = os.path.join(results_dir, "analysis")
-    os.makedirs(analysis_dir, exist_ok=True)
+    noising_plots_dir = os.path.join(analysis_dir, "noising")
+    denoising_plots_dir = os.path.join(analysis_dir, "denoising")
+    
+    os.makedirs(noising_plots_dir, exist_ok=True)
+    os.makedirs(denoising_plots_dir, exist_ok=True)
+    
+    # Remove old paired plots
+    old_plot_patterns = [
+        "noising_metrics_pair_*.png",
+        "denoising_metrics_pair_*.png"
+    ]
+    for pattern in old_plot_patterns:
+        import glob
+        for old_plot in glob.glob(os.path.join(analysis_dir, pattern)):
+            if os.path.exists(old_plot):
+                os.remove(old_plot)
+                print(f"Removed old plot: {old_plot}")
     
     # Clear existing combined histogram files
     noising_hist_file = os.path.join(analysis_dir, "noising_histograms.txt")
@@ -1020,10 +1052,6 @@ def plot_metric_distributions(
         print(f"No denoising summary data found at {denoising_summary_file}")
         return
     
-    # The summary files already contain properly computed normalized values, so we don't need to recompute them
-    # normalize_summary_data(noising_data, METRICS_TO_NORMALIZE)  # REMOVED - was overwriting correct values
-    # normalize_summary_data(denoising_data, METRICS_TO_NORMALIZE)  # REMOVED - was overwriting correct values
-    
     # Compute averaged normalization based on mean values across experiments
     print("Computing averaged normalization for noising data...")
     compute_averaged_normalization(noising_data, METRICS_TO_NORMALIZE)
@@ -1033,235 +1061,164 @@ def plot_metric_distributions(
     # Get the magma colormap for consistent colors
     magma = plt.cm.magma
     
+    # Create color mapping for each metric (alphabetically ordered)
+    # Use a range from 0.85 to 0.15 to reverse the colors (avoid very light and very dark colors)
+    num_metrics = len(metrics_to_plot)
+    color_positions = np.linspace(0.85, 0.15, num_metrics)
+    metric_colors = {metric: magma(color_positions[i]) for i, metric in enumerate(metrics_to_plot)}
+    
     # Define bins with 0.05 increments from 0 to 1
     bins = np.arange(0, 1.05, PLOT_CONFIG['bin_width'])
     
-    # Process each pair of metrics
-    for pair_index, metrics_pair in enumerate(metrics_pairs):
-        pair_name = f"pair_{pair_index + 1}"
-        print(f"\nPlotting metric pair {pair_index + 1}: {', '.join(metrics_pair)}")
+    # Process each metric individually
+    for metric in metrics_to_plot:
+        print(f"\nPlotting metric: {metric}")
         
-        # Process noising metrics
-        noising_plot_file = os.path.join(analysis_dir, f"noising_metrics_{pair_name}.png")
+        # Get the assigned color for this metric
+        metric_color = metric_colors[metric]
         
-        # Calculate rows and columns for subplot grid
-        n_metrics = len(metrics_pair)
-        n_cols = min(2, n_metrics)
-        n_rows = (n_metrics + n_cols - 1) // n_cols  # Ceiling division
+        # Process noising data
+        noising_plot_file = os.path.join(noising_plots_dir, f"{metric}.png")
         
-        # Create the figure with subplots
-        fig, axes = plt.subplots(n_rows, n_cols, figsize=PLOT_CONFIG['figsize'])
+        # Create the figure for noising
+        fig, ax = plt.subplots(1, 1, figsize=(8, 6))
         
-        # Make axes a 2D array if it's 1D or a single axis
-        if n_metrics == 1:
-            axes = np.array([[axes]])
-        elif n_rows == 1:
-            axes = axes.reshape(1, -1)
-        elif n_cols == 1:
-            axes = axes.reshape(-1, 1)
-        
-        # Store value statistics for comparison
-        value_stats = {}
-        value_type = "normalized"
-        
-        # Generate colors for each metric from the magma colormap
-        noising_color_positions = np.linspace(0.1, 0.9, len(metrics_pair))
-        noising_colors = [magma(pos) for pos in noising_color_positions]
-        
-        # Customize colors if specific metrics are present
-        if "kl_divergence" in metrics_pair and "undirected_saturating_chebyshev" in metrics_pair:
-            kl_index = metrics_pair.index("kl_divergence")
-            cheb_index = metrics_pair.index("undirected_saturating_chebyshev")
-            noising_colors[kl_index] = magma(0.15)  # Purple for KL divergence
-            noising_colors[cheb_index] = magma(0.55)  # Magenta for Chebyshev
-        
-        if "confidence_margin_magnitude" in metrics_pair and "reversed_pearson_correlation" in metrics_pair:
-            cm_index = metrics_pair.index("confidence_margin_magnitude")
-            pearson_index = metrics_pair.index("reversed_pearson_correlation")
-            noising_colors[cm_index] = magma(0.75)  # Orange-red for confidence margin
-            noising_colors[pearson_index] = magma(0.85)  # Yellowish for pearson
-        
-        # Plot each metric in its own subplot
-        for i, metric in enumerate(metrics_pair):
-            row = i // n_cols
-            col = i % n_cols
-            ax = axes[row, col]
-            
-            # Extract values - ALWAYS using normalized values
+        # Extract values - ALWAYS using normalized values for metrics that should be normalized
+        if metric == 'undirected_saturating_chebyshev':
+            # This metric is not normalized, use original values
+            values = extract_metric_values(noising_data, metric, use_normalized=False)
+        else:
             values = extract_metric_values(noising_data, metric, use_normalized=True)
-            
-            if not values:
-                print(f"No values found for noising metric: {metric}")
-                ax.text(0.5, 0.5, f"No data for {metric}", ha='center', va='center')
-                continue
-            
-            # Validate the normalized values to ensure they're in [0, 1]
+        
+        if not values:
+            print(f"No values found for noising metric: {metric}")
+            plt.close(fig)
+            continue
+        
+        # Validate values if normalized
+        if metric != 'undirected_saturating_chebyshev':
             values = validate_normalized_values(values)
-            
-            # Get statistics about the values
-            min_val = min(values)
-            max_val = max(values)
-            mean_val = np.mean(values)
-            median_val = np.median(values)
-            
-            # Store statistics for debugging
-            value_stats[metric] = {
-                "min": min_val,
-                "max": max_val,
-                "mean": mean_val,
-                "median": median_val,
-                "count": len(values),
-                "zeros": sum(1 for v in values if v == 0),
-                "ones": sum(1 for v in values if v == 1),
-                "distribution": np.histogram(values, bins=10, range=(0, 1))[0].tolist()
-            }
-            
-            # Print value distribution details
-            print(f"\nValue distribution for {metric} ({value_type}):")
-            print(f"  Min: {min_val:.4f}, Max: {max_val:.4f}, Mean: {mean_val:.4f}, Median: {median_val:.4f}")
-            print(f"  Total values: {len(values)}, Zeros: {value_stats[metric]['zeros']}, Ones: {value_stats[metric]['ones']}")
-            print(f"  Histogram: {value_stats[metric]['distribution']}")
-            
-            # Save histogram data to combined file
-            save_histogram_data(values, metric, "noising", results_dir)
-            
-            # Plot histogram
-            sns.histplot(
-                values, 
-                bins=bins,
-                color=noising_colors[i],
-                alpha=PLOT_CONFIG['alpha'],
-                edgecolor='black',
-                linewidth=PLOT_CONFIG['line_width'],
-                ax=ax
-            )
-            
-            # Add vertical line for mean
-            ax.axvline(x=mean_val, color='black', linestyle='--', alpha=0.7, label=f'Mean: {mean_val:.3f}')
-            
-            # Set axis limits and labels
+        
+        # Get statistics about the values
+        min_val = min(values)
+        max_val = max(values)
+        mean_val = np.mean(values)
+        median_val = np.median(values)
+        
+        # Print value distribution details
+        value_type = "original" if metric == 'undirected_saturating_chebyshev' else "normalized"
+        print(f"  Noising {metric} ({value_type}): Min: {min_val:.4f}, Max: {max_val:.4f}, Mean: {mean_val:.4f}")
+        
+        # Save histogram data to combined file
+        save_histogram_data(values, metric, "noising", results_dir)
+        
+        # Use appropriate bins based on metric type
+        plot_bins = bins if metric != 'undirected_saturating_chebyshev' else np.arange(0, max(1, max_val) + 0.05, 0.05)
+        
+        # Plot histogram
+        sns.histplot(
+            values, 
+            bins=plot_bins,
+            color=metric_color,
+            alpha=PLOT_CONFIG['alpha'],
+            edgecolor='black',
+            linewidth=PLOT_CONFIG['line_width'],
+            ax=ax
+        )
+        
+        # Add vertical line for mean
+        ax.axvline(x=mean_val, color='black', linestyle='--', alpha=0.7, label=f'Mean: {mean_val:.3f}')
+        
+        # Set axis limits and labels
+        if metric == 'undirected_saturating_chebyshev':
+            ax.set_xlim(0, max(1, max_val))
+        else:
             ax.set_xlim(0, 1)
-            ax.set_title(f"{metric}\n(n={len(values)}, zeros={value_stats[metric]['zeros']}, ones={value_stats[metric]['ones']})")
-            ax.set_xlabel("Normalized Value (0-1)")
-            ax.set_ylabel("Count")
-            
-            # Add legend for mean line
-            ax.legend()
         
-        # Remove any unused subplots
-        for i in range(n_metrics, n_rows * n_cols):
-            row = i // n_cols
-            col = i % n_cols
-            fig.delaxes(axes[row, col])
+        ax.set_title(f"Noising: {metric}\n(n={len(values)})")
+        ax.set_xlabel("Value")
+        ax.set_ylabel("Count")
+        ax.legend()
         
-        # Set a global title
-        fig.suptitle(f"Histogram of {value_type.capitalize()} Noising Metrics", fontsize=16)
         plt.tight_layout()
-        plt.subplots_adjust(top=0.9)  # Make room for the suptitle
         plt.savefig(noising_plot_file, dpi=PLOT_CONFIG['dpi'])
         plt.close()
         
-        # Process denoising metrics
-        denoising_plot_file = os.path.join(analysis_dir, f"denoising_metrics_{pair_name}.png")
+        # Process denoising data  
+        denoising_plot_file = os.path.join(denoising_plots_dir, f"{metric}.png")
         
-        # Create the figure with subplots
-        fig, axes = plt.subplots(n_rows, n_cols, figsize=PLOT_CONFIG['figsize'])
+        # Create the figure for denoising
+        fig, ax = plt.subplots(1, 1, figsize=(8, 6))
         
-        # Make axes a 2D array if it's 1D or a single axis
-        if n_metrics == 1:
-            axes = np.array([[axes]])
-        elif n_rows == 1:
-            axes = axes.reshape(1, -1)
-        elif n_cols == 1:
-            axes = axes.reshape(-1, 1)
+        # For denoising, use reverse_kl_divergence if the metric is kl_divergence
+        denoising_metric = 'reverse_kl_divergence' if metric == 'kl_divergence' else metric
         
-        # Use the same colors for denoising to maintain consistency
-        denoising_colors = noising_colors.copy()
-        
-        # Plot each metric in its own subplot
-        for i, metric in enumerate(metrics_pair):
-            row = i // n_cols
-            col = i % n_cols
-            ax = axes[row, col]
-            
-            # Use reverse_kl_divergence for denoising if the metric is kl_divergence
-            denoising_metric = 'reverse_kl_divergence' if metric == 'kl_divergence' else metric
-            
-            # Extract values - ALWAYS using normalized values
+        # Extract values
+        if denoising_metric == 'undirected_saturating_chebyshev':
+            values = extract_metric_values(denoising_data, denoising_metric, use_normalized=False)
+        else:
             values = extract_metric_values(denoising_data, denoising_metric, use_normalized=True)
-            
-            if not values:
-                print(f"No values found for denoising metric: {denoising_metric}")
-                ax.text(0.5, 0.5, f"No data for {denoising_metric}", ha='center', va='center')
-                continue
-            
-            # Validate the normalized values to ensure they're in [0, 1]
+        
+        if not values:
+            print(f"No values found for denoising metric: {denoising_metric}")
+            plt.close(fig)
+            continue
+        
+        # Validate values if normalized
+        if denoising_metric != 'undirected_saturating_chebyshev':
             values = validate_normalized_values(values)
-            
-            # Get statistics about the values
-            min_val = min(values)
-            max_val = max(values)
-            mean_val = np.mean(values)
-            median_val = np.median(values)
-            
-            # Store statistics for debugging
-            value_stats[denoising_metric] = {
-                "min": min_val,
-                "max": max_val,
-                "mean": mean_val,
-                "median": median_val,
-                "count": len(values),
-                "zeros": sum(1 for v in values if v == 0),
-                "ones": sum(1 for v in values if v == 1),
-                "distribution": np.histogram(values, bins=10, range=(0, 1))[0].tolist()
-            }
-            
-            # Print value distribution details
-            print(f"\nValue distribution for {denoising_metric} ({value_type}):")
-            print(f"  Min: {min_val:.4f}, Max: {max_val:.4f}, Mean: {mean_val:.4f}, Median: {median_val:.4f}")
-            print(f"  Total values: {len(values)}, Zeros: {value_stats[denoising_metric]['zeros']}, Ones: {value_stats[denoising_metric]['ones']}")
-            print(f"  Histogram: {value_stats[denoising_metric]['distribution']}")
-            
-            # Save histogram data to combined file
-            save_histogram_data(values, denoising_metric, "denoising", results_dir)
-            
-            # Plot histogram
-            sns.histplot(
-                values, 
-                bins=bins,
-                color=denoising_colors[i],
-                alpha=PLOT_CONFIG['alpha'],
-                edgecolor='black',
-                linewidth=PLOT_CONFIG['line_width'],
-                ax=ax
-            )
-            
-            # Add vertical line for mean
-            ax.axvline(x=mean_val, color='black', linestyle='--', alpha=0.7, label=f'Mean: {mean_val:.3f}')
-            
-            # Set axis limits and labels
+        
+        # Get statistics about the values
+        min_val = min(values)
+        max_val = max(values)
+        mean_val = np.mean(values)
+        median_val = np.median(values)
+        
+        # Print value distribution details
+        value_type = "original" if denoising_metric == 'undirected_saturating_chebyshev' else "normalized"
+        print(f"  Denoising {denoising_metric} ({value_type}): Min: {min_val:.4f}, Max: {max_val:.4f}, Mean: {mean_val:.4f}")
+        
+        # Save histogram data to combined file
+        save_histogram_data(values, denoising_metric, "denoising", results_dir)
+        
+        # Use appropriate bins based on metric type
+        plot_bins = bins if denoising_metric != 'undirected_saturating_chebyshev' else np.arange(0, max(1, max_val) + 0.05, 0.05)
+        
+        # Plot histogram
+        sns.histplot(
+            values, 
+            bins=plot_bins,
+            color=metric_color,  # Use the same color as the noising plot
+            alpha=PLOT_CONFIG['alpha'],
+            edgecolor='black',
+            linewidth=PLOT_CONFIG['line_width'],
+            ax=ax
+        )
+        
+        # Add vertical line for mean
+        ax.axvline(x=mean_val, color='black', linestyle='--', alpha=0.7, label=f'Mean: {mean_val:.3f}')
+        
+        # Set axis limits and labels
+        if denoising_metric == 'undirected_saturating_chebyshev':
+            ax.set_xlim(0, max(1, max_val))
+        else:
             ax.set_xlim(0, 1)
-            ax.set_title(f"{denoising_metric}\n(n={len(values)}, zeros={value_stats[denoising_metric]['zeros']}, ones={value_stats[denoising_metric]['ones']})")
-            ax.set_xlabel("Normalized Value (0-1)")
-            ax.set_ylabel("Count")
-            
-            # Add legend for mean line
-            ax.legend()
         
-        # Remove any unused subplots
-        for i in range(n_metrics, n_rows * n_cols):
-            row = i // n_cols
-            col = i % n_cols
-            fig.delaxes(axes[row, col])
+        ax.set_title(f"Denoising: {denoising_metric}\n(n={len(values)})")
+        ax.set_xlabel("Value")
+        ax.set_ylabel("Count")
+        ax.legend()
         
-        # Set a global title
-        fig.suptitle(f"Histogram of {value_type.capitalize()} Denoising Metrics", fontsize=16)
         plt.tight_layout()
-        plt.subplots_adjust(top=0.9)  # Make room for the suptitle
         plt.savefig(denoising_plot_file, dpi=PLOT_CONFIG['dpi'])
         plt.close()
         
-        print(f"Plots saved to {noising_plot_file} and {denoising_plot_file}")
+        print(f"  Plots saved: {noising_plot_file} and {denoising_plot_file}")
+    
+    print(f"\nAll plots saved to {noising_plots_dir} and {denoising_plots_dir}")
+    print(f"Colors assigned in alphabetical order using magma colormap:")
+    for i, metric in enumerate(metrics_to_plot):
+        print(f"  {i+1}. {metric} -> magma({color_positions[i]:.2f})")
 
 #################################################
 # MAIN ANALYSIS FUNCTION

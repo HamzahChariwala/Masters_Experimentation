@@ -20,6 +20,8 @@ from typing import Dict, Any, List, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 import re
+import tempfile
+import shutil
 
 # Add the project directories to path
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -66,14 +68,23 @@ def load_coalition_progression(summary_file: Path) -> Tuple[List[str], List[str]
     
     final_coalition = summary['results']['final_coalition_neurons']
     
-    # Use standard input examples for consistency with existing experiments
-    input_examples = [
-        "MiniGrid_LavaCrossingS11N5_v0_81109_2_3_1_0115",
-        "MiniGrid_LavaCrossingS11N5_v0_81103_4_1_0_0026", 
-        "MiniGrid_LavaCrossingS11N5_v0_81104_5_2_0_0253",
-        "MiniGrid_LavaCrossingS11N5_v0_81109_7_5_0_0145",
-        "MiniGrid_LavaCrossingS11N5_v0_81102_7_8_0_0106"
-    ]
+    # Get actual input examples from clean_inputs.json file
+    agent_path = summary_file.parent.parent.parent.parent
+    clean_inputs_file = agent_path / "activation_inputs" / "clean_inputs.json"
+    
+    # Try to read actual input IDs from the file
+    input_examples = []
+    if clean_inputs_file.exists():
+        with open(clean_inputs_file, 'r') as f:
+            clean_inputs_data = json.load(f)
+        
+        # Take first 5 input IDs for consistency with experiments
+        input_examples = list(clean_inputs_data.keys())[:5]
+        print(f"Loaded {len(input_examples)} input examples from {clean_inputs_file}")
+    
+    # If we still don't have examples, this is a critical error
+    if not input_examples:
+        raise FileNotFoundError(f"Could not find input examples at {clean_inputs_file}")
     
     return final_coalition, input_examples
 
@@ -147,10 +158,10 @@ def create_experiment_folders(metric_dir: Path, coalition_neurons: List[str], in
     # Run the bidirectional patching experiments
     try:
         denoising_files, noising_files = experiment.run_bidirectional_patching(
-            clean_input_file="clean_inputs.json",
-            corrupted_input_file="corrupted_inputs.json", 
-            clean_activations_file="clean_activations.npz",
-            corrupted_activations_file="corrupted_activations.npz",
+            clean_input_file="activation_inputs/clean_inputs.json",
+            corrupted_input_file="activation_inputs/corrupted_inputs.json", 
+            clean_activations_file="activation_logging/clean_activations.npz",
+            corrupted_activations_file="activation_logging/corrupted_activations.npz",
             patch_configs=patch_configs,
             input_ids=input_examples
         )
@@ -170,118 +181,167 @@ def create_experiment_folders(metric_dir: Path, coalition_neurons: List[str], in
 
 def extract_logit_progression(metric_dir: Path, input_examples: List[str]) -> Dict[str, Dict[str, List[List[float]]]]:
     """
-    Extract actual logit progression data from the experiment result files.
+    Extract actual logit progression data by re-running the coalition experiments.
     """
-    # The PatchingExperiment saves to agent_path/patching_results, not metric_dir/results
-    agent_path = metric_dir.parent.parent.parent
-    patching_results_dir = agent_path / "patching_results"
-    denoising_dir = patching_results_dir / "denoising"
-    noising_dir = patching_results_dir / "noising"
+    import sys
+    import os
+    from pathlib import Path
+    import tempfile
+    import shutil
     
+    # Add required paths
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    neuron_selection_dir = os.path.abspath(os.path.join(script_dir, "../.."))
+    project_root = os.path.abspath(os.path.join(neuron_selection_dir, ".."))
+    
+    for path in [neuron_selection_dir, project_root]:
+        if path not in sys.path:
+            sys.path.append(path)
+    
+    from Neuron_Selection.PatchingTooling.patching_experiment import PatchingExperiment
+    
+    # Get agent path
+    agent_path = metric_dir.parent.parent.parent
+    
+    # Load the coalition progression from summary
+    summary_file = metric_dir / "summary.json"
+    with open(summary_file, 'r') as f:
+        summary = json.load(f)
+    
+    final_coalition = summary['results']['final_coalition_neurons']
+    max_coalition_size = summary['parameters']['max_coalition_size']
+    
+    print(f"Extracting logit progression for {max_coalition_size} coalition sizes...")
+    
+    # Create temporary directories for each coalition size to avoid overwriting
+    temp_base_dir = agent_path / "temp_coalition_experiments"
+    temp_base_dir.mkdir(exist_ok=True)
+    
+    # Initialize patching experiment
+    experiment = PatchingExperiment(str(agent_path))
+    
+    # Initialize logit data structure
     logit_data = {}
     for example in input_examples:
         logit_data[example] = {'noising': [], 'denoising': []}
     
-    # Process each input example
+    # Store results for each coalition size
+    all_results = {'denoising': {}, 'noising': {}}
+    
+    # Run experiments for each coalition size (0=baseline, 1=first neuron, 2=first+second, etc.)
+    # Use max_coalition_size instead of final_coalition length
+    for coalition_size in range(max_coalition_size + 1):
+        
+        if coalition_size == 0:
+            # Baseline (no patching) - get baseline from first neuron experiment
+            if final_coalition:
+                next_coalition = final_coalition[:1]
+                patch_config = {}
+                for neuron_name in next_coalition:
+                    parts = neuron_name.split("_")
+                    if len(parts) >= 3 and parts[-2] == "neuron":
+                        layer_name = "_".join(parts[:-2])
+                        neuron_idx = int(parts[-1])
+                        
+                        if layer_name not in patch_config:
+                            patch_config[layer_name] = []
+                        patch_config[layer_name].append(neuron_idx)
+            current_coalition = []
+        else:
+            # Coalition of first N neurons (up to available)
+            current_coalition = final_coalition[:min(coalition_size, len(final_coalition))]
+            
+            # Skip if we don't have enough neurons for this coalition size
+            if len(current_coalition) < coalition_size:
+                print(f"  Coalition size {coalition_size}: Skipping (only {len(final_coalition)} neurons available)")
+                continue
+            
+            # Convert to patch config format
+            patch_config = {}
+            for neuron_name in current_coalition:
+                # Parse neuron name: e.g., "q_net.4_neuron_2" -> layer="q_net.4", idx=2
+                parts = neuron_name.split("_")
+                if len(parts) >= 3 and parts[-2] == "neuron":
+                    layer_name = "_".join(parts[:-2])
+                    neuron_idx = int(parts[-1])
+                    
+                    if layer_name not in patch_config:
+                        patch_config[layer_name] = []
+                    patch_config[layer_name].append(neuron_idx)
+        
+        print(f"  Coalition size {coalition_size}: {len(current_coalition)} neurons")
+        
+        # Create temporary output directories for this coalition size
+        temp_coalition_dir = temp_base_dir / f"coalition_{coalition_size}"
+        temp_coalition_dir.mkdir(exist_ok=True)
+        
+        # Backup original patching results directory
+        original_results_dir = agent_path / "patching_results"
+        backup_results_dir = temp_coalition_dir / "patching_results_backup"
+        if original_results_dir.exists():
+            shutil.move(str(original_results_dir), str(backup_results_dir))
+        
+        try:
+            # Run bidirectional patching for this coalition
+            denoising_results, noising_results = experiment.run_bidirectional_patching(
+                clean_input_file="activation_inputs/clean_inputs.json",
+                corrupted_input_file="activation_inputs/corrupted_inputs.json",
+                clean_activations_file="activation_logging/clean_activations.npz", 
+                corrupted_activations_file="activation_logging/corrupted_activations.npz",
+                patch_configs=[patch_config],
+                input_ids=input_examples
+            )
+            
+            # Copy results to permanent storage for this coalition size
+            coalition_results_dir = temp_coalition_dir / "results"
+            shutil.copytree(str(original_results_dir), str(coalition_results_dir))
+            
+            # Store the result file paths for this coalition size
+            all_results['denoising'][coalition_size] = coalition_results_dir / "denoising"
+            all_results['noising'][coalition_size] = coalition_results_dir / "noising"
+            
+        except Exception as e:
+            print(f"    Error running experiments for coalition size {coalition_size}: {e}")
+        finally:
+            # Restore original results directory
+            if original_results_dir.exists():
+                shutil.rmtree(str(original_results_dir))
+            if backup_results_dir.exists():
+                shutil.move(str(backup_results_dir), str(original_results_dir))
+    
+    # Now extract logits from all stored results
     for example in input_examples:
-        # Convert example name to filename format - try both underscore format and original
-        safe_name = example  # Already in correct format with underscores
+        safe_example = example.replace("-", "_").replace(",", "_")
         
-        # Also try with the original dash format conversion
-        alt_safe_name = example.replace("-", "_").replace(",", "_")
-        
-        # Try to find the file with either format
-        file_candidates = [safe_name, alt_safe_name]
-        
-        # Load denoising results
-        denoising_file = None
-        for candidate in file_candidates:
-            potential_file = denoising_dir / f"{candidate}.json"
-            if potential_file.exists():
-                denoising_file = potential_file
-                break
-                
-        if denoising_file and denoising_file.exists():
-            with open(denoising_file, 'r') as f:
-                denoising_data = json.load(f)
-            
-            # Extract baseline logits first (coalition size 0)
-            baseline_logits = None
-            
-            # Extract logits for each coalition size (MUST BE SORTED BY COALITION SIZE, NOT ALPHABETICALLY!)
-            def extract_coalition_size(exp_key):
-                """Extract total neurons in coalition from experiment key"""
-                # Count neurons using same logic as descending fix
-                count = 0
-                # Handle patterns like "q_net.4_2_3_4_q_net.0_10n_q_net.2_2_35" 
-                parts = exp_key.split('_')
-                for i, part in enumerate(parts):
-                    if part.endswith('n') and part[:-1].isdigit():
-                        count += int(part[:-1])
-                    elif part.isdigit() and i > 0:
-                        # Handle explicit neuron lists like "2_3_4"
-                        if parts[i-1] in ['net.4', 'net.0', 'net.2']:
-                            count += 1
-                return count
-            
-            # Sort by coalition size (smallest to largest)
-            for exp_key in sorted(denoising_data.keys(), key=extract_coalition_size):
-                exp_data = denoising_data[exp_key]
-                if 'results' in exp_data:
-                    # Get baseline logits from first experiment (all experiments should have same baseline)
-                    if baseline_logits is None and 'baseline_output' in exp_data['results']:
-                        baseline_logits = exp_data['results']['baseline_output'][0]
-                        logit_data[example]['denoising'].append(baseline_logits)
+        for coalition_size in range(max_coalition_size + 1):
+            for exp_type in ['denoising', 'noising']:
+                if coalition_size in all_results[exp_type]:
+                    result_dir = all_results[exp_type][coalition_size]
+                    result_file = result_dir / f"{safe_example}.json"
                     
-                    # Get patched logits
-                    if 'patched_output' in exp_data['results']:
-                        patched_logits = exp_data['results']['patched_output'][0]
-                        logit_data[example]['denoising'].append(patched_logits)
-        
-        # Load noising results  
-        noising_file = None
-        for candidate in file_candidates:
-            potential_file = noising_dir / f"{candidate}.json"
-            if potential_file.exists():
-                noising_file = potential_file
-                break
-                
-        if noising_file and noising_file.exists():
-            with open(noising_file, 'r') as f:
-                noising_data = json.load(f)
-            
-            # Extract baseline logits first (coalition size 0)
-            baseline_logits = None
-            
-            # Extract logits for each coalition size (MUST BE SORTED BY COALITION SIZE, NOT ALPHABETICALLY!)
-            def extract_coalition_size(exp_key):
-                """Extract total neurons in coalition from experiment key"""
-                # Count neurons using same logic as descending fix
-                count = 0
-                # Handle patterns like "q_net.4_2_3_4_q_net.0_10n_q_net.2_2_35" 
-                parts = exp_key.split('_')
-                for i, part in enumerate(parts):
-                    if part.endswith('n') and part[:-1].isdigit():
-                        count += int(part[:-1])
-                    elif part.isdigit() and i > 0:
-                        # Handle explicit neuron lists like "2_3_4"
-                        if parts[i-1] in ['net.4', 'net.0', 'net.2']:
-                            count += 1
-                return count
-            
-            # Sort by coalition size (smallest to largest)
-            for exp_key in sorted(noising_data.keys(), key=extract_coalition_size):
-                exp_data = noising_data[exp_key]
-                if 'results' in exp_data:
-                    # Get baseline logits from first experiment (all experiments should have same baseline)
-                    if baseline_logits is None and 'baseline_output' in exp_data['results']:
-                        baseline_logits = exp_data['results']['baseline_output'][0]
-                        logit_data[example]['noising'].append(baseline_logits)
-                    
-                    # Get patched logits
-                    if 'patched_output' in exp_data['results']:
-                        patched_logits = exp_data['results']['patched_output'][0]
-                        logit_data[example]['noising'].append(patched_logits)
+                    if result_file.exists():
+                        with open(result_file, 'r') as f:
+                            data = json.load(f)
+                        
+                        # Get logits from the experiment
+                        exp_keys = list(data.keys())
+                        if exp_keys and 'results' in data[exp_keys[0]]:
+                            results = data[exp_keys[0]]['results']
+                            
+                            if coalition_size == 0:
+                                # For baseline, use baseline_output
+                                if 'baseline_output' in results:
+                                    logits = results['baseline_output'][0]
+                                    logit_data[example][exp_type].append(logits)
+                            else:
+                                # For patching, use patched_output
+                                if 'patched_output' in results:
+                                    logits = results['patched_output'][0]
+                                    logit_data[example][exp_type].append(logits)
+    
+    # Clean up temporary directories
+    if temp_base_dir.exists():
+        shutil.rmtree(str(temp_base_dir))
     
     return logit_data
 

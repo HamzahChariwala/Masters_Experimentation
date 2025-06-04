@@ -93,7 +93,14 @@ def extract_logits_from_experiments(data: Dict[str, Any], max_experiments: int =
     if experiment_keys:
         # Get baseline from the first experiment
         first_exp_data = data[experiment_keys[0]]
-        if 'results' in first_exp_data:
+        
+        # Handle new descending circuit results format
+        if 'results' in first_exp_data and 'baseline_output' in first_exp_data['results']:
+            baseline_output = first_exp_data['results']['baseline_output']
+            if baseline_output and len(baseline_output) > 0:
+                baseline_logits = baseline_output[0]  # Take first element if it's a list of lists
+        # Handle legacy format
+        elif 'results' in first_exp_data:
             results = first_exp_data['results']
             if 'baseline_output' in results and results['baseline_output']:
                 baseline_logits = results['baseline_output'][0]
@@ -103,6 +110,8 @@ def extract_logits_from_experiments(data: Dict[str, Any], max_experiments: int =
     # Add baseline as experiment 0
     if baseline_logits:
         logits_by_experiment.append(baseline_logits)
+    else:
+        print("Warning: No baseline logits found")
     
     # Sort experiments by name for consistent ordering and take first max_experiments
     # Handle both cumulative experiments and individual neuron experiments
@@ -112,12 +121,8 @@ def extract_logits_from_experiments(data: Dict[str, Any], max_experiments: int =
                                  key=lambda x: int(x.split('_')[1]))
     else:
         # For descending circuit results, experiments are NOT cumulative - they are individual patches
-        # The alphabetical sorting creates false patterns in the plots
-        # We should either:
-        # 1. Skip plotting if there are no cumulative experiments, OR
-        # 2. Sort by some meaningful order (e.g., number of neurons patched)
+        # Sort by the number of neurons being patched to get a meaningful progression
         
-        # For now, let's sort by the number of neurons being patched to get a meaningful progression
         def count_neurons_in_experiment(exp_key):
             """Count total neurons being patched in this experiment"""
             count = 0
@@ -148,7 +153,14 @@ def extract_logits_from_experiments(data: Dict[str, Any], max_experiments: int =
             
             # Try different possible locations for logits
             logits = None
-            if 'results' in exp_data:
+            
+            # Handle new descending circuit results format
+            if 'results' in exp_data and 'patched_output' in exp_data['results']:
+                patched_output = exp_data['results']['patched_output']
+                if patched_output and len(patched_output) > 0:
+                    logits = patched_output[0]  # Take first element if it's a list of lists
+            # Handle legacy format
+            elif 'results' in exp_data:
                 results = exp_data['results']
                 if 'patched_output' in results and results['patched_output']:
                     logits = results['patched_output'][0]  # Take first element if it's a list of lists
@@ -215,13 +227,28 @@ def create_circuit_visualization(
     
     # Collect data for all metrics and examples
     all_data = {}
-    all_examples = [
-        "MiniGrid_LavaCrossingS11N5_v0_81109_2_3_1_0115",
-        "MiniGrid_LavaCrossingS11N5_v0_81103_4_1_0_0026", 
-        "MiniGrid_LavaCrossingS11N5_v0_81104_5_2_0_0253",
-        "MiniGrid_LavaCrossingS11N5_v0_81109_7_5_0_0145",
-        "MiniGrid_LavaCrossingS11N5_v0_81102_7_8_0_0106"
-    ]
+    
+    # Dynamically discover available examples instead of using hardcoded list
+    # First, scan one metric directory to find available example files
+    sample_metric_dir = metric_dirs[0] if metric_dirs else None
+    all_examples = []
+    
+    if sample_metric_dir:
+        # Check noising first, then denoising if noising doesn't exist
+        for exp_type in ["noising", "denoising"]:
+            sample_type_dir = sample_metric_dir / exp_type
+            if sample_type_dir.exists():
+                # Get all JSON files and take up to max_examples
+                example_files = sorted(list(sample_type_dir.glob("*.json")))
+                all_examples = [f.stem for f in example_files[:max_examples]]
+                break
+    
+    if not all_examples:
+        print(f"No example files found in metric directories")
+        return
+    
+    print(f"Found {len(all_examples)} example files: {all_examples[:3]}{'...' if len(all_examples) > 3 else ''}")
+    
     # Track min/max per environment for consistent scaling across noising/denoising
     environment_limits = {}
     

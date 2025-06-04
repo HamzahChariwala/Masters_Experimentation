@@ -144,7 +144,7 @@ def add_metrics_to_log(agent_folder: str):
         return
     
     # Find dijkstra data directory
-    dijkstra_dir = Path("../Behaviour_Specification/Evaluations")
+    dijkstra_dir = Path("Behaviour_Specification/Evaluations")
     if not dijkstra_dir.exists():
         print(f"Dijkstra data directory not found: {dijkstra_dir}")
         return

@@ -3,80 +3,87 @@ CONCISE AGENT DIRECTORY GENERATION - SEQUENTIAL INVOCATION GUIDE
 
 Prerequisites: Trained agent.zip file in agent directory, Python environment with dependencies
 
-1. ACTIVATION DATA GENERATION
-   Command: python Neuron_Selection/activation_extraction.py --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
-   Generates: activation_inputs/ and activation_logging/ folders
-   Dependencies: agent.zip file
-
-2. LINEAR PROBES TRAINING
-   Command: python Neuron_Selection/CircuitTooling/linear_probes.py --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
-   Generates: activation_probing/ folder with trained logistic regression models
-   Dependencies: activation_logging/clean_activations_readable.json and corrupted_activations_readable.json
-
-3. GRADIENT ANALYSIS - WEIGHT GRADIENTS
-   Command: python Parameter_Selection/SaliencyTooling/gradients.py --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
-   Generates: gradient_analysis/weight_gradients.json
-   Dependencies: agent.zip and activation_inputs/
-
-4. GRADIENT ANALYSIS - AVERAGE GRADIENTS
-   Command: python Parameter_Selection/SaliencyTooling/InitialGradients/average.py --gradients_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6/gradient_analysis/weight_gradients.json"
-   Generates: gradient_analysis/average_gradients.json
-   Dependencies: weight_gradients.json
-
-5. EVALUATION GENERATION
+1. EVALUATION GENERATION
    Command: python Agent_Evaluation/generate_evaluations.py --path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
    Generates: evaluation_logs/, evaluation_summary/, final_eval.json
    Dependencies: agent.zip file
 
-6. BEHAVIORAL METRICS (if needed separately)
+2. BEHAVIORAL METRICS (if needed separately)
    Command: python Agent_Evaluation/add_metrics.py "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
    Generates: Updates evaluation_logs/ and evaluation_summary/ with behavioral metrics
    Dependencies: evaluation_logs/ and Behaviour_Specification/Evaluations/ dijkstra data
 
-7. CATEGORY SUMMARIES (if needed)
-   Command: python Agent_Evaluation/category_summaries.py --base "LavaTests/NoDeath/0.100_penalty" --agent "0.100_penalty"
-   Generates: category_summary.json with statistics across agent versions
-   Dependencies: evaluation_summary/ from multiple agent versions
+3. STATE FILTERING FOR CLEAN INPUTS
+   Command: python Neuron_Selection/ObservationTooling/state_filter.py --path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
+   Generates: filtered_states.json with states suitable for corruption experiments
+   Dependencies: evaluation_logs/ from step 1
+   Note: Creates clean input states for corrupting - states where agent chose safety optimally, took action 3 or 4 (turn left/right), and path to goal exists without lava
 
-8. PATCHING SELECTION
+4. CORRUPTION TOOL - CLEAN AND CORRUPTED INPUTS
+   Command: python Neuron_Selection/CorruptionTooling/run.py --path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6" --seed 42
+   Generates: activation_inputs/clean_inputs.json and activation_inputs/corrupted_inputs.json
+   Dependencies: filtered_states.json from step 3
+   Note: Interactive GUI tool to select states and create corrupted versions by flipping cells or changing goal positions
+
+5. ACTIVATION DATA GENERATION
+   Command: python Neuron_Selection/activation_extraction.py --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
+   Generates: activation_inputs/ and activation_logging/ folders
+   Dependencies: clean_inputs.json and corrupted_inputs.json from step 4
+
+6. LINEAR PROBES TRAINING
+   Command: python Neuron_Selection/CircuitTooling/linear_probes.py --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
+   Generates: activation_probing/ folder with trained logistic regression models
+   Dependencies: activation_logging/clean_activations_readable.json and corrupted_activations_readable.json
+
+7. GRADIENT ANALYSIS - WEIGHT GRADIENTS
+   Command: python Parameter_Selection/SaliencyTooling/gradients.py --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
+   Generates: gradient_analysis/weight_gradients.json
+   Dependencies: agent.zip and activation_inputs/
+
+8. GRADIENT ANALYSIS - AVERAGE GRADIENTS
+   Command: python Parameter_Selection/SaliencyTooling/InitialGradients/average.py --gradients_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6/gradient_analysis/weight_gradients.json"
+   Generates: gradient_analysis/average_gradients.json
+   Dependencies: weight_gradients.json
+
+9. PATCHING SELECTION
    Command: python Neuron_Selection/SelectionTooling/analyze_metrics.py --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
    Generates: patching_selection/ folder
    Dependencies: activation_inputs/ and activation_logging/
 
-9. ACTIVATION PATCHING EXPERIMENTS
-   Command: python Neuron_Selection/activation_patching.py --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6" --patches_file "Neuron_Selection/ExperimentTooling/Definitions/all_neurons_no_logits.json"
-   Generates: patching_results/ folder with raw experiment data
-   Dependencies: activation_inputs/, activation_logging/, and patching_selection/
+10. ACTIVATION PATCHING EXPERIMENTS
+    Command: python Neuron_Selection/activation_patching.py --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6" --patches_file "Neuron_Selection/ExperimentTooling/Definitions/all_neurons_no_logits.json"
+    Generates: patching_results/ folder with raw experiment data
+    Dependencies: activation_inputs/, activation_logging/, and patching_selection/
 
-10. COMPREHENSIVE CIRCUIT VERIFICATION
+11. COMPREHENSIVE CIRCUIT VERIFICATION
     Command: python Neuron_Selection/SelectionTooling/filter_metrics.py --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
     Generates: patching_results/filtered/, patching_results/analysis/, circuit_verification/descending/descriptions/, circuit_verification/descending/experiments/, circuit_verification/descending/results/, circuit_verification/descending/plots/
-    Dependencies: patching_results/ from step 9
+    Dependencies: patching_results/ from step 10
 
-11. MONOTONIC COALITION BUILDING AND PLOTTING (INTEGRATED)
+12. MONOTONIC COALITION BUILDING AND PLOTTING (INTEGRATED)
     Command: python -m Neuron_Selection.CircuitTooling.MonotonicTooling.run_all_coalition_builders --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6" --candidate_pool_size 50 --max_coalition_size 30 --highest true
     Generates: circuit_verification/monotonic/*/results/, summary.json files, and plots/coalition_verification_*.png for all 7 metrics
-    Dependencies: patching_results/filtered/ from step 10
+    Dependencies: patching_results/filtered/ from step 11
 
-12. MONOTONIC INDIVIDUAL PLOT GENERATION
+13. MONOTONIC INDIVIDUAL PLOT GENERATION
     Command: python -m Neuron_Selection.CircuitTooling.MonotonicTooling.create_individual_plots --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
     Generates: circuit_verification/monotonic/*/plots/coalition_verification_*.png
-    Dependencies: circuit_verification/monotonic/ folders with summary.json files from step 11
+    Dependencies: circuit_verification/monotonic/ folders with summary.json files from step 12
 
-13. OPTIMIZATION STATE FILTERING
+14. OPTIMIZATION STATE FILTERING
     Command: python Optimisation_Formulation/StateTooling/optimization_state_filter.py --path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6" --alter "blocked:is:false" "next_cell_is_lava:is:true" "cell_type:eq:floor"
     Generates: optimisation_states/alter/states.json (324 states), optimisation_states/preserve/states.json (2876 states)
-    Dependencies: evaluation_logs/ from step 5
+    Dependencies: evaluation_logs/ from step 1
 
-14. ADD DESIRED ACTIONS TO ALTER STATES
+15. ADD DESIRED ACTIONS TO ALTER STATES
     Command: python Optimisation_Formulation/StateTooling/add_desired_actions.py --alter_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6/optimisation_states/alter/states.json" --ruleset standard
     Generates: Updates alter/states.json with desired_action field from dijkstra agent behavior
-    Dependencies: optimisation_states/alter/states.json from step 13, Behaviour_Specification/Evaluations/ dijkstra data
+    Dependencies: optimisation_states/alter/states.json from step 14, Behaviour_Specification/Evaluations/ dijkstra data
 
-15. GRADIENT-BASED OPTIMIZATION WITH CUSTOM CONFIG
+16. GRADIENT-BASED OPTIMIZATION WITH CUSTOM CONFIG
     Command: python enhanced_optimization.py --config "Optimisation_Formulation/GradBasedTooling/sample_config.json" --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
     Generates: optimisation_results/optimisation_YYMMDD_HHMMSS/ with detailed and summary logs, optional perturbed model
-    Dependencies: optimisation_states/alter/states.json and optimisation_states/preserve/states.json from steps 13-14
+    Dependencies: optimisation_states/alter/states.json and optimisation_states/preserve/states.json from steps 14-15
     
     Config Options:
     - Random sampling: Optimisation_Formulation/GradBasedTooling/sample_config.json
@@ -85,17 +92,27 @@ Prerequisites: Trained agent.zip file in agent directory, Python environment wit
     Metric-based example:
     python enhanced_optimization.py --config "Optimisation_Formulation/GradBasedTooling/metric_example_config.json" --agent_path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
 
+17. CATEGORY SUMMARIES (if needed)
+    Command: python Agent_Evaluation/category_summaries.py --base "LavaTests/NoDeath/0.100_penalty" --agent "0.100_penalty"
+    Generates: category_summary.json with statistics across agent versions
+    Dependencies: evaluation_summary/ from multiple agent versions
+
 ALTERNATIVE COMMANDS:
-- Specific metrics only: Add --metrics "kl_divergence" "top_logit_delta_magnitude" to step 11 or 12
+- State filtering examples: python Neuron_Selection/ObservationTooling/state_filter_examples.py --example 2 --path "Agent_Storage/LavaTests/NoDeath/0.100_penalty/0.100_penalty-v6"
+- Different filtering criteria: Modify step 3 with criteria like "risky_diagonal:is:true", "chose_safety:is:true", etc.
+- Specific metrics only: Add --metrics "kl_divergence" "top_logit_delta_magnitude" to step 12 or 13
 - Agent group evaluations: Use bash scripts in Useful_Bash_Scripts/EvalBashScripts/
-- Custom preserve criteria: Add --preserve "criteria1" "criteria2" to step 13
-- Different dijkstra rulesets: Use --ruleset conservative, dangerous_1, dangerous_2, dangerous_3, dangerous_4, or dangerous_5 in step 14
+- Custom preserve criteria: Add --preserve "criteria1" "criteria2" to step 14
+- Different dijkstra rulesets: Use --ruleset conservative, dangerous_1, dangerous_2, dangerous_3, dangerous_4, or dangerous_5 in step 15
 
 NOTES:
-- Steps 1-10 must be run in order due to dependencies
-- Step 11 builds coalitions AND generates plots for all 7 metrics in one command
-- Step 12 is optional - only needed if running plots separately or for specific metrics
-- Step 10 includes integrated circuit verification workflow for descending analysis
-- Step 13 filters states for optimization: ALTER (states to modify) and PRESERVE (states to maintain)
-- Step 14 adds reference actions from dijkstra agents; standard ruleset avoids lava, conservative takes longer safer paths
+- Steps 1-5 must be run in order - they create the clean/corrupted input pipeline
+- Step 3 filters evaluation logs to create states suitable for corruption experiments
+- Step 4 is an interactive GUI tool where you manually select and corrupt states
+- Steps 6-13 can be run independently if their dependencies are met
+- Step 12 builds coalitions AND generates plots for all 7 metrics in one command
+- Step 13 is optional - only needed if running plots separately or for specific metrics
+- Step 11 includes integrated circuit verification workflow for descending analysis
+- Step 14 filters states for optimization: ALTER (states to modify) and PRESERVE (states to maintain)
+- Step 15 adds reference actions from dijkstra agents; standard ruleset avoids lava, conservative takes longer safer paths
 - All paths should be adjusted for actual agent location 
